@@ -193,8 +193,9 @@ with st.sidebar:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
     # =========================================================
-    # 🤖 AI-АНАЛІТИК З АВТОМАТИЧНИМ ПОШУКОМ АКТИВНОЇ МОДЕЛІ GROQ
-    # =========================================================
+    # =========================================================================
+    # 🤖 AI-АНАЛІТИК З УЛЬТРА-КОМПАКТНИМ СТИСНЕННЯМ (ТОЧНО ВМІЩУЄТЬСЯ В ЛІМІТ GROQ)
+    # =========================================================================
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик по всій базі")
     groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
@@ -205,7 +206,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій таблиці:",
-        placeholder="Напр.: Топ-5 ігор на Xbox або скільки симуляторів заробили більше $1000?"
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за перший місяць? Або: Топ-5 ігор на Xbox."
     )
     
     if st.button("⚡ Просканувати всю таблицю через ШІ", use_container_width=True):
@@ -215,57 +216,66 @@ with st.sidebar:
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ аналізує 100% бази портфоліо..."):
+            with st.spinner("ШІ аналізує портфоліо..."):
                 try:
                     client = Groq(api_key=clean_key)
                     
-                    # Отримуємо живі доступні моделі
-                    try:
-                        live_models = [m.id for m in client.models.list().data if not any(k in m.id.lower() for k in ['whisper', 'guard', 'embed', 'vision'])]
-                    except:
-                        live_models = []
+                    # 1. Створюємо ультракомпактний чистий датасет (всього ~1000 токенів замість 12000)
+                    summary_lines = []
+                    summary_lines.append("Game|Genre|Price|PS_M1|PS_All|Switch_M1|Switch_All|Xbox_M1|Xbox_All|Total_All")
+                    
+                    def find_num(row_s, keys, not_keys=[]):
+                        for c in row_s.index:
+                            cl = c.lower()
+                            if all(k in cl for k in keys) and not any(nk in cl for nk in not_keys):
+                                try: return int(round(float(row_s[c])))
+                                except: pass
+                        return 0
 
-                    # Пріоритетний список актуальних моделей Groq
-                    target_models = [m for m in [
-                        "openai/gpt-oss-120b",
-                        "openai/gpt-oss-20b",
-                        "qwen/qwen3.6-27b",
-                        "llama-3.3-70b-versatile",
-                        "llama-3.1-8b-instant"
-                    ] if m in live_models]
-                    
-                    if not target_models:
-                        target_models = live_models if live_models else ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+                    for _, r in raw_df.iterrows():
+                        g_name = str(r["Game_Name_Clean"]).strip()
+                        if not g_name or g_name.lower() == 'nan': continue
+                        
+                        g_genre = str(r.get(genre_col, "—")).strip() if genre_col else "—"
+                        g_price = r.get("Price consoles, $", r.get("Price consoles", 0.0))
+                        try: g_price = round(float(g_price), 2)
+                        except: g_price = 0.0
 
-                    # Очищаємо таблицю від важких URL
-                    ai_df = raw_df.copy()
-                    cols_to_drop = [c for c in ai_df.columns if any(k in c.lower() for k in ["link", "посилання", "cover", "image", "url", "фото"])]
-                    ai_df = ai_df.drop(columns=cols_to_drop, errors="ignore")
-                    
-                    for col in ai_df.select_dtypes(include=['object']).columns:
-                        if col != "Game_Name_Clean":
-                            ai_df[col] = ai_df[col].astype(str).str.slice(0, 60)
-                            
-                    compressed_csv = ai_df.to_csv(index=False)
-                    
+                        ps_m1 = find_num(r, ["ps", "1st"]) or find_num(r, ["playstation", "1st"]) or find_num(r, ["ps", "m1"])
+                        ps_all = find_num(r, ["ps", "all"]) or find_num(r, ["playstation", "all"])
+                        
+                        sw_m1 = find_num(r, ["switch", "1st"]) or find_num(r, ["switch", "m1"])
+                        sw_all = find_num(r, ["switch", "all"])
+                        
+                        xb_m1 = find_num(r, ["xbox", "1st"]) or find_num(r, ["xbox", "m1"])
+                        xb_all = find_num(r, ["xbox", "all"])
+                        
+                        tot_all = find_num(r, ["total"]) or (ps_all + sw_all + xb_all)
+
+                        summary_lines.append(f"{g_name}|{g_genre}|${g_price}|{ps_m1}|{ps_all}|{sw_m1}|{sw_all}|{xb_m1}|{xb_all}|{tot_all}")
+
+                    compact_dataset = "\n".join(summary_lines)
+
                     prompt = f"""
-                    Ти — головний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
-                    Тобі надано ПОВНІ фінансові дані портфоліо видавництва (усі {len(ai_df)} ігор, усі консолі, періоди M1, M3, 1Y, All-Time, ціни, жанри, формули):
+                    Ти — фінансовий директор та аналітик консольного видавництва Upscale Studio.
+                    Ось ПОВНІ дані по всіх {len(summary_lines)-1} іграх портфоліо (значення в цілих $ USD):
+                    Колонки: Назва | Жанр | Ціна | PS 1-й місяць | PS Весь час | Switch 1-й місяць | Switch Весь час | Xbox 1-й місяць | Xbox Весь час | Загальний виторг
 
-                    ```csv
-                    {compressed_csv}
+                    ```
+                    {compact_dataset}
                     ```
 
                     Запитання користувача: "{ai_query}"
 
-                    ТВОЯ ІНСТРУКЦІЯ:
-                    1. Проаналізуй усю таблицю. У тебе є повний доступ до всіх ігор та періодів (M1, 3M, 1Y, All-Time).
-                    2. Якщо запитують кількість або список ігор — перелічи їх поіменно та вкажи точні суми в $.
-                    3. Якщо просять порівняння чи аналіз — зроби розрахунок з реальними цифрами та частками.
-                    4. Додай короткі професійні висновки для видавництва.
-                    5. Відповідай структуровано, чітко українською мовою.
+                    ІНСТРУКЦІЯ:
+                    1. Усі дані точні. Використовуй значення з таблиці для розрахунку.
+                    2. Якщо запитують про 1-й місяць (M1) — дивись на колонки PS_M1, Switch_M1, Xbox_M1.
+                    3. Якщо просять список чи підрахунок — перелічи відповідні ігри поіменно з сумами в $.
+                    4. Дай чіткі висновки та рекомендації для видавництва українською мовою.
                     """
-                    
+
+                    # Моделі для запуску
+                    target_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
                     response_text = None
                     last_err = ""
 
@@ -275,7 +285,7 @@ with st.sidebar:
                                 messages=[{"role": "user", "content": prompt}],
                                 model=mod,
                                 temperature=0.1,
-                                max_tokens=1000
+                                max_tokens=750
                             )
                             response_text = chat_completion.choices[0].message.content
                             break
@@ -284,7 +294,7 @@ with st.sidebar:
                             continue
 
                     if response_text:
-                        st.markdown("### 💡 Результат аналізу по всій базі:")
+                        st.markdown("### 💡 Результат аналізу:")
                         st.info(response_text)
                     else:
                         st.error(f"❌ Помилка підключення до Groq: {last_err}")

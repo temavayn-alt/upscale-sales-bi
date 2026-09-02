@@ -9,19 +9,20 @@ from anthropic import Anthropic
 
 # ==============================================================================
 # 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ ТА CLAUDE:
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=0#gid=0"
+WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"  # Посилання на тижневу звітність
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL з Apps Script для автозапису
 ANTHROPIC_API_KEY = ""  # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
 # ==============================================================================
 
 st.set_page_config(
-    page_title="Upscale Studio | Console BI & Sales Hub",
+    page_title="Upscale Studio | Console BI & Growth Hub",
     page_icon="🎮",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + елегантні вкладки
+# Стилі темної теми високої контрастності + мінімалістичні вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -147,10 +148,41 @@ def load_data(sheet_url):
     df = df[df["Game_Name_Clean"].astype(str).str.strip() != ""]
     return df
 
+# Завантаження щотижневих даних
+@st.cache_data(ttl=300, show_spinner=False)
+def load_weekly_data(sheet_url):
+    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
+        # Демо-дані на основі твого прикладу
+        demo_weekly = [
+            {"From": "28-07-2025", "To": "03-08-2025", "Nintendo_Sales": 139, "Nintendo_Wishlists": 337, "Nintendo_Revenue": 712.52, "PS_Sales": 203, "PS_Wishlists": 5990, "PS_Revenue": 1771.51, "Xbox_Sales": 12, "Xbox_Wishlists": 38, "Xbox_Revenue": 160.96, "Leads": 19, "Contacts": 2, "Calls": 2, "Deals": 0, "Twitter": 332, "TikTok": 17, "YouTube": 43, "Discord": 0},
+            {"From": "04-08-2025", "To": "10-08-2025", "Nintendo_Sales": 16, "Nintendo_Wishlists": 135, "Nintendo_Revenue": 190.50, "PS_Sales": 157, "PS_Wishlists": 4660, "PS_Revenue": 1262.09, "Xbox_Sales": 10, "Xbox_Wishlists": 36, "Xbox_Revenue": 92.67, "Leads": 62, "Contacts": 3, "Calls": 2, "Deals": 1, "Twitter": 408, "TikTok": 17, "YouTube": 49, "Discord": 0},
+            {"From": "11-08-2025", "To": "17-08-2025", "Nintendo_Sales": 13, "Nintendo_Wishlists": 77, "Nintendo_Revenue": 151.23, "PS_Sales": 357, "PS_Wishlists": 2910, "PS_Revenue": 2731.82, "Xbox_Sales": 9, "Xbox_Wishlists": 22, "Xbox_Revenue": 112.11, "Leads": 69, "Contacts": 9, "Calls": 1, "Deals": 0, "Twitter": 442, "TikTok": 18, "YouTube": 51, "Discord": 0}
+        ]
+        return pd.DataFrame(demo_weekly)
+    
+    csv_url = get_export_url(sheet_url)
+    try:
+        w_df = pd.read_csv(csv_url)
+        # Очищення числових значень
+        for col in w_df.columns:
+            if col not in ["From", "To"]:
+                w_df[col] = (
+                    w_df[col].astype(str)
+                    .str.replace("$", "", regex=False)
+                    .str.replace(",", "", regex=False)
+                    .str.replace("%", "", regex=False)
+                    .str.replace(" ", "", regex=False)
+                )
+                w_df[col] = pd.to_numeric(w_df[col], errors="coerce").fillna(0.0)
+        return w_df
+    except Exception:
+        return pd.DataFrame()
+
 raw_df = load_data(GOOGLE_SHEET_URL)
+weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
 
 if raw_df.empty:
-    st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL` у коді.")
+    st.info("👋 Вкажи посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
     st.stop()
 
 cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
@@ -165,7 +197,7 @@ with st.sidebar:
     
     app_mode = st.radio(
         "📍 Оберіть розділ хабу:",
-        ["🎮 Наші ігри", "🧮 Калькулятор прогнозів"],
+        ["🎮 Наші ігри", "📈 Тижнева динаміка (WoW)", "🧮 Калькулятор прогнозів"],
         index=0
     )
     
@@ -190,48 +222,43 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # =========================================================
-    # =========================================================================
-    # 🤖 РОЗУМНИЙ AI-АНАЛІТИК З АВТО-СОРТУВАННЯМ ТА ЗАХИСТОМ ВІД LATEX-БАГІВ
-    # =========================================================================
+    # AI ЧАТ CLAUDE HAIKU 4.5
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
     
     if not claude_key:
         claude_key = st.text_input("Введи Anthropic API Key:", type="password", placeholder="sk-ant-...")
-        st.caption("Ключ безпечно зберігається тільки для твоєї сесії.")
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Топ-5 ігор на Switch за весь час або скільки симуляторів заробили більше $1000?"
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000? Або: Проаналізуй динаміку останнього тижня."
     )
     
-    if st.button("⚡ Проаналізувати базу через Claude", use_container_width=True):
+    if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
         clean_key = str(claude_key).strip()
         if not clean_key or not clean_key.startswith("sk-ant"):
             st.error("❌ Введи валідний ключ Anthropic (починається на 'sk-ant-...')!")
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("Claude проводить точний фінансовий аудит..."):
+            with st.spinner("Claude аналізує портфоліо та тижневі звіти..."):
                 try:
                     client = Anthropic(api_key=clean_key)
                     
+                    # Формуємо компактний датасет
+                    summary_lines = ["Game|Genre|Price|PS_M1|PS_All|Switch_M1|Switch_All|Xbox_M1|Xbox_All|Total_All"]
                     def find_num(row_s, keys, not_keys=[]):
                         for c in row_s.index:
                             cl = c.lower()
                             if all(k in cl for k in keys) and not any(nk in cl for nk in not_keys):
-                                try: return float(row_s[c])
+                                try: return int(round(float(row_s[c])))
                                 except: pass
-                        return 0.0
+                        return 0
 
-                    # 1. Формуємо структурований датасет з точними числовими типами
-                    matrix_records = []
                     for _, r in raw_df.iterrows():
                         g_name = str(r["Game_Name_Clean"]).strip()
                         if not g_name or g_name.lower() == 'nan': continue
-                        
                         g_genre = str(r.get(genre_col, "—")).strip() if genre_col else "—"
                         g_price = r.get("Price consoles, $", r.get("Price consoles", 0.0))
                         try: g_price = round(float(g_price), 2)
@@ -239,58 +266,28 @@ with st.sidebar:
 
                         ps_m1 = find_num(r, ["ps", "1st"]) or find_num(r, ["playstation", "1st"]) or find_num(r, ["ps", "m1"])
                         ps_all = find_num(r, ["ps", "all"]) or find_num(r, ["playstation", "all"])
-                        
                         sw_m1 = find_num(r, ["switch", "1st"]) or find_num(r, ["switch", "m1"])
                         sw_all = find_num(r, ["switch", "all"])
-                        
                         xb_m1 = find_num(r, ["xbox", "1st"]) or find_num(r, ["xbox", "m1"])
                         xb_all = find_num(r, ["xbox", "all"])
-                        
                         tot_all = find_num(r, ["total"]) or (ps_all + sw_all + xb_all)
+                        summary_lines.append(f"{g_name}|{g_genre}|${g_price}|{ps_m1}|{ps_all}|{sw_m1}|{sw_all}|{xb_m1}|{xb_all}|{tot_all}")
 
-                        matrix_records.append({
-                            "Game": g_name,
-                            "Genre": g_genre,
-                            "Price": g_price,
-                            "PS_M1": int(round(ps_m1)),
-                            "PS_All": int(round(ps_all)),
-                            "Switch_M1": int(round(sw_m1)),
-                            "Switch_All": int(round(sw_all)),
-                            "Xbox_M1": int(round(xb_m1)),
-                            "Xbox_All": int(round(xb_all)),
-                            "Total_All": int(round(tot_all))
-                        })
-
-                    audit_df = pd.DataFrame(matrix_records)
-
-                    # 2. Python попередньо сортує топи для перевірки (щоб уникнути галюцинацій сортування в ШІ)
-                    top_switch = audit_df.sort_values(by="Switch_All", ascending=False)[["Game", "Genre", "Price", "Switch_All"]].head(10).to_string(index=False)
-                    top_ps = audit_df.sort_values(by="PS_All", ascending=False)[["Game", "Genre", "Price", "PS_All"]].head(10).to_string(index=False)
-                    top_xbox = audit_df.sort_values(by="Xbox_All", ascending=False)[["Game", "Genre", "Price", "Xbox_All"]].head(10).to_string(index=False)
-                    full_csv = audit_df.to_csv(index=False)
+                    compact_dataset = "\n".join(summary_lines)
+                    weekly_csv_snippet = weekly_df.to_csv(index=False) if not weekly_df.empty else "No weekly data"
 
                     prompt = f"""
-                    Ти — провідний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
+                    Ти — головний фінансовий директор та аналітик консольного видавництва Upscale Studio (Україна).
+                    Дані портфоліо ({len(summary_lines)-1} ігор):
+                    {compact_dataset}
 
-                    Ось попередньо відсортовані точні лідери по платформах (All-Time):
-                    [ТОП NINTENDO SWITCH]:
-                    {top_switch}
+                    Тижнева звітність (Weekly Ops):
+                    {weekly_csv_snippet}
 
-                    [ТОП PLAYSTATION]:
-                    {top_ps}
+                    Запитання: "{ai_query}"
 
-                    [ТОП XBOX]:
-                    {top_xbox}
-
-                    ПОВНА БАЗА ДАНИХ (усі {len(audit_df)} ігор):
-                    {full_csv}
-
-                    Запитання користувача: "{ai_query}"
-
-                    СУВОРІ ПРАВИЛА:
-                    1. Використовуй ТІЛЬКИ надані цифри. Якщо запитують ТОП — переконайся, що суми розташовані в порядку спадання (від найбільшої до найменшої).
-                    2. ВАЖЛИВО ДЛЯ ФОРМАТУВАННЯ: Пиши суми як "USD 18,993" або із зворотним слешем "\\$18,993" (ніколи не пиши одинарний знак долара "$", щоб не злипалися слова).
-                    3. Дай чіткий рейтинговий список, підрахунок та професійні висновки для видавництва українською мовою.
+                    Дай точну відповідь українською мовою з реальними цифрами та висновками.
+                    ВАЖЛИВО: Пиши суми як "USD 1,500" або "\\$1,500" (без одинарного знака $).
                     """
 
                     try:
@@ -300,7 +297,7 @@ with st.sidebar:
                             messages=[{"role": "user", "content": prompt}]
                         )
                         raw_text = message.content[0].text
-                    except Exception:
+                    except:
                         message = client.messages.create(
                             model="claude-3-5-haiku-20241022",
                             max_tokens=900,
@@ -308,15 +305,12 @@ with st.sidebar:
                         )
                         raw_text = message.content[0].text
 
-                    # Фільтр від злипання слів: екрануємо всі знаки долара перед виводом
                     clean_output = re.sub(r'(?<!\\)\$', r'\\$', raw_text)
-                    
                     st.markdown("### 💡 Результат аналізу:")
                     st.markdown(clean_output)
-
                 except Exception as e:
                     st.error(f"❌ Помилка Anthropic API: {e}")
-                    
+
 # Розрахунок All-Time сум
 def get_platform_all_time_sum(df_target, keyword):
     exact_cols = [c for c in df_target.columns if keyword in c.lower() and any(k in c.lower() for k in ["all time", "all_time", "all", "разом"])]
@@ -337,7 +331,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
@@ -509,9 +503,7 @@ if app_mode == "🎮 Наші ігри":
         
         report_html_content = f"""<!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>Upscale Studio Executive Report</title>
+<head><meta charset="utf-8"><title>Upscale Studio Executive Report</title>
 <style>
 body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; margin: 0; }}
 .card {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; text-align: center; }}
@@ -520,8 +512,7 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, B
 .subtitle {{ color: #94a3b8; font-size: 14px; margin: 4px 0 0 0; }}
 .val {{ font-size: 26px; font-weight: 800; margin: 6px 0 0 0; }}
 .breakouts {{ background-color: #1e293b; border-left: 4px solid #6366f1; padding: 16px; border-radius: 6px; line-height: 1.7; font-size: 14px; color: #cbd5e1; }}
-</style>
-</head>
+</style></head>
 <body>
 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px;">
 <div><div class="title">UPSCALE STUDIO</div><div class="subtitle">Console Publishing & Porting Operations Report</div></div>
@@ -539,39 +530,19 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, B
 • <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time Gross).<br>
 • <b>Skinwalker:</b> High-converting Xbox 3D Horror breakout ($21k+ All-Time).<br>
 • <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
-</div>
-</body>
-</html>"""
+</div></body></html>"""
 
         st.markdown(f"""
         <div class="report-box">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px; margin-bottom:16px;">
-                <div>
-                    <h3 style="margin:0; color:#fff;">UPSCALE STUDIO</h3>
-                    <p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p>
-                </div>
-                <div style="text-align:right;">
-                    <span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span>
-                    <p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">{datetime.now().strftime('%B %Y')}</p>
-                </div>
+                <div><h3 style="margin:0; color:#fff;">UPSCALE STUDIO</h3><p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p></div>
+                <div style="text-align:right;"><span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span><p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">{datetime.now().strftime('%B %Y')}</p></div>
             </div>
             <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">TOTAL GROSS</p>
-                    <h4 style="margin:4px 0 0 0; color:#38bdf8;">${total_gross:,.0f}</h4>
-                </div>
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">PLAYSTATION</p>
-                    <h4 style="margin:4px 0 0 0; color:#60a5fa;">${ps_rev:,.0f}</h4>
-                </div>
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">SWITCH</p>
-                    <h4 style="margin:4px 0 0 0; color:#f87171;">${switch_rev:,.0f}</h4>
-                </div>
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">XBOX</p>
-                    <h4 style="margin:4px 0 0 0; color:#4ade80;">${xbox_rev:,.0f}</h4>
-                </div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">TOTAL GROSS</p><h4 style="margin:4px 0 0 0; color:#38bdf8;">${total_gross:,.0f}</h4></div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">PLAYSTATION</p><h4 style="margin:4px 0 0 0; color:#60a5fa;">${ps_rev:,.0f}</h4></div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">SWITCH</p><h4 style="margin:4px 0 0 0; color:#f87171;">${switch_rev:,.0f}</h4></div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">XBOX</p><h4 style="margin:4px 0 0 0; color:#4ade80;">${xbox_rev:,.0f}</h4></div>
             </div>
             <h5 style="color:#f1f5f9; margin:0 0 6px 0;">🏆 Key Portfolio Breakouts:</h5>
             <p style="color:#cbd5e1; font-size:13px; line-height:1.6; margin:0;">
@@ -593,7 +564,116 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, B
 
 
 # ==============================================================================
-# 🧮 РОЗДІЛ 2: КАЛЬКУЛЯТОР ПРОГНОЗІВ
+# 📈 РОЗДІЛ 2: ТИЖНЕВА ДИНАМІКА (WEEKLY OPS & GROWTH TRACKER)
+# ==============================================================================
+elif app_mode == "📈 Тижнева динаміка (WoW)":
+    st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
+    st.caption("Динаміка консольних зборів, вішлістів, лідогенерації та соцмереж по тижнях")
+
+    if weekly_df.empty:
+        st.warning("⚠️ Не вдалося завантажити дані тижневої звітності. Вкажи коректне посилання у `WEEKLY_SHEET_URL`.")
+        st.stop()
+
+    # Останній тиждень (поточний пульс)
+    last_week = weekly_df.iloc[-1]
+    prev_week = weekly_df.iloc[-2] if len(weekly_df) > 1 else last_week
+
+    # Розрахунок тижневого сумарного виторгу
+    w_rev_cols = [c for c in weekly_df.columns if "revenue" in c.lower()]
+    last_w_total_rev = last_week[w_rev_cols].sum() if w_rev_cols else 0.0
+    prev_w_total_rev = prev_week[w_rev_cols].sum() if w_rev_cols else 0.0
+    
+    wow_rev_delta = f"{round((last_w_total_rev - prev_w_total_rev) / max(prev_w_total_rev, 1) * 100, 1)}% WoW"
+
+    # KPI Останнього тижня
+    wk1, wk2, wk3, wk4 = st.columns(4)
+    wk1.metric(f"Виторг тижня ({last_week.get('From', '')})", f"${last_w_total_rev:,.2f}", wow_rev_delta)
+    
+    ps_w_rev = last_week.get("PS_Revenue", 0.0)
+    sw_w_rev = last_week.get("Nintendo_Revenue", 0.0)
+    xb_w_rev = last_week.get("Xbox_Revenue", 0.0)
+    
+    wk2.metric("PlayStation тиждень", f"${ps_w_rev:,.2f}")
+    wk3.metric("Nintendo Switch тиждень", f"${sw_w_rev:,.2f}")
+    wk4.metric("Xbox тиждень", f"${xb_w_rev:,.2f}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    w_tab1, w_tab2, w_tab3, w_tab4 = st.tabs([
+        "💰 Консольний виторг & Продажі",
+        "🎯 BizDev Пайплайн (Leads ➔ Deals)",
+        "📱 Маркетинг & Аудиторія",
+        "📑 Повна тижнева таблиця"
+    ])
+
+    with w_tab1:
+        st.subheader("Динаміка виторгу по тижнях ($)")
+        
+        # Графік консольного виторгу
+        rev_chart_df = []
+        for _, rw in weekly_df.iterrows():
+            lbl = f"{rw.get('From', '')}"
+            rev_chart_df.append({"Week": lbl, "Platform": "PlayStation", "Revenue": rw.get("PS_Revenue", 0.0)})
+            rev_chart_df.append({"Week": lbl, "Platform": "Nintendo Switch", "Revenue": rw.get("Nintendo_Revenue", 0.0)})
+            rev_chart_df.append({"Week": lbl, "Platform": "Xbox", "Revenue": rw.get("Xbox_Revenue", 0.0)})
+            
+        fig_w_rev = px.bar(
+            pd.DataFrame(rev_chart_df), x="Week", y="Revenue", color="Platform", barmode="group",
+            color_discrete_map={"Nintendo Switch": "#e60012", "PlayStation": "#3b82f6", "Xbox": "#107c10"}
+        )
+        fig_w_rev.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), yaxis_title="Виторг ($)")
+        st.plotly_chart(fig_w_rev, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("Динаміка продажів у копіях (Units Sold)")
+        sales_chart_df = []
+        for _, rw in weekly_df.iterrows():
+            lbl = f"{rw.get('From', '')}"
+            sales_chart_df.append({"Week": lbl, "Platform": "PlayStation", "Sales": rw.get("PS_Sales", 0.0)})
+            sales_chart_df.append({"Week": lbl, "Platform": "Nintendo Switch", "Sales": rw.get("Nintendo_Sales", 0.0)})
+            sales_chart_df.append({"Week": lbl, "Platform": "Xbox", "Sales": rw.get("Xbox_Sales", 0.0)})
+            
+        fig_w_sales = px.line(
+            pd.DataFrame(sales_chart_df), x="Week", y="Sales", color="Platform", markers=True,
+            color_discrete_map={"Nintendo Switch": "#e60012", "PlayStation": "#3b82f6", "Xbox": "#107c10"}
+        )
+        fig_w_sales.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), yaxis_title="Продано копій (шт)")
+        st.plotly_chart(fig_w_sales, use_container_width=True)
+
+    with w_tab2:
+        st.subheader("🎯 BizDev Воронка: темпи залучення нових тайтлів")
+        
+        bd_cols = [c for c in ["Leads", "Contacts", "Calls", "Deals"] if c in weekly_df.columns]
+        if bd_cols:
+            fig_bd = px.bar(weekly_df, x="From", y=bd_cols, barmode="group", color_discrete_sequence=["#6366f1", "#3b82f6", "#f59e0b", "#10b981"])
+            fig_bd.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Кількість")
+            st.plotly_chart(fig_bd, use_container_width=True)
+            
+            # Підсумки
+            b_c1, b_c2, b_c3, b_c4 = st.columns(4)
+            b_c1.metric("Всього опрацьовано лідів", int(weekly_df["Leads"].sum()) if "Leads" in weekly_df.columns else 0)
+            b_c2.metric("Встановлено контактів", int(weekly_df["Contacts"].sum()) if "Contacts" in weekly_df.columns else 0)
+            b_c3.metric("Проведено дзвінків (Calls)", int(weekly_df["Calls"].sum()) if "Calls" in weekly_df.columns else 0)
+            b_c4.metric("Підписано контрактів (Deals)", int(weekly_df["Deals"].sum()) if "Deals" in weekly_df.columns else 0)
+
+    with w_tab3:
+        st.subheader("📱 Ріст аудиторії та соцмереж видавництва")
+        social_cols = [c for c in ["Twitter", "TikTok", "YouTube", "Discord", "Instagram"] if c in weekly_df.columns]
+        if social_cols:
+            fig_social = px.line(weekly_df, x="From", y=social_cols, markers=True)
+            fig_social.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Підписників")
+            st.plotly_chart(fig_social, use_container_width=True)
+
+    with w_tab4:
+        st.subheader("📑 Повний архів щотижневої звітності")
+        st.dataframe(weekly_df, use_container_width=True, height=450)
+        
+        csv_w = weekly_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Експортувати щотижневий звіт (.CSV)", data=csv_w, file_name="upscale_weekly_reporting.csv", mime="text/csv")
+
+
+# ==============================================================================
+# 🧮 РОЗДІЛ 3: КАЛЬКУЛЯТОР ПРОГНОЗІВ
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")

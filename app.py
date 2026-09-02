@@ -272,31 +272,28 @@ with st.sidebar:
                     5. Відповідай структуровано, лаконічно, чистою українською мовою.
                     """
 
-                    # Викликаємо Claude Haiku 4.5
-                    message = client.messages.create(
-                        model="claude-haiku-4-5",
-                        max_tokens=900,
-                        temperature=0.1,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    
-                    st.markdown("### 💡 Відповідь Claude Haiku 4.5:")
-                    st.info(message.content[0].text)
-
-                except Exception as e:
-                    # Якщо раптом стара модель ще в акаунті - резервний виклик
+                    # Викликаємо Claude Haiku 4.5 (без параметра temperature)
                     try:
+                        message = client.messages.create(
+                            model="claude-haiku-4-5",
+                            max_tokens=900,
+                            messages=[{"role": "user", "content": prompt}]
+                        )
+                        st.markdown("### 💡 Відповідь Claude Haiku 4.5:")
+                        st.info(message.content[0].text)
+                    except Exception as e_inner:
+                        # Резервний виклик базової моделі
                         message = client.messages.create(
                             model="claude-3-5-haiku-20241022",
                             max_tokens=900,
-                            temperature=0.1,
                             messages=[{"role": "user", "content": prompt}]
                         )
                         st.markdown("### 💡 Відповідь Claude Haiku:")
                         st.info(message.content[0].text)
-                    except Exception as e2:
-                        st.error(f"❌ Помилка Anthropic API: {e2}")
 
+                except Exception as e:
+                    st.error(f"❌ Помилка Anthropic API: {e}")
+                    
 # Розрахунок All-Time сум
 def get_platform_all_time_sum(df_target, keyword):
     exact_cols = [c for c in df_target.columns if keyword in c.lower() and any(k in c.lower() for k in ["all time", "all_time", "all", "разом"])]

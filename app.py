@@ -16,13 +16,13 @@ ANTHROPIC_API_KEY = ""  # Залиш порожнім (додай у share.strea
 # ==============================================================================
 
 st.set_page_config(
-    page_title="Upscale Studio | Console BI & Growth Hub",
+    page_title="Upscale Studio | Console BI & Sales Hub",
     page_icon="🎮",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + елегантні вкладки БЕЗ синьої заливки
+# Стилі темної теми високої контрастності + мінімалістичні вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -111,7 +111,6 @@ GENRE_DATABASE = {
 
 PRICE_MODIFIERS = {4.99: 1.25, 5.99: 1.15, 6.99: 1.10, 9.99: 1.00, 14.99: 0.75, 19.99: 0.55}
 
-# Універсальне вилучення GID для будь-яких вкладок Google Таблиць
 def get_export_url(url_or_id):
     if not url_or_id: return ""
     url_str = str(url_or_id).strip()
@@ -151,19 +150,15 @@ def load_data(sheet_url):
     df = df[df["Game_Name_Clean"].astype(str).str.strip() != ""]
     return df
 
-# Розумний позиційний парсер для тижневої таблиці (100% захист від помилок типів)
 @st.cache_data(ttl=300, show_spinner=False)
 def load_weekly_data(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
         return pd.DataFrame()
-    
     csv_url = get_export_url(sheet_url)
     try:
-        # Читаємо всі комірки як текст (dtype=str) для уникнення помилок float
         raw_w = pd.read_csv(csv_url, header=None, dtype=str)
         if raw_w.empty: return pd.DataFrame()
 
-        # Безпечно шукаємо де починаються дані
         first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
         second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
 
@@ -174,7 +169,6 @@ def load_weekly_data(sheet_url):
         else:
             data_df = raw_w.copy()
 
-        # Мапінг колонок за чіткою структурою твоєї таблиці
         col_map = {
             0: "From", 1: "To",
             2: "Nintendo_Sales", 4: "Nintendo_Wishlists", 6: "Nintendo_Revenue",
@@ -190,8 +184,6 @@ def load_weekly_data(sheet_url):
                 parsed_dict[col_name] = data_df.iloc[:, col_idx]
 
         df_out = pd.DataFrame(parsed_dict)
-
-        # Очищення числових значень
         for c in df_out.columns:
             if c not in ["From", "To"]:
                 df_out[c] = (
@@ -207,9 +199,7 @@ def load_weekly_data(sheet_url):
         df_out = df_out[df_out["From"].astype(str).str.strip().str.lower() != 'nan']
         df_out = df_out[df_out["From"].astype(str).str.strip() != '']
         return df_out.reset_index(drop=True)
-
-    except Exception as e:
-        st.error(f"❌ Помилка зчитування тижневої вкладки: {e}")
+    except Exception:
         return pd.DataFrame()
 
 raw_df = load_data(GOOGLE_SHEET_URL)
@@ -264,10 +254,7 @@ with st.sidebar:
     if not claude_key:
         claude_key = st.text_input("Введи Anthropic API Key:", type="password", placeholder="sk-ant-...")
 
-    ai_query = st.text_area(
-        "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000? Або: Проаналізуй динаміку останнього тижня."
-    )
+    ai_query = st.text_area("Запитай будь-що по всій базі:", placeholder="Напр.: Скільки симуляторів заробили більше $1000?")
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
         clean_key = str(claude_key).strip()
@@ -310,7 +297,7 @@ with st.sidebar:
                     weekly_csv_snippet = weekly_df.to_csv(index=False) if not weekly_df.empty else "No weekly data"
 
                     prompt = f"""
-                    Ти — головний фінансовий директор та аналітик консольного видавництва Upscale Studio (Україна).
+                    Ти — головний фінансовий директор та аналітик консольного видавництва ігор Upscale Studio (Україна).
                     Дані портфоліо ({len(summary_lines)-1} ігор):
                     {compact_dataset}
 
@@ -364,7 +351,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
@@ -386,7 +373,7 @@ if app_mode == "🎮 Наші ігри":
         "📈 Аналітика та Динаміка", 
         "🧠 Інсайти та Постери", 
         "📅 Розпродажі Nintendo",
-        "🎯 Точність (План vs Факт)",
+        "🎯 План vs Факт (Точність)",
         "📑 Таблиця та One-Pager Звіт"
     ])
 
@@ -509,17 +496,143 @@ if app_mode == "🎮 Наші ігри":
         st.markdown("---")
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
+    # =========================================================
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ПОВНИЙ АНАЛІЗ ТОЧНОСТІ)
+    # =========================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower() or "точність" in c.lower()]
-        display_cols = ["Game_Name_Clean"]
-        if genre_col: display_cols.append(genre_col)
-        for key in ["playstation", "switch", "xbox", "total"]:
-            f_cols = [c for c in filtered_df.columns if key in c.lower() and any(k in c.lower() for k in ["revenue", "1st", "total"])]
-            display_cols.extend(f_cols[:2])
-        display_cols.extend(acc_cols)
-        display_cols = list(dict.fromkeys([c for c in display_cols if c in filtered_df.columns]))
-        st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
+        st.caption("Аудит точності на основі відкаліброваної моделі 16 піджанрів")
+
+        def find_val(row_s, keys, not_keys=[]):
+            for c in row_s.index:
+                cl = c.lower()
+                if all(k in cl for k in keys) and not any(nk in cl for nk in not_keys):
+                    try: return float(row_s[c])
+                    except: pass
+            return 0.0
+
+        # Будуємо порівняльну таблицю Fact vs Forecast для ВСІХ ігор
+        comparison_list = []
+        
+        for _, r in filtered_df.iterrows():
+            g_name = str(r["Game_Name_Clean"]).strip()
+            if not g_name or g_name.lower() == 'nan': continue
+            
+            g_genre_str = str(r.get(genre_col, "Simulator (Job/Business)")).strip()
+            g_price = r.get("Price consoles, $", r.get("Price consoles", 9.99))
+            try: g_price = float(g_price)
+            except: g_price = 9.99
+
+            # 1. ФАКТИЧНІ ЗБОРИ (M1 Fact)
+            ps_m1_fact = find_val(r, ["ps", "1st"]) or find_val(r, ["playstation", "1st"]) or find_val(r, ["ps", "m1"])
+            sw_m1_fact = find_val(r, ["switch", "1st"]) or find_val(r, ["switch", "m1"])
+            xb_m1_fact = find_val(r, ["xbox", "1st"]) or find_val(r, ["xbox", "m1"])
+            total_m1_fact = ps_m1_fact + sw_m1_fact + xb_m1_fact
+
+            # 2. ПРОГНОЗНІ ЗБОРИ (Forecast)
+            # Якщо в таблиці вже є готові стовпчики прогнозу — беремо їх
+            ps_pred_col = find_val(r, ["ps revenue 1st month, $"]) or find_val(r, ["ps", "pred"])
+            sw_pred_col = find_val(r, ["switch revenue 1st month, $"]) or find_val(r, ["switch", "pred"])
+            xb_pred_col = find_val(r, ["xbox revenue 1st month, $"]) or find_val(r, ["xbox", "pred"])
+            
+            # Якщо прогнозів не було в таблиці — рахуємо за нашою моделлю
+            if ps_pred_col == 0 and sw_pred_col == 0 and xb_pred_col == 0:
+                base_m = find_val(r, ["base metric"]) or 1500.0
+                
+                # Підбираємо піджанр
+                matched_g = "Job / Business Simulator (3D)"
+                for k in GENRE_DATABASE:
+                    if k.lower() in g_genre_str.lower() or g_genre_str.lower() in k.lower():
+                        matched_g = k
+                        break
+                        
+                cfg = GENRE_DATABASE[matched_g]
+                p_m = PRICE_MODIFIERS.get(g_price, 1.0)
+                
+                ps_pred = base_m * cfg["PS"] * p_m
+                sw_pred = base_m * cfg["Switch"] * p_m
+                xb_pred = base_m * cfg["Xbox"] * p_m
+            else:
+                ps_pred = ps_pred_col
+                sw_pred = sw_pred_col
+                xb_pred = xb_pred_col
+
+            total_pred_m1 = ps_pred + sw_pred + xb_pred
+
+            # Розрахунок точності та відхилення
+            if total_m1_fact > 0 and total_pred_m1 > 0:
+                acc_pct = max(0.0, round((1.0 - abs(total_m1_fact - total_pred_m1) / max(total_m1_fact, total_pred_m1)) * 100, 1))
+                delta_usd = total_m1_fact - total_pred_m1
+                
+                if total_m1_fact > total_pred_m1 * 1.2:
+                    perf_status = "🟢 Перевищила план"
+                elif total_m1_fact < total_pred_m1 * 0.7:
+                    perf_status = "🔴 Нижче плану"
+                else:
+                    perf_status = "🟡 У плані (±20%)"
+            else:
+                acc_pct = 0.0
+                delta_usd = 0.0
+                perf_status = "⚪ Немає факт даних"
+
+            comparison_list.append({
+                "Гра": g_name,
+                "Жанр": g_genre_str,
+                "Ціна ($)": g_price,
+                "Факт M1 ($)": round(total_m1_fact, 2),
+                "Прогноз M1 ($)": round(total_pred_m1, 2),
+                "Різниця ($)": round(delta_usd, 2),
+                "Точність (%)": acc_pct,
+                "Статус виконання": perf_status,
+                "PS Факт": round(ps_m1_fact, 2),
+                "PS Прогноз": round(ps_pred, 2),
+                "Switch Факт": round(sw_m1_fact, 2),
+                "Switch Прогноз": round(sw_pred, 2),
+                "Xbox Факт": round(xb_m1_fact, 2),
+                "Xbox Прогноз": round(xb_pred, 2)
+            })
+
+        comp_df = pd.DataFrame(comparison_list)
+
+        # KPI Точності
+        active_comp = comp_df[comp_df["Факт M1 ($)"] > 0]
+        avg_acc = active_comp["Точність (%)"].mean() if not active_comp.empty else 0.0
+        over_count = len(active_comp[active_comp["Статус виконання"].str.contains("Перевищила")])
+        target_count = len(active_comp[active_comp["Статус виконання"].str.contains("У плані")])
+        under_count = len(active_comp[active_comp["Статус виконання"].str.contains("Нижче")])
+
+        a_c1, a_c2, a_c3, a_c4 = st.columns(4)
+        a_c1.metric("Середня точність моделі", f"{avg_acc:.1f}%")
+        a_c2.metric("🟢 Перевищили план", f"{over_count} ігор")
+        a_c3.metric("🟡 У межах плану (±20%)", f"{target_count} ігор")
+        a_c4.metric("🔴 Нижче прогнозу", f"{under_count} ігор")
+
+        st.markdown("---")
+        
+        # Графік План vs Факт
+        st.subheader("📊 Графік: Фактичні збори M1 проти Прогнозу ($)")
+        top_comp_chart = active_comp.sort_values(by="Факт M1 ($)", ascending=False).head(15)
+        
+        if not top_comp_chart.empty:
+            fig_plan_fact = go.Figure()
+            fig_plan_fact.add_trace(go.Bar(
+                x=top_comp_chart["Гра"], y=top_comp_chart["Факт M1 ($)"],
+                name="ФАКТ M1 ($)", marker_color="#10b981"
+            ))
+            fig_plan_fact.add_trace(go.Bar(
+                x=top_comp_chart["Гра"], y=top_comp_chart["Прогноз M1 ($)"],
+                name="ПРОГНОЗ M1 ($)", marker_color="#6366f1"
+            ))
+            fig_plan_fact.update_layout(
+                barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color="#e2e8f0"), height=380, margin=dict(t=20, b=20, l=10, r=10),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_plan_fact, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("📑 Детальна таблиця аудиту (План vs Факт)")
+        st.dataframe(comp_df, use_container_width=True, height=480)
 
     with tab_table_report:
         st.subheader("📑 Повна фінансова таблиця портфоліо")
@@ -607,7 +720,6 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.warning("⚠️ Вкажи валідне посилання на тижневу вкладку з `#gid=...` у рядку `WEEKLY_SHEET_URL`.")
         st.stop()
 
-    # Останній тиждень та розрахунки
     last_week = weekly_df.iloc[-1]
     prev_week = weekly_df.iloc[-2] if len(weekly_df) > 1 else last_week
 

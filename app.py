@@ -21,9 +21,32 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Стилі темної теми високої контрастності + вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        border-bottom: 2px solid #2d2d42;
+        padding-bottom: 5px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 42px;
+        background-color: #1a1a28;
+        border-radius: 8px 8px 0px 0px;
+        padding: 8px 18px;
+        color: #94a3b8;
+        font-weight: 600;
+        border: 1px solid #2d2d42;
+        border-bottom: none;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #6366f1 !important;
+        color: #ffffff !important;
+        border-color: #6366f1 !important;
+    }
+
     .kpi-card {
         background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
         border: 1px solid #2e2e44;
@@ -47,7 +70,7 @@ st.markdown("""
     .game-poster { width: 85px; height: 105px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
     .top-podium-card { background: #181824; border: 1px solid #2b2b3f; border-radius: 10px; padding: 12px; text-align: center; }
     .sandbox-box { background: #171724; border: 1px solid #2f2f45; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
-    .one-pager-container { background-color: #111827; color: #f8fafc; padding: 25px; border-radius: 12px; border: 1px solid #374151; }
+    .report-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; color: #f8fafc; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -159,7 +182,7 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI Чат на базі Groq Llama 3.3
+    # AI ЧАТ З АВТО-FALLBACK НАДІЙНИХ МОДЕЛЕЙ
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Groq)")
     groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
@@ -168,7 +191,7 @@ with st.sidebar:
         groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
         st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/)")
 
-    ai_query = st.text_area("Запитай щось у бази:", placeholder="Напр.: Які топ-3 хоррори принесли найбільше грошей на PlayStation?")
+    ai_query = st.text_area("Запитай щось у бази:", placeholder="Напр.: Які топ-3 хоррори на PlayStation?")
     
     if st.button("⚡ Запитати у ШІ", use_container_width=True):
         if not groq_key:
@@ -186,24 +209,28 @@ with st.sidebar:
                     cols_for_ai = list(dict.fromkeys([c for c in cols_for_ai if c in filtered_df.columns]))
                     
                     data_summary_csv = filtered_df[cols_for_ai].head(45).to_csv(index=False)
+                    prompt = f"Ти провідний аналітик консольного видавництва Upscale Studio.\nДані портфоліо:\n{data_summary_csv}\n\nЗапитання: {ai_query}\n\nДай точну відповідь українською з цифрами та рекомендаціями."
                     
-                    prompt = f"""
-                    Ти провідний аналітик консольного видавництва Upscale Studio.
-                    Дані портфоліо:
-                    {data_summary_csv}
-                    
-                    Запитання: {ai_query}
-                    
-                    Дай точну, структуровану відповідь українською мовою з цифрами та бізнес-рекомендаціями. Без води.
-                    """
-                    
-                    chat_completion = client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model="llama-3.3-70b-versatile",
-                        temperature=0.2,
-                        max_tokens=700
-                    )
-                    st.info(chat_completion.choices[0].message.content)
+                    models_to_try = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
+                    response_text = None
+
+                    for model_name in models_to_try:
+                        try:
+                            chat_completion = client.chat.completions.create(
+                                messages=[{"role": "user", "content": prompt}],
+                                model=model_name,
+                                temperature=0.2,
+                                max_tokens=700
+                            )
+                            response_text = chat_completion.choices[0].message.content
+                            break
+                        except Exception:
+                            continue
+
+                    if response_text:
+                        st.info(response_text)
+                    else:
+                        st.error("Не вдалося отримати відповідь від Groq. Перевір правильність API-ключа.")
                 except Exception as e:
                     st.error(f"Помилка Groq API: {e}")
 
@@ -227,7 +254,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (7 ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
@@ -238,24 +265,22 @@ if app_mode == "🎮 Наші ігри":
     xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса портфоліо (All-Time)</div><div class="kpi-value">${total_gross:,.2f}</div><span class="kpi-badge badge-total">100% Total Gross</span></div>', unsafe_allow_html=True)
-    c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Nintendo Switch (All-Time)</div><div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div><span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span></div>', unsafe_allow_html=True)
-    c3.markdown(f'<div class="kpi-card"><div class="kpi-label">PlayStation (All-Time)</div><div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div><span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span></div>', unsafe_allow_html=True)
-    c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Xbox (All-Time)</div><div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div><span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span></div>', unsafe_allow_html=True)
+    c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса (All-Time)</div><div class="kpi-value">${total_gross:,.2f}</div><span class="kpi-badge badge-total">100% Total Gross</span></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Nintendo Switch</div><div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div><span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="kpi-card"><div class="kpi-label">PlayStation</div><div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div><span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Xbox</div><div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div><span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    tab_overview, tab_decay, tab_insights, tab_sales_tracker, tab_one_pager, tab_forecast_review, tab_table = st.tabs([
-        "📈 Огляд і Топ ігор", 
-        "⏳ Динаміка каси (M1 ➔ 1Y)", 
-        "🧠 Formula & AI Insights", 
-        "📅 Трекер розпродажів Nintendo",
-        "📄 One-Pager Звіт (PDF)",
-        "🎯 Прогнози наших ігор (План vs Факт)",
-        "📑 Повна фінансова таблиця"
+    tab_analytics, tab_insights, tab_sales_tracker, tab_forecast_review, tab_table_report = st.tabs([
+        "📈 Аналітика та Динаміка", 
+        "🧠 Інсайти та Постери", 
+        "📅 Розпродажі Nintendo",
+        "🎯 Точність (План vs Факт)",
+        "📑 Таблиця та One-Pager Звіт"
     ])
 
-    with tab_overview:
+    with tab_analytics:
         st.subheader("🏆 Топ-3 бестселери портфоліо")
         actual_total_col = total_col if total_col else filtered_df.columns[0]
         top3_df = filtered_df.sort_values(by=actual_total_col, ascending=False).head(3)
@@ -283,8 +308,8 @@ if app_mode == "🎮 Наші ігри":
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis=dict(gridcolor="#28283c", title="Виторг ($)"), yaxis=dict(gridcolor="#28283c", title=""), margin=dict(t=15, b=15, l=15, r=15))
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    with tab_decay:
-        st.subheader("Крива динаміки виручки (M1 ➔ M3 ➔ M6 ➔ 1Y)")
+        st.markdown("---")
+        st.subheader("⏳ Крива динаміки виручки (M1 ➔ M3 ➔ M6 ➔ 1Y)")
         time_cols = [c for c in filtered_df.columns if any(p in c.lower() for p in ["1st", "3 month", "6 month", "1 year", "all time"])]
         if time_cols:
             decay_rows = []
@@ -374,52 +399,114 @@ if app_mode == "🎮 Наші ігри":
         st.markdown("---")
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
-    with tab_one_pager:
-        st.subheader("📄 One-Pager Executive Звіт (Social Proof для пітчів)")
+    with tab_forecast_review:
+        st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
+        acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower() or "точність" in c.lower()]
+        display_cols = ["Game_Name_Clean"]
+        if genre_col: display_cols.append(genre_col)
+        for key in ["playstation", "switch", "xbox", "total"]:
+            f_cols = [c for c in filtered_df.columns if key in c.lower() and any(k in c.lower() for k in ["revenue", "1st", "total"])]
+            display_cols.extend(f_cols[:2])
+        display_cols.extend(acc_cols)
+        display_cols = list(dict.fromkeys([c for c in display_cols if c in filtered_df.columns]))
+        st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
+
+    with tab_table_report:
+        st.subheader("📑 Повна фінансова таблиця портфоліо")
+        column_config = {}
+        if cover_col:
+            column_config[cover_col] = st.column_config.ImageColumn("Обкладинка", width="small")
+        st.dataframe(filtered_df, column_config=column_config, use_container_width=True, height=420)
         
-        # Рендеримо чистий HTML без пробілів на початку рядків
-        st.markdown(f"""
-<div style="background-color: #0f172a; color: #f8fafc; padding: 25px; border-radius: 12px; border: 1px solid #334155; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
-<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 16px;">
-<div>
-<h2 style="margin:0; color:#ffffff; font-weight:800; letter-spacing:0.5px;">UPSCALE STUDIO</h2>
-<p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p>
+        csv_data = filtered_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Експортувати дані (.CSV)", data=csv_data, file_name="console_sales_portfolio.csv", mime="text/csv")
+
+        st.markdown("---")
+        st.subheader("📄 One-Pager Executive Звіт")
+        
+        report_html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Upscale Studio Executive Report</title>
+<style>
+body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; margin: 0; }}
+.card {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; text-align: center; }}
+.grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }}
+.title {{ font-size: 24px; font-weight: bold; color: #fff; margin: 0; }}
+.subtitle {{ color: #94a3b8; font-size: 14px; margin: 4px 0 0 0; }}
+.val {{ font-size: 26px; font-weight: 800; margin: 6px 0 0 0; }}
+.breakouts {{ background-color: #1e293b; border-left: 4px solid #6366f1; padding: 16px; border-radius: 6px; line-height: 1.7; font-size: 14px; color: #cbd5e1; }}
+</style>
+</head>
+<body>
+<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px;">
+<div><div class="title">UPSCALE STUDIO</div><div class="subtitle">Console Publishing & Porting Operations Report</div></div>
+<div style="text-align:right;"><span style="background:#4f46e5; color:#fff; padding:5px 12px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span><div style="color:#64748b; font-size:12px; margin-top:4px;">Date: {datetime.now().strftime('%B %Y')}</div></div>
 </div>
-<div style="text-align:right;">
-<span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span>
-<p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">Data as of {datetime.now().strftime('%B %Y')}</p>
+<div class="grid">
+<div class="card"><div style="color:#94a3b8; font-size:12px;">TOTAL CONSOLE GROSS</div><div class="val" style="color:#38bdf8;">${total_gross:,.0f}</div></div>
+<div class="card"><div style="color:#94a3b8; font-size:12px;">PLAYSTATION</div><div class="val" style="color:#60a5fa;">${ps_rev:,.0f}</div></div>
+<div class="card"><div style="color:#94a3b8; font-size:12px;">NINTENDO SWITCH</div><div class="val" style="color:#f87171;">${switch_rev:,.0f}</div></div>
+<div class="card"><div style="color:#94a3b8; font-size:12px;">XBOX</div><div class="val" style="color:#4ade80;">${xbox_rev:,.0f}</div></div>
 </div>
-</div>
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">TOTAL CONSOLE GROSS</p>
-<h3 style="margin:4px 0 0 0; color:#38bdf8; font-size:22px;">${total_gross:,.0f}</h3>
-</div>
-<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">PLAYSTATION</p>
-<h3 style="margin:4px 0 0 0; color:#60a5fa; font-size:22px;">${ps_rev:,.0f}</h3>
-</div>
-<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">NINTENDO SWITCH</p>
-<h3 style="margin:4px 0 0 0; color:#f87171; font-size:22px;">${switch_rev:,.0f}</h3>
-</div>
-<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">XBOX</p>
-<h3 style="margin:4px 0 0 0; color:#4ade80; font-size:22px;">${xbox_rev:,.0f}</h3>
-</div>
-</div>
-<h4 style="color:#f1f5f9; margin:0 0 8px 0; font-size:15px;">🏆 Key Portfolio Breakouts:</h4>
-<p style="color:#cbd5e1; font-size:13px; line-height:1.7; margin:0;">
-• <b>Cat From Hell:</b> Multi-platform viral hit ($119k+ All-Time Gross) driven by PlayStation engagement.<br>
+<h3 style="color:#f1f5f9; margin-top:25px;">🏆 Key Portfolio Breakouts:</h3>
+<div class="breakouts">
+• <b>Cat From Hell:</b> Multi-platform hit ($119k+ All-Time Gross) driven by viral PlayStation engagement.<br>
 • <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time Gross).<br>
 • <b>Skinwalker:</b> High-converting Xbox 3D Horror breakout ($21k+ All-Time).<br>
 • <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
-</p>
 </div>
-""", unsafe_allow_html=True)
+</body>
+</html>"""
 
+        st.markdown(f"""
+        <div class="report-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px; margin-bottom:16px;">
+                <div>
+                    <h3 style="margin:0; color:#fff;">UPSCALE STUDIO</h3>
+                    <p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p>
+                </div>
+                <div style="text-align:right;">
+                    <span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span>
+                    <p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">{datetime.now().strftime('%B %Y')}</p>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
+                    <p style="margin:0; font-size:11px; color:#94a3b8;">TOTAL GROSS</p>
+                    <h4 style="margin:4px 0 0 0; color:#38bdf8;">${total_gross:,.0f}</h4>
+                </div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
+                    <p style="margin:0; font-size:11px; color:#94a3b8;">PLAYSTATION</p>
+                    <h4 style="margin:4px 0 0 0; color:#60a5fa;">${ps_rev:,.0f}</h4>
+                </div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
+                    <p style="margin:0; font-size:11px; color:#94a3b8;">SWITCH</p>
+                    <h4 style="margin:4px 0 0 0; color:#f87171;">${switch_rev:,.0f}</h4>
+                </div>
+                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;">
+                    <p style="margin:0; font-size:11px; color:#94a3b8;">XBOX</p>
+                    <h4 style="margin:4px 0 0 0; color:#4ade80;">${xbox_rev:,.0f}</h4>
+                </div>
+            </div>
+            <h5 style="color:#f1f5f9; margin:0 0 6px 0;">🏆 Key Portfolio Breakouts:</h5>
+            <p style="color:#cbd5e1; font-size:13px; line-height:1.6; margin:0;">
+            • <b>Cat From Hell:</b> Multi-platform hit ($119k+ All-Time Gross).<br>
+            • <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time).<br>
+            • <b>Skinwalker:</b> High-converting Xbox 3D Horror ($21k+ All-Time).<br>
+            • <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("<br>", unsafe_allow_html=True)
-        st.info("💡 Щоб зберегти як PDF: натисни **Ctrl + P (Cmd + P на Mac)** ➔ обери *Зберегти як PDF*.")
+        st.download_button(
+            label="📥 Завантажити One-Pager звіт (.HTML / PDF)",
+            data=report_html_content,
+            file_name=f"Upscale_Studio_Executive_Report_{datetime.now().strftime('%Y_%m')}.html",
+            mime="text/html"
+        )
 
 
 # ==============================================================================

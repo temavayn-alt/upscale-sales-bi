@@ -5,13 +5,13 @@ import plotly.graph_objects as go
 import requests
 from datetime import datetime
 import re
-from groq import Groq
+from anthropic import Anthropic
 
 # ==============================================================================
-# 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ:
+# 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ ТА CLAUDE:
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL з Apps Script для автозапису
-GROQ_API_KEY = ""       # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
+ANTHROPIC_API_KEY = ""  # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
 # ==============================================================================
 
 st.set_page_config(
@@ -21,12 +21,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + МІНІМАЛІСТИЧНІ ВКЛАДКИ (БЕЗ СИНЬОЇ ЗАЛИВКИ)
+# Професійні стилі темної теми + елегантні вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     
-    /* Чистий стиль вкладок без кольорових блоків */
     .stTabs [data-baseweb="tab-list"] {
         gap: 16px;
         border-bottom: 1px solid #28283c;
@@ -56,7 +55,6 @@ st.markdown("""
         border-bottom: 2px solid #818cf8 !important;
     }
 
-    /* KPI Картки */
     .kpi-card {
         background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
         border: 1px solid #2e2e44;
@@ -193,34 +191,33 @@ with st.sidebar:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
     # =========================================================
-    # =========================================================================
-    # 🤖 AI-АНАЛІТИК З УЛЬТРА-КОМПАКТНИМ СТИСНЕННЯМ (ТОЧНО ВМІЩУЄТЬСЯ В ЛІМІТ GROQ)
-    # =========================================================================
+    # 🤖 AI-АНАЛІТИК НА БАЗІ CLAUDE HAIKU 4.5
+    # =========================================================
     st.markdown("---")
-    st.subheader("🤖 AI-Аналітик по всій базі")
-    groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
+    st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
+    claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
     
-    if not groq_key:
-        groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
-        st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
+    if not claude_key:
+        claude_key = st.text_input("Введи Anthropic API Key:", type="password", placeholder="sk-ant-...")
+        st.caption("Ключ безпечно зберігається тільки для твоєї сесії.")
 
     ai_query = st.text_area(
-        "Запитай будь-що по всій таблиці:",
+        "Запитай будь-що по всій базі:",
         placeholder="Напр.: Скільки симуляторів заробили більше $1000 за перший місяць? Або: Топ-5 ігор на Xbox."
     )
     
-    if st.button("⚡ Просканувати всю таблицю через ШІ", use_container_width=True):
-        clean_key = str(groq_key).strip()
-        if not clean_key or not clean_key.startswith("gsk_"):
-            st.error("❌ Введи валідний ключ Groq (gsk_...)!")
+    if st.button("⚡ Проаналізувати базу через Claude", use_container_width=True):
+        clean_key = str(claude_key).strip()
+        if not clean_key or not clean_key.startswith("sk-ant"):
+            st.error("❌ Введи валідний ключ Anthropic (починається на 'sk-ant-...')!")
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ аналізує портфоліо..."):
+            with st.spinner("Claude Haiku 4.5 аналізує 100% портфоліо..."):
                 try:
-                    client = Groq(api_key=clean_key)
+                    client = Anthropic(api_key=clean_key)
                     
-                    # 1. Створюємо ультракомпактний чистий датасет (всього ~1000 токенів замість 12000)
+                    # Формуємо чистий, точний датасет по всіх 67 іграх
                     summary_lines = []
                     summary_lines.append("Game|Genre|Price|PS_M1|PS_All|Switch_M1|Switch_All|Xbox_M1|Xbox_All|Total_All")
                     
@@ -257,8 +254,8 @@ with st.sidebar:
                     compact_dataset = "\n".join(summary_lines)
 
                     prompt = f"""
-                    Ти — фінансовий директор та аналітик консольного видавництва Upscale Studio.
-                    Ось ПОВНІ дані по всіх {len(summary_lines)-1} іграх портфоліо (значення в цілих $ USD):
+                    Ти — головний фінансовий аналітик консольного видавництва ігор Upscale Studio (Україна).
+                    Перед тобою ПОВНІ фінансові дані портфоліо з {len(summary_lines)-1} ігор (суми в цілих $ USD):
                     Колонки: Назва | Жанр | Ціна | PS 1-й місяць | PS Весь час | Switch 1-й місяць | Switch Весь час | Xbox 1-й місяць | Xbox Весь час | Загальний виторг
 
                     ```
@@ -267,39 +264,38 @@ with st.sidebar:
 
                     Запитання користувача: "{ai_query}"
 
-                    ІНСТРУКЦІЯ:
-                    1. Усі дані точні. Використовуй значення з таблиці для розрахунку.
+                    ІНСТРУКЦІЯ ДЛЯ ВІДПОВІДІ:
+                    1. Усі розрахунки роби СУВОРО на основі наданих вище цифр (жодних галюцинацій).
                     2. Якщо запитують про 1-й місяць (M1) — дивись на колонки PS_M1, Switch_M1, Xbox_M1.
-                    3. Якщо просять список чи підрахунок — перелічи відповідні ігри поіменно з сумами в $.
-                    4. Дай чіткі висновки та рекомендації для видавництва українською мовою.
+                    3. Якщо просять знайти ігри чи порахувати кількість — перелічи відповідні тайтли поіменно з точними сумами в $ та підсумуй їх.
+                    4. Додай короткі професійні бізнес-висновки для видавництва.
+                    5. Відповідай структуровано, лаконічно, чистою українською мовою.
                     """
 
-                    # Моделі для запуску
-                    target_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-                    response_text = None
-                    last_err = ""
+                    # Викликаємо Claude Haiku 4.5
+                    message = client.messages.create(
+                        model="claude-haiku-4-5",
+                        max_tokens=900,
+                        temperature=0.1,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    
+                    st.markdown("### 💡 Відповідь Claude Haiku 4.5:")
+                    st.info(message.content[0].text)
 
-                    for mod in target_models:
-                        try:
-                            chat_completion = client.chat.completions.create(
-                                messages=[{"role": "user", "content": prompt}],
-                                model=mod,
-                                temperature=0.1,
-                                max_tokens=750
-                            )
-                            response_text = chat_completion.choices[0].message.content
-                            break
-                        except Exception as e:
-                            last_err = str(e)
-                            continue
-
-                    if response_text:
-                        st.markdown("### 💡 Результат аналізу:")
-                        st.info(response_text)
-                    else:
-                        st.error(f"❌ Помилка підключення до Groq: {last_err}")
                 except Exception as e:
-                    st.error(f"❌ Помилка: {e}")
+                    # Якщо раптом стара модель ще в акаунті - резервний виклик
+                    try:
+                        message = client.messages.create(
+                            model="claude-3-5-haiku-20241022",
+                            max_tokens=900,
+                            temperature=0.1,
+                            messages=[{"role": "user", "content": prompt}]
+                        )
+                        st.markdown("### 💡 Відповідь Claude Haiku:")
+                        st.info(message.content[0].text)
+                    except Exception as e2:
+                        st.error(f"❌ Помилка Anthropic API: {e2}")
 
 # Розрахунок All-Time сум
 def get_platform_all_time_sum(df_target, keyword):

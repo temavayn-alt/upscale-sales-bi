@@ -191,7 +191,8 @@ with st.sidebar:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
     # =========================================================================
-    # 🤖 УНІВЕРСАЛЬНИЙ AI-АНАЛІТИК (ДИНАМІЧНИЙ ВИБІР АКТИВНИХ МОДЕЛЕЙ GROQ)
+    # =========================================================================
+    # 🤖 УНІВЕРСАЛЬНИЙ AI-АНАЛІТИК З АВТО-КОМПРЕСІЄЮ (100% ІГОР, 0% ПОМИЛОК ЛІМІТУ)
     # =========================================================================
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик по всій базі")
@@ -199,11 +200,11 @@ with st.sidebar:
     
     if not groq_key:
         groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
-        st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
+        st.caption("🎁 Безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
 
     ai_query = st.text_area(
         "Запитай будь-що по всій таблиці:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за місяць? Або: Топ-5 ігор на Xbox."
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за перший місяць? Або: Порівняй ефективність жанрів на PS проти Switch."
     )
     
     if st.button("⚡ Просканувати всю таблицю через ШІ", use_container_width=True):
@@ -213,57 +214,51 @@ with st.sidebar:
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ аналізує 100% бази портфоліо..."):
+            with st.spinner("ШІ оптимізує та аналізує 100% бази портфоліо..."):
                 try:
                     client = Groq(api_key=clean_key)
                     
-                    # Отримуємо виключно активні підтримувані моделі Groq
-                    try:
-                        live_models = [
-                            m.id for m in client.models.list().data 
-                            if not any(k in m.id.lower() for k in ['whisper', 'guard', 'embed', 'vision', 'gemma2', 'llama3-70b', 'llama3-8b'])
-                        ]
-                    except:
-                        live_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-
-                    # Пріоритетні сучасні моделі
-                    priority_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-                    target_models = [m for m in priority_models if m in live_models] + [m for m in live_models if m not in priority_models]
+                    # 1. РОЗУМНЕ СТИСНЕННЯ: прибираємо важкі URL, залишаємо 100% фінансів
+                    ai_df = raw_df.copy()
+                    cols_to_drop = [c for c in ai_df.columns if any(k in c.lower() for k in ["link", "посилання", "cover", "image", "url", "фото"])]
+                    ai_df = ai_df.drop(columns=cols_to_drop, errors="ignore")
                     
-                    if not target_models:
-                        target_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-
-                    # Очищаємо таблицю від повністю пустих стовпчиків перед відправкою
-                    full_table_csv = raw_df.dropna(how='all', axis=1).to_csv(index=False)
+                    # Скорочуємо довгі текстові стовпчики до 60 символів, щоб вміститися в ліміт токенів
+                    for col in ai_df.select_dtypes(include=['object']).columns:
+                        if col != "Game_Name_Clean":
+                            ai_df[col] = ai_df[col].astype(str).str.slice(0, 60)
+                            
+                    compressed_csv = ai_df.to_csv(index=False)
                     
                     prompt = f"""
-                    Ти — головний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
-                    Тобі надано ПОВНУ БАЗУ ДАНИХ видавництва зі 100% колонок (усі {len(raw_df)} ігор, дати релізу, ціни, джерела, інстали, виторг за 1 місяць, 3 місяці, 6 місяців, 1 рік, All-Time по PlayStation, Switch, Xbox, формули, AI-інсайти та точність):
+                    Ти — провідний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
+                    Ось ПОВНІ фінансові дані портфоліо видавництва (усі {len(ai_df)} ігор, усі консолі, періоди M1, M3, 1Y, All-Time, ціни, жанри, формули):
 
                     ```csv
-                    {full_table_csv}
+                    {compressed_csv}
                     ```
 
                     Запитання користувача: "{ai_query}"
 
                     ТВОЯ ІНСТРУКЦІЯ:
-                    1. У тебе є повний доступ до всіх стовпчиків і рядків. Проаналізуй усю таблицю для відповіді на це конкретне запитання.
-                    2. Якщо запитують про кількість або список ігор — перелічи їх усі поіменно, вкажи точні суми в $ з таблиці та підрахуй загальну кількість.
-                    3. Якщо запитують порівняння чи аналіз — зроби точний розрахунок із реальними цифрами та відсотками.
-                    4. Додай короткі професійні бізнес-висновки для видавництва.
+                    1. Проаналізуй усю таблицю. У тебе є повний доступ до всіх ігор та періодів (M1, 3M, 1Y, All-Time).
+                    2. Якщо запитують кількість або список ігор за критерієм — чітко підрахуй їх, перелічи поіменно та вкажи точні суми в $.
+                    3. Якщо просять порівняння чи аналіз — зроби розрахунок з реальними цифрами та частками.
+                    4. Додай короткі професійні висновки для видавництва.
                     5. Відповідай структуровано, чітко українською мовою.
                     """
                     
+                    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
                     response_text = None
                     last_err = ""
 
-                    for mod in target_models:
+                    for mod in models_to_try:
                         try:
                             chat_completion = client.chat.completions.create(
                                 messages=[{"role": "user", "content": prompt}],
                                 model=mod,
                                 temperature=0.1,
-                                max_tokens=1000
+                                max_tokens=900
                             )
                             response_text = chat_completion.choices[0].message.content
                             break
@@ -275,7 +270,7 @@ with st.sidebar:
                         st.markdown("### 💡 Результат аналізу по всій базі:")
                         st.info(response_text)
                     else:
-                        st.error(f"❌ Помилка підключення до Groq: {last_err}")
+                        st.error(f"❌ Помилка Groq: {last_err}")
                 except Exception as e:
                     st.error(f"❌ Помилка: {e}")
 

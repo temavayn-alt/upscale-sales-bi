@@ -6,7 +6,7 @@ import re
 
 # ==============================================================================
 # 🔗 ТВОЄ ПОСИЛАННЯ НА GOOGLE ТАБЛИЦЮ:
-GOOGLE_SHEET_URL = "ВСТАВ_СЮДИ_ПОСИЛАННЯ"
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 # ==============================================================================
 
 st.set_page_config(

@@ -5,7 +5,6 @@ import re
 
 # ==============================================================================
 # 🔗 ТВОЄ ПОСИЛАННЯ НА GOOGLE ТАБЛИЦЮ:
-# (Переконайся, що доступ відкрито: "Усі, хто має посилання - Читач")
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 # ==============================================================================
 
@@ -16,24 +15,62 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Стилі темної теми
+# Стилі для красивих карток з картинками
 st.markdown("""
 <style>
-    .insight-card {
-        background-color: #1e1e2f;
-        border-left: 5px solid #6366f1;
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+    
+    .kpi-card {
+        background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
+        border: 1px solid #2e2e44;
+        border-radius: 12px;
+        padding: 18px 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+        margin-bottom: 10px;
+    }
+    .kpi-label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+    .kpi-value { font-size: 26px; font-weight: 800; color: #ffffff !important; margin-bottom: 6px; font-family: -apple-system, sans-serif; }
+    .kpi-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+    .badge-total { background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); }
+    .badge-switch { background-color: rgba(230, 0, 18, 0.18); color: #ff6b6b; border: 1px solid rgba(230, 0, 18, 0.3); }
+    .badge-ps { background-color: rgba(0, 55, 145, 0.25); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-xbox { background-color: rgba(16, 124, 16, 0.25); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+    
+    /* Картка інсайту з постером гри */
+    .insight-card-flex {
+        display: flex;
+        gap: 16px;
+        background-color: #171723;
+        border-left: 4px solid #6366f1;
         padding: 14px 18px;
         border-radius: 8px;
-        margin-bottom: 12px;
-        border: 1px solid #2d2d42;
+        margin-bottom: 14px;
+        border-top: 1px solid #28283c;
+        border-right: 1px solid #28283c;
+        border-bottom: 1px solid #28283c;
+        align-items: center;
     }
-    .stMetric { background-color: #1a1a26; padding: 12px; border-radius: 8px; border: 1px solid #2d2d3d; }
+    .game-poster {
+        width: 85px;
+        height: 105px;
+        object-fit: cover;
+        border-radius: 6px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+        flex-shrink: 0;
+        background-color: #1f1f2e;
+    }
+    .top-podium-card {
+        background: #181824;
+        border: 1px solid #2b2b3f;
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 def get_export_url(url_or_id):
-    if not url_or_id:
-        return ""
+    if not url_or_id: return ""
     match = re.search(r"/d/([a-zA-Z0-9-_]+)", url_or_id)
     sheet_id = match.group(1) if match else url_or_id.strip()
     gid_match = re.search(r"[#&]gid=([0-9]+)", url_or_id)
@@ -55,6 +92,9 @@ def load_data(sheet_url):
 
     for col in df.columns:
         col_lower = str(col).lower()
+        # Не чіпаємо лінки на картинки
+        if any(img_k in col_lower for img_k in ["cover", "image", "постер", "url", "фото", "link"]):
+            continue
         if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна"]):
             df[col] = (
                 df[col]
@@ -76,14 +116,16 @@ df = load_data(GOOGLE_SHEET_URL)
 if df.empty:
     st.stop()
 
+# Пошук колонки з обкладинкою
+cover_col = next((c for c in df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка", "фото"])), None)
+# Дефолтний заглушка, якщо картинки немає
+DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
+
 total_col = next((c for c in df.columns if c.lower() == "total" or "всього" in c.lower()), None)
 if not total_col:
     total_col = "Calculated_Total"
     sum_cols = [c for c in df.columns if "all" in c.lower() or "total" in c.lower()]
-    if sum_cols:
-        df[total_col] = df[sum_cols].sum(axis=1)
-    else:
-        df[total_col] = 0.0
+    df[total_col] = df[sum_cols].sum(axis=1) if sum_cols else 0.0
 
 with st.sidebar:
     st.header("📊 Upscale BI")
@@ -121,32 +163,81 @@ switch_rev = get_platform_sum("switch")
 ps_rev = get_platform_sum("playstation") if get_platform_sum("playstation") > 0 else get_platform_sum("ps")
 xbox_rev = get_platform_sum("xbox")
 
-# Головні KPI
+# Заголовок
 st.title("📊 Console Sales & Revenue Intelligence")
-st.caption(f"Портфоліо Upscale Studio • Всього тайтлів: {len(df)}")
+st.caption(f"Портфоліо Upscale Studio • Всього проаналізовано тайтлів: **{len(df)}**")
 
-k1, k2, k3, k4 = st.columns(4)
+# KPI Картки
+switch_pct = round(switch_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+ps_pct = round(ps_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
 
-switch_share = f"{round(switch_rev / max(total_gross, 1) * 100)}% частка" if total_gross > 0 else "0%"
-ps_share = f"{round(ps_rev / max(total_gross, 1) * 100)}% частка" if total_gross > 0 else "0%"
-xbox_share = f"{round(xbox_rev / max(total_gross, 1) * 100)}% частка" if total_gross > 0 else "0%"
+c1, c2, c3, c4 = st.columns(4)
 
-k1.metric("Загальна каса портфоліо", f"${total_gross:,.2f}")
-k2.metric("Nintendo Switch", f"${switch_rev:,.2f}", switch_share)
-k3.metric("PlayStation", f"${ps_rev:,.2f}", ps_share)
-k4.metric("Xbox", f"${xbox_rev:,.2f}", xbox_share)
+with c1:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Загальна каса портфоліо</div>
+        <div class="kpi-value">${total_gross:,.2f}</div>
+        <span class="kpi-badge badge-total">100% Total Gross</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown("---")
+with c2:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Nintendo Switch</div>
+        <div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div>
+        <span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">PlayStation</div>
+        <div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div>
+        <span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Xbox</div>
+        <div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div>
+        <span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 tab_overview, tab_decay, tab_insights, tab_table = st.tabs([
     "📈 Огляд і Топ ігор", 
     "⏳ Динаміка каси (M1 ➔ 1Y)", 
-    "🧠 Formula & AI Insights", 
+    "🧠 Formula & AI Insights (з постерами)", 
     "📑 Повна фінансова таблиця"
 ])
 
 # --- ВКЛАДКА 1: ОГЛЯД ---
 with tab_overview:
+    # Подіум Топ-3 лідерів
+    st.subheader("🏆 Топ-3 бестселери портфоліо")
+    top3_df = df.sort_values(by=total_col, ascending=False).head(3)
+    p_cols = st.columns(3)
+    
+    for idx, (_, top_row) in enumerate(top3_df.iterrows()):
+        img_url = top_row[cover_col] if cover_col and pd.notna(top_row[cover_col]) and str(top_row[cover_col]).startswith("http") else DEFAULT_IMAGE
+        with p_cols[idx]:
+            st.markdown(f"""
+            <div class="top-podium-card">
+                <img src="{img_url}" style="width:100%; height:140px; object-fit:cover; border-radius:6px; margin-bottom:8px;">
+                <h4 style="margin:0 0 4px 0; color:#fff;">#{idx+1} {top_row['Game_Name_Clean']}</h4>
+                <p style="margin:0; font-size:18px; color:#34d399; font-weight:bold;">${top_row[total_col]:,.2f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
     c_left, c_right = st.columns([1, 2])
     with c_left:
         st.subheader("Частка консолей у виручці")
@@ -157,24 +248,34 @@ with tab_overview:
         plat_df = plat_df[plat_df["Revenue"] > 0]
         if not plat_df.empty:
             fig_pie = px.pie(
-                plat_df, values="Revenue", names="Platform", hole=0.45,
+                plat_df, values="Revenue", names="Platform", hole=0.5,
                 color="Platform",
-                color_discrete_map={"Nintendo Switch": "#e60012", "PlayStation": "#003791", "Xbox": "#107c10"}
+                color_discrete_map={"Nintendo Switch": "#e60012", "PlayStation": "#3b82f6", "Xbox": "#10b981"}
             )
-            fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10))
+            fig_pie.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color="#e2e8f0", size=13),
+                margin=dict(t=15, b=15, l=15, r=15)
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
-        else:
-            st.info("Дані по платформах відсутні.")
 
     with c_right:
-        st.subheader("Топ тайтлів за виторгом ($)")
+        st.subheader("Топ-15 тайтлів за виторгом ($)")
         top_df = df.sort_values(by=total_col, ascending=True).tail(15)
         fig_bar = px.bar(
             top_df, x=total_col, y="Game_Name_Clean", orientation="h",
             text=total_col, color_discrete_sequence=["#6366f1"]
         )
-        fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-        fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), xaxis_title="Виторг ($)", yaxis_title="")
+        fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside', textfont=dict(color="#ffffff"))
+        fig_bar.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color="#e2e8f0"),
+            xaxis=dict(gridcolor="#28283c", title="Виторг ($)"),
+            yaxis=dict(gridcolor="#28283c", title=""),
+            margin=dict(t=15, b=15, l=15, r=15)
+        )
         st.plotly_chart(fig_bar, use_container_width=True)
 
 # --- ВКЛАДКА 2: ДИНАМІКА КАСИ ---
@@ -187,16 +288,11 @@ with tab_decay:
         for _, row in df.iterrows():
             for t_col in time_cols:
                 period_label = t_col
-                if "1st" in t_col.lower() or "m1" in t_col.lower():
-                    period_label = "1. M1"
-                elif "3" in t_col.lower():
-                    period_label = "2. M3"
-                elif "6" in t_col.lower():
-                    period_label = "3. M6"
-                elif "year" in t_col.lower() or "1y" in t_col.lower():
-                    period_label = "4. 1Y"
-                elif "all" in t_col.lower():
-                    period_label = "5. All Time"
+                if "1st" in t_col.lower() or "m1" in t_col.lower(): period_label = "1. M1"
+                elif "3" in t_col.lower(): period_label = "2. M3"
+                elif "6" in t_col.lower(): period_label = "3. M6"
+                elif "year" in t_col.lower() or "1y" in t_col.lower(): period_label = "4. 1Y"
+                elif "all" in t_col.lower(): period_label = "5. All Time"
                 
                 decay_rows.append({
                     "Game": row["Game_Name_Clean"],
@@ -206,14 +302,21 @@ with tab_decay:
         
         decay_df = pd.DataFrame(decay_rows).sort_values("Period")
         fig_line = px.line(decay_df, x="Period", y="Revenue", color="Game", markers=True)
-        fig_line.update_layout(yaxis_title="Накопичений виторг ($)", xaxis_title="Період")
+        fig_line.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color="#e2e8f0"),
+            xaxis=dict(gridcolor="#28283c", title="Період"),
+            yaxis=dict(gridcolor="#28283c", title="Накопичений виторг ($)"),
+            margin=dict(t=15, b=15, l=15, r=15)
+        )
         st.plotly_chart(fig_line, use_container_width=True)
     else:
         st.info("Колонки часових періодів не знайдено.")
 
-# --- ВКЛАДКА 3: ІНСАЙТИ ---
+# --- ВКЛАДКА 3: ІНСАЙТИ З ПОСТЕРАМИ ---
 with tab_insights:
-    st.subheader("Стратегічні висновки (Formula & AI Insights)")
+    st.subheader("Стратегічні висновки та постери тайтлів")
     formula_col = next((c for c in df.columns if "formula" in c.lower()), None)
     ai_col = next((c for c in df.columns if "ai" in c.lower()), None)
     
@@ -222,19 +325,29 @@ with tab_insights:
         rev_val = row[total_col]
         f_text = row[formula_col] if formula_col and pd.notna(row[formula_col]) else "—"
         ai_text = row[ai_col] if ai_col and pd.notna(row[ai_col]) else "—"
+        img_url = row[cover_col] if cover_col and pd.notna(row[cover_col]) and str(row[cover_col]).startswith("http") else DEFAULT_IMAGE
         
         st.markdown(f"""
-        <div class="insight-card">
-            <h4 style="margin:0 0 6px 0; color:#fff;">🎮 {g_name} — <span style="color:#10b981;">${rev_val:,.2f}</span></h4>
-            <p style="margin:0 0 4px 0; font-size:13px; color:#818cf8;"><b>📐 Формула:</b> {f_text}</p>
-            <p style="margin:0; font-size:13px; color:#cbd5e1;"><b>💡 AI Аналіз:</b> {ai_text}</p>
+        <div class="insight-card-flex">
+            <img src="{img_url}" class="game-poster" onerror="this.src='{DEFAULT_IMAGE}'">
+            <div style="flex-grow: 1;">
+                <h4 style="margin:0 0 6px 0; color:#ffffff; font-size:16px;">🎮 {g_name} — <span style="color:#34d399; font-weight:bold;">${rev_val:,.2f}</span></h4>
+                <p style="margin:0 0 4px 0; font-size:13px; color:#a5b4fc;"><b>📐 Формула/Динаміка:</b> {f_text}</p>
+                <p style="margin:0; font-size:13px; color:#cbd5e1; line-height:1.5;"><b>💡 AI Аналіз:</b> {ai_text}</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-# --- ВКЛАДКА 4: ТАБЛИЦЯ ---
+# --- ВКЛАДКА 4: ТАБЛИЦЯ З МІНІАТЮРАМИ ---
 with tab_table:
     st.subheader("Повна фінансова таблиця")
-    st.dataframe(df, use_container_width=True, height=500)
+    
+    # Якщо є колонка картинок — показуємо як прев'ю в таблиці
+    column_config = {}
+    if cover_col:
+        column_config[cover_col] = st.column_config.ImageColumn("Обкладинка", width="small")
+    
+    st.dataframe(df, column_config=column_config, use_container_width=True, height=520)
     
     csv_data = df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Експортувати у CSV", data=csv_data, file_name="console_sales_full.csv", mime="text/csv")

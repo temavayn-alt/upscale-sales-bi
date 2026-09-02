@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 from datetime import datetime
+import math
 import re
 from anthropic import Anthropic
 
@@ -23,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Стилі темної теми високої контрастності + мінімалістичні вкладки
+# Професійні стилі темної теми + мінімалістичні вкладки БЕЗ синьої заливки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -89,23 +90,49 @@ NINTENDO_SCHEDULE = [
     {"name": "4. Holiday Sale (US)", "start": "2026-12-21", "end": "2027-01-11", "status": "🎄 Головний (US)"}
 ]
 
+# 30 ВІДКАЛІБРОВАНИХ ПІДЖАНРІВ
 GENRE_DATABASE = {
-    "Animal Chaos / Cat Simulator": {"PS": 4.2, "Switch": 3.2, "Xbox": 1.6, "Decay": 1.35, "Desc": "Топ-сегмент портфоліо (Cat From Hell, Bad Cat, Angry Cat)"},
-    "Job / Business Simulator (3D)": {"PS": 2.2, "Switch": 2.6, "Xbox": 1.5, "Decay": 1.30, "Desc": "Switch/PS лідери (Supermarket, Waterpark, Drug Dealer)"},
-    "Meme / Viral / Crime Sim (3D)": {"PS": 3.8, "Switch": 1.4, "Xbox": 1.6, "Decay": 1.15, "Desc": "PlayStation трофі-вірусність (Drug Dealer, Mad Taxi)"},
-    "3D PSX / VHS / Retro Horror": {"PS": 2.0, "Switch": 0.5, "Xbox": 2.8, "Decay": 1.15, "Desc": "Xbox домінує (Skinwalker $9.4k), Switch слабкий"},
-    "3D First-Person Atmospheric Horror": {"PS": 2.2, "Switch": 0.6, "Xbox": 2.2, "Decay": 1.10, "Desc": "Рівний високий попит на PS та Xbox (Cornfield, Death Attraction)"},
-    "Bunker / Hardcore Survival (3D/2D)": {"PS": 1.8, "Switch": 1.2, "Xbox": 2.4, "Decay": 1.35, "Desc": "Xbox та PS база (From the Bunker $3.8k)"},
-    "Cozy Games & Life Simulators": {"PS": 0.8, "Switch": 3.0, "Xbox": 0.6, "Decay": 1.45, "Desc": "Switch-монополія, стабільний довгий хвіст"},
-    "Hidden Object / Point & Click Quest": {"PS": 1.3, "Switch": 1.9, "Xbox": 0.8, "Decay": 1.40, "Desc": "Стабільна окупність (Conquistadorio, Minima)"},
-    "Card Game / Deckbuilder / Narrative": {"PS": 1.0, "Switch": 1.4, "Xbox": 1.1, "Decay": 1.40, "Desc": "Стійкі сейл-збори (Choice of Life: Wild Islands)"},
-    "Arcade Racing / Physics Crash (3D)": {"PS": 1.8, "Switch": 1.6, "Xbox": 0.9, "Decay": 1.15, "Desc": "Імпульсивні покупки на PS та Switch (Gran Carismo)"},
-    "Roguelike (Action / Survivor-like)": {"PS": 1.4, "Switch": 1.5, "Xbox": 1.3, "Decay": 1.35, "Desc": "Збалансований мультиплатформенний попит (Nom Nom)"},
-    "Tower Defense / Tactical Strategy": {"PS": 1.1, "Switch": 1.6, "Xbox": 1.2, "Decay": 1.30, "Desc": "Стабільний попит на Switch/Xbox (Epic Empire)"},
-    "2D Casual / Mobile-style Puzzle": {"PS": 0.6, "Switch": 2.0, "Xbox": 0.5, "Decay": 1.20, "Desc": "Працює тільки на Switch за ціни $4.99 (Find Sort Match)"},
-    "Metroidvania / 2D Pixel Action": {"PS": 1.1, "Switch": 0.4, "Xbox": 0.9, "Decay": 1.15, "Desc": "⚠️ Перенасичений ринок на Switch (Absurdika $84)"},
-    "Idle / Clicker Games": {"PS": 0.8, "Switch": 1.0, "Xbox": 0.7, "Decay": 1.30, "Desc": "Помірний результат (Loaders Inc, Funny Animal Cafe)"},
-    "Casual Vehicle / Flight Simulator": {"PS": 0.4, "Switch": 0.4, "Xbox": 0.5, "Decay": 1.10, "Desc": "🔴 Зона високого ризику (Paperly $1.3k замість $16k)"}
+    # 1. Симулятори та Менеджмент (8)
+    "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.8, "Xbox": 1.8, "Switch": 2.6, "Decay": 1.35, "Desc": "Cat From Hell, Bad Cat, Angry Cat (Топ PS/Switch)"},
+    "Simulator: Crime / Black Market (3D)": {"PS": 4.2, "Xbox": 3.5, "Switch": 1.2, "Decay": 1.15, "Desc": "Drug Dealer Empire, Thief Sim (Високий чек на PS/Xbox)"},
+    "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 2.2, "Xbox": 1.5, "Switch": 2.8, "Decay": 1.30, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo (Switch-лідер)"},
+    "Simulator: Shop / Supermarket / Store (3D)": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.5, "Decay": 1.30, "Desc": "My Supermarket Simulator (Топ-органіка Switch)"},
+    "Simulator: Job / Service / Business (3D)": {"PS": 2.0, "Xbox": 1.8, "Switch": 2.2, "Decay": 1.25, "Desc": "Waterpark Manager, Street Food Simulator"},
+    "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.5, "Xbox": 2.4, "Switch": 1.8, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben (Xbox лідер)"},
+    "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 3.2, "Decay": 1.40, "Desc": "Монополія аудиторії Nintendo"},
+    "Simulator: Casual Flight / Paper Plane": {"PS": 0.4, "Xbox": 0.3, "Switch": 0.4, "Decay": 1.10, "Desc": "🔴 Paperly, Fly for Fly (Зона низького чека)"},
+
+    # 2. Хоррори та Виживання (5)
+    "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.8, "Xbox": 2.8, "Switch": 0.5, "Decay": 1.15, "Desc": "Skinwalker ($9.4k XB), TROX (Xbox домінує)"},
+    "Horror: 3D First-Person Atmospheric": {"PS": 1.6, "Xbox": 2.2, "Switch": 0.5, "Decay": 1.10, "Desc": "Cornfield, Death Attraction, Dr. Psycho"},
+    "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.4, "Switch": 1.0, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (Стримерські продажі PS)"},
+    "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 2.0, "Xbox": 2.6, "Switch": 1.8, "Decay": 1.35, "Desc": "From the Bunker, Survival After War"},
+    "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 2.0, "Switch": 1.5, "Decay": 1.30, "Desc": "Call of Island, WinterCraft"},
+
+    # 3. Платформери та Фізика (4)
+    "Platformer: 3D Physics / Character Adventure": {"PS": 2.0, "Xbox": 1.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Super Adventure Hand ($3.4k PS / $2.6k XB)"},
+    "Platformer: 3D Obby / Roblox-style": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.4, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball (Молода аудиторія)"},
+    "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 3.0, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
+    "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.15, "Desc": "Super Rock Climber (Only Up вайб)"},
+
+    # 4. Пазли та Козі (4)
+    "Cozy: Organization / Packing / Decor": {"PS": 0.8, "Xbox": 0.5, "Switch": 3.5, "Decay": 1.45, "Desc": "Packit List, Unpacking-вайб (Switch топ)"},
+    "Puzzle: 2D Match-3D / Goods Sort / Nuts": {"PS": 0.6, "Xbox": 0.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Goods Sort, Bus Jam, Bolts & Nuts"},
+    "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.8, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge (Імпульсивні покупки)"},
+    "Puzzle: Hidden Object / Detective Quest": {"PS": 1.6, "Xbox": 0.9, "Switch": 1.8, "Decay": 1.40, "Desc": "Conquistadorio ($25k All-time), Minima, Dollmaker"},
+
+    # 5. Екшн, Шутери та Перегони (4)
+    "Racing: 3D Arcade / Traffic Driving": {"PS": 3.0, "Xbox": 1.0, "Switch": 1.8, "Decay": 1.15, "Desc": "Gran Carismo ($3.6k PS), Hyper Cars"},
+    "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.8, "Xbox": 2.2, "Switch": 1.0, "Decay": 1.25, "Desc": "Bunker 22 ($3.4k PS), Zombiescraper"},
+    "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.2, "Xbox": 1.0, "Switch": 1.4, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
+    "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Street Combat Fighting"},
+
+    # 6. RPG, Роглайки та Стратегії (5)
+    "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.4, "Xbox": 1.4, "Switch": 1.8, "Decay": 1.35, "Desc": "Nom Nom Apocalypse"},
+    "Roguelike: Turn-Based / Deckbuilder / Dice": {"PS": 1.0, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.40, "Desc": "Rabbit Samurai, Bag Hero, Slice & Dice"},
+    "Metroidvania: 2D Pixel / Action Platformer": {"PS": 1.0, "Xbox": 0.8, "Switch": 0.4, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild (Перенасичення Switch)"},
+    "Strategy: Tower Defense / Castle Defense": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.4, "Decay": 1.30, "Desc": "Epic Empire ($3k PS / $1.4k NS), Wizard's Fortress"},
+    "Visual Novel / Narrative Choice": {"PS": 1.0, "Xbox": 0.3, "Switch": 2.5, "Decay": 1.40, "Desc": "Choice of Life: Wild Islands"}
 }
 
 PRICE_MODIFIERS = {4.99: 1.25, 5.99: 1.15, 6.99: 1.10, 9.99: 1.00, 14.99: 0.75, 19.99: 0.55}
@@ -115,7 +142,6 @@ def get_export_url(url_or_id):
     url_str = str(url_or_id).strip()
     match = re.search(r"/d/([a-zA-Z0-9-_]+)", url_str)
     sheet_id = match.group(1) if match else url_str
-    
     gid_match = re.search(r"[?#&]gid=([0-9]+)", url_str)
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -246,7 +272,7 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ CLAUDE HAIKU 4.5
+    # AI ЧАТ CLAUDE
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
@@ -500,7 +526,7 @@ if app_mode == "🎮 Наші ігри":
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
     # =========================================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (З УРАХУВАННЯМ РЕАЛЬНИХ ПЛАТФОРМ РЕЛІЗУ)
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ЧЕСНИЙ РОЗРАХУНОК ВІД ВКЛАДКИ PREDICT)
     # =========================================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
@@ -521,7 +547,7 @@ if app_mode == "🎮 Наші ігри":
             g_name = str(r["Game_Name_Clean"]).strip()
             if not g_name or g_name.lower() == 'nan': continue
             
-            g_genre_str = str(r.get(genre_col, "Simulator")).strip()
+            g_genre_str = str(r.get(genre_col, "Simulator: Job / Service / Business (3D)")).strip()
             g_price = r.get("Price consoles, $", r.get("Price consoles", 9.99))
             try: g_price = float(g_price)
             except: g_price = 9.99
@@ -549,36 +575,30 @@ if app_mode == "🎮 Наші ігри":
                 if "ps" in src_plat_text or "playstation" in src_plat_text: active_platforms.append("PS")
                 if "xbox" in src_plat_text: active_platforms.append("Xbox")
             
-            # Якщо зовсім немає даних про платформи — за замовчуванням усі 3
             if not active_platforms:
                 active_platforms = ["PS", "Switch", "Xbox"]
 
             platform_badge = " + ".join(active_platforms) if len(active_platforms) < 3 else "Усі 3 консолі"
 
-            # 3. ПОШУК ВХІДНИХ МЕТРИК ДЛЯ ПРОГНОЗУ
+            # 3. ТОЧНИЙ РОЗРАХУНОК BASE METRIC ВІД ДЖЕРЕЛА
             base_m = find_val(r, ["base metric"])
             installs_val = find_val(r, ["installs"]) or find_val(r, ["reviews"])
             steam_rev_val = find_val(r, ["steam revenue"])
             src_platform_type = str(r.get("Platform", "")).lower()
 
-            # Якщо Base Metric не було, але є інстали/Steam — рахуємо її чесно
             if base_m == 0:
                 if "steam" in src_platform_type or steam_rev_val > 0:
-                    base_m = max(500.0, min(6500.0, steam_rev_val * 0.16 + installs_val * 6.5))
-                elif "play" in src_platform_type or installs_val >= 10000:
-                    if installs_val < 50000: base_m = 750.0
-                    elif installs_val <= 200000: base_m = 1432.5
-                    elif installs_val <= 700000: base_m = 2214.2
-                    elif installs_val <= 2000000: base_m = 2800.0
-                    else: base_m = 5272.0
+                    base_m = (steam_rev_val * 0.10) + 500.0
+                elif "play" in src_platform_type or ("google" in src_platform_type) or (installs_val >= 10000):
+                    base_m = (math.sqrt(installs_val) * 2.0) + 800.0 if installs_val > 0 else 0.0
                 elif "crazy" in src_platform_type or ("web" in src_platform_type and installs_val > 0):
-                    base_m = max(600.0, min(3500.0, 900.0 + (installs_val / 1000.0) * 120.0))
+                    base_m = (installs_val * 0.05) + 900.0
                 elif "itch" in src_platform_type and installs_val > 0:
-                    base_m = max(400.0, min(2500.0, 400.0 + installs_val * 15.0))
+                    base_m = (installs_val * 10.0) + 400.0
 
             # 4. РОЗРАХУНОК ПРОГНОЗУ СУВОРО ДЛЯ АКТИВНИХ ПЛАТФОРМ
             if base_m > 0:
-                matched_g = "Job / Business Simulator (3D)"
+                matched_g = "Simulator: Job / Service / Business (3D)"
                 for k in GENRE_DATABASE:
                     if k.lower() in g_genre_str.lower() or g_genre_str.lower() in k.lower():
                         matched_g = k
@@ -591,14 +611,12 @@ if app_mode == "🎮 Наші ігри":
                 sw_pred = base_m * cfg["Switch"] * p_m if "Switch" in active_platforms else 0.0
                 xb_pred = base_m * cfg["Xbox"] * p_m if "Xbox" in active_platforms else 0.0
                 
-                # Тотал прогноз тільки по тих платформах, де був реліз!
                 total_pred_m1 = ps_pred + sw_pred + xb_pred
                 has_valid_forecast = True
             else:
                 ps_pred, sw_pred, xb_pred, total_pred_m1 = 0.0, 0.0, 0.0, 0.0
                 has_valid_forecast = False
 
-            # Тотал факт по активних платформах
             total_m1_fact = (ps_m1_fact if "PS" in active_platforms else 0.0) + \
                             (sw_m1_fact if "Switch" in active_platforms else 0.0) + \
                             (xb_m1_fact if "Xbox" in active_platforms else 0.0)
@@ -661,7 +679,6 @@ if app_mode == "🎮 Наші ігри":
 
         st.markdown("---")
         
-        # Графік План vs Факт
         if not valid_comp.empty:
             st.subheader("📊 Графік: Фактичні збори M1 проти Прогнозу ($)")
             chart_plan_df = valid_comp.head(15)
@@ -867,7 +884,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")
-    st.caption("Оцінка нових лідів за 16 піджанрами та формування пайплайну")
+    st.caption("Оцінка нових лідів за 30 піджанрами та формування пайплайну")
 
     calc_tab1, calc_tab2 = st.tabs([
         "🧮 Інтерактивний калькулятор ліда",
@@ -887,27 +904,16 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             
             if calc_src == "Steam":
                 s_rev = st.number_input("Steam All-Time Revenue ($):", min_value=0, value=6000, step=1000)
-                s_revs = st.number_input("Steam Reviews:", min_value=0, value=90, step=10)
-                b_metric = max(500.0, min(6500.0, s_rev * 0.16 + s_revs * 6.5))
+                b_metric = (s_rev * 0.10) + 500.0
             elif calc_src == "Google Play":
-                gp_opts = st.selectbox("Завантаження Google Play:", [
-                    "10,000 - 50,000 (Нішева)",
-                    "100,000 (Стандартний лід)",
-                    "500,000 (Популярний лід)",
-                    "1,000,000 (Топ лід)",
-                    "5,000,000 - 10,000,000+ (Гіперкажуал)"
-                ], index=2)
-                if "10,000" in gp_opts: b_metric = 750.0
-                elif "100,000" in gp_opts: b_metric = 1432.5
-                elif "500,000" in gp_opts: b_metric = 2214.2
-                elif "1,000,000" in gp_opts: b_metric = 2800.0
-                else: b_metric = 5272.0
+                gp_installs = st.number_input("Завантаження Google Play (Installs):", min_value=0, value=500000, step=50000)
+                b_metric = (math.sqrt(gp_installs) * 2.0) + 800.0 if gp_installs > 0 else 0.0
             elif calc_src == "CrazyGames / Web":
                 cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
-                b_metric = max(600.0, min(3500.0, 900.0 + (cg_r / 1000.0) * 120.0))
-            else:
+                b_metric = (cg_r * 0.05) + 900.0
+            else: # itch.io
                 itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
-                b_metric = max(400.0, min(2500.0, 400.0 + itch_r * 15.0))
+                b_metric = (itch_r * 10.0) + 400.0
 
             st.markdown("---")
             st.markdown("#### 2. Жанр і Ціноутворення")

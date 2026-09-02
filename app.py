@@ -11,12 +11,13 @@ from anthropic import Anthropic
 # 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ:
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
+PREDICT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=646742574#gid=646742574"  # Вкладка Predict
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL з Apps Script для автозапису
 ANTHROPIC_API_KEY = ""  # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
 # ==============================================================================
 
 st.set_page_config(
-    page_title="Upscale Studio | Console BI & Sales Hub",
+    page_title="Upscale Studio | Console BI & Growth Hub",
     page_icon="🎮",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -45,9 +46,7 @@ st.markdown("""
         font-weight: 500;
         transition: all 0.2s ease;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #e2e8f0 !important;
-    }
+    .stTabs [data-baseweb="tab"]:hover { color: #e2e8f0 !important; }
     .stTabs [aria-selected="true"] {
         background-color: transparent !important;
         background: transparent !important;
@@ -116,7 +115,6 @@ def get_export_url(url_or_id):
     url_str = str(url_or_id).strip()
     match = re.search(r"/d/([a-zA-Z0-9-_]+)", url_str)
     sheet_id = match.group(1) if match else url_str
-    
     gid_match = re.search(r"[?#&]gid=([0-9]+)", url_str)
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -135,7 +133,7 @@ def load_data(sheet_url):
         col_lower = str(col).lower()
         if any(img_k in col_lower for img_k in ["cover", "image", "постер", "url", "фото", "link"]):
             continue
-        if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна", "accuracy", "base metric"]):
+        if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна", "accuracy", "base metric", "installs", "reviews"]):
             df[col] = (
                 df[col].astype(str)
                 .str.replace("$", "", regex=False)
@@ -204,6 +202,8 @@ def load_weekly_data(sheet_url):
 
 raw_df = load_data(GOOGLE_SHEET_URL)
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
+# Якщо є посилання на Predict — читаємо його, інакше шукаємо в raw_df
+predict_df = load_data(PREDICT_SHEET_URL) if (PREDICT_SHEET_URL and "ВСТАВ_СЮДИ" not in PREDICT_SHEET_URL) else raw_df
 
 if raw_df.empty:
     st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
@@ -246,7 +246,7 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ CLAUDE
+    # AI ЧАТ CLAUDE HAIKU 4.5
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
@@ -254,7 +254,10 @@ with st.sidebar:
     if not claude_key:
         claude_key = st.text_input("Введи Anthropic API Key:", type="password", placeholder="sk-ant-...")
 
-    ai_query = st.text_area("Запитай будь-що по всій базі:", placeholder="Напр.: Скільки симуляторів заробили більше $1000?")
+    ai_query = st.text_area(
+        "Запитай будь-що по всій базі:",
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000? Або: Проаналізуй динаміку останнього тижня."
+    )
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
         clean_key = str(claude_key).strip()
@@ -297,7 +300,7 @@ with st.sidebar:
                     weekly_csv_snippet = weekly_df.to_csv(index=False) if not weekly_df.empty else "No weekly data"
 
                     prompt = f"""
-                    Ти — головний фінансовий директор та аналітик консольного видавництва ігор Upscale Studio (Україна).
+                    Ти — головний фінансовий директор та аналітик консольного видавництва Upscale Studio (Україна).
                     Дані портфоліо ({len(summary_lines)-1} ігор):
                     {compact_dataset}
 
@@ -497,11 +500,11 @@ if app_mode == "🎮 Наші ігри":
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
     # =========================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ПОВНИЙ АНАЛІЗ ТОЧНОСТІ)
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ЧЕСНИЙ РОЗРАХУНОК ВІД ВКЛАДКИ PREDICT)
     # =========================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        st.caption("Аудит точності на основі відкаліброваної моделі 16 піджанрів")
+        st.caption("Аудит точності на основі реальних метрик (Installs / Reviews / Steam Revenue)")
 
         def find_val(row_s, keys, not_keys=[]):
             for c in row_s.index:
@@ -511,35 +514,47 @@ if app_mode == "🎮 Наші ігри":
                     except: pass
             return 0.0
 
-        # Будуємо порівняльну таблицю Fact vs Forecast для ВСІХ ігор
         comparison_list = []
+        audit_source_df = predict_df if not predict_df.empty else filtered_df
         
-        for _, r in filtered_df.iterrows():
+        for _, r in audit_source_df.iterrows():
             g_name = str(r["Game_Name_Clean"]).strip()
             if not g_name or g_name.lower() == 'nan': continue
             
-            g_genre_str = str(r.get(genre_col, "Simulator (Job/Business)")).strip()
+            g_genre_str = str(r.get(genre_col, "Simulator")).strip()
             g_price = r.get("Price consoles, $", r.get("Price consoles", 9.99))
             try: g_price = float(g_price)
             except: g_price = 9.99
 
-            # 1. ФАКТИЧНІ ЗБОРИ (M1 Fact)
-            ps_m1_fact = find_val(r, ["ps", "1st"]) or find_val(r, ["playstation", "1st"]) or find_val(r, ["ps", "m1"])
-            sw_m1_fact = find_val(r, ["switch", "1st"]) or find_val(r, ["switch", "m1"])
-            xb_m1_fact = find_val(r, ["xbox", "1st"]) or find_val(r, ["xbox", "m1"])
+            # 1. ФАКТ M1
+            ps_m1_fact = find_val(r, ["playstation revenue 1st month"]) or find_val(r, ["ps", "1st"])
+            sw_m1_fact = find_val(r, ["switch revenue 1st month"]) or find_val(r, ["switch", "1st"])
+            xb_m1_fact = find_val(r, ["xbox revenue 1st month"]) or find_val(r, ["xbox", "1st"])
             total_m1_fact = ps_m1_fact + sw_m1_fact + xb_m1_fact
 
-            # 2. ПРОГНОЗНІ ЗБОРИ (Forecast)
-            # Якщо в таблиці вже є готові стовпчики прогнозу — беремо їх
-            ps_pred_col = find_val(r, ["ps revenue 1st month, $"]) or find_val(r, ["ps", "pred"])
-            sw_pred_col = find_val(r, ["switch revenue 1st month, $"]) or find_val(r, ["switch", "pred"])
-            xb_pred_col = find_val(r, ["xbox revenue 1st month, $"]) or find_val(r, ["xbox", "pred"])
-            
-            # Якщо прогнозів не було в таблиці — рахуємо за нашою моделлю
-            if ps_pred_col == 0 and sw_pred_col == 0 and xb_pred_col == 0:
-                base_m = find_val(r, ["base metric"]) or 1500.0
-                
-                # Підбираємо піджанр
+            # 2. ПОШУК ВХІДНИХ МЕТРИК
+            base_m = find_val(r, ["base metric"])
+            installs_val = find_val(r, ["installs"]) or find_val(r, ["reviews"])
+            steam_rev_val = find_val(r, ["steam revenue"])
+            src_platform = str(r.get("Platform", "")).lower()
+
+            # Якщо Base Metric не було, але є інстали/Steam — рахуємо її чесно
+            if base_m == 0:
+                if "steam" in src_platform or steam_rev_val > 0:
+                    base_m = max(500.0, min(6500.0, steam_rev_val * 0.16 + installs_val * 6.5))
+                elif "play" in src_platform or installs_val >= 10000:
+                    if installs_val < 50000: base_m = 750.0
+                    elif installs_val <= 200000: base_m = 1432.5
+                    elif installs_val <= 700000: base_m = 2214.2
+                    elif installs_val <= 2000000: base_m = 2800.0
+                    else: base_m = 5272.0
+                elif "crazy" in src_platform or ("web" in src_platform and installs_val > 0):
+                    base_m = max(600.0, min(3500.0, 900.0 + (installs_val / 1000.0) * 120.0))
+                elif "itch" in src_platform and installs_val > 0:
+                    base_m = max(400.0, min(2500.0, 400.0 + installs_val * 15.0))
+
+            # 3. РОЗРАХУНОК ПРОГНОЗУ ЗА КОЕФІЦІЄНТАМИ (Тільки якщо була база)
+            if base_m > 0:
                 matched_g = "Job / Business Simulator (3D)"
                 for k in GENRE_DATABASE:
                     if k.lower() in g_genre_str.lower() or g_genre_str.lower() in k.lower():
@@ -552,75 +567,80 @@ if app_mode == "🎮 Наші ігри":
                 ps_pred = base_m * cfg["PS"] * p_m
                 sw_pred = base_m * cfg["Switch"] * p_m
                 xb_pred = base_m * cfg["Xbox"] * p_m
+                total_pred_m1 = ps_pred + sw_pred + xb_pred
+                has_valid_forecast = True
             else:
-                ps_pred = ps_pred_col
-                sw_pred = sw_pred_col
-                xb_pred = xb_pred_col
+                ps_pred, sw_pred, xb_pred, total_pred_m1 = 0.0, 0.0, 0.0, 0.0
+                has_valid_forecast = False
 
-            total_pred_m1 = ps_pred + sw_pred + xb_pred
-
-            # Розрахунок точності та відхилення
-            if total_m1_fact > 0 and total_pred_m1 > 0:
+            # 4. АНАЛІЗ ТОЧНОСТІ
+            if has_valid_forecast and total_m1_fact > 0:
                 acc_pct = max(0.0, round((1.0 - abs(total_m1_fact - total_pred_m1) / max(total_m1_fact, total_pred_m1)) * 100, 1))
                 delta_usd = total_m1_fact - total_pred_m1
                 
-                if total_m1_fact > total_pred_m1 * 1.2:
+                if total_m1_fact > total_pred_m1 * 1.25:
                     perf_status = "🟢 Перевищила план"
-                elif total_m1_fact < total_pred_m1 * 0.7:
+                elif total_m1_fact < total_pred_m1 * 0.70:
                     perf_status = "🔴 Нижче плану"
                 else:
-                    perf_status = "🟡 У плані (±20%)"
+                    perf_status = "🟡 У плані (±25%)"
+            elif total_m1_fact > 0 and not has_valid_forecast:
+                acc_pct = None
+                delta_usd = None
+                perf_status = "⚪ Немає вхідних метрик"
             else:
-                acc_pct = 0.0
-                delta_usd = 0.0
+                acc_pct = None
+                delta_usd = None
                 perf_status = "⚪ Немає факт даних"
 
             comparison_list.append({
                 "Гра": g_name,
                 "Жанр": g_genre_str,
                 "Ціна ($)": g_price,
-                "Факт M1 ($)": round(total_m1_fact, 2),
-                "Прогноз M1 ($)": round(total_pred_m1, 2),
-                "Різниця ($)": round(delta_usd, 2),
-                "Точність (%)": acc_pct,
+                "Base Metric": round(base_m, 1) if base_m > 0 else "—",
+                "Факт M1 ($)": round(total_m1_fact, 2) if total_m1_fact > 0 else "—",
+                "Прогноз M1 ($)": round(total_pred_m1, 2) if has_valid_forecast else "—",
+                "Різниця ($)": round(delta_usd, 2) if delta_usd is not None else "—",
+                "Точність (%)": f"{acc_pct:.1f}%" if acc_pct is not None else "—",
                 "Статус виконання": perf_status,
-                "PS Факт": round(ps_m1_fact, 2),
-                "PS Прогноз": round(ps_pred, 2),
-                "Switch Факт": round(sw_m1_fact, 2),
-                "Switch Прогноз": round(sw_pred, 2),
-                "Xbox Факт": round(xb_m1_fact, 2),
-                "Xbox Прогноз": round(xb_pred, 2)
+                "PS Факт": round(ps_m1_fact, 2) if ps_m1_fact > 0 else "—",
+                "PS Прогноз": round(ps_pred, 2) if has_valid_forecast else "—",
+                "Switch Факт": round(sw_m1_fact, 2) if sw_m1_fact > 0 else "—",
+                "Switch Прогноз": round(sw_pred, 2) if has_valid_forecast else "—",
+                "Xbox Факт": round(xb_m1_fact, 2) if xb_m1_fact > 0 else "—",
+                "Xbox Прогноз": round(xb_pred, 2) if has_valid_forecast else "—"
             })
 
         comp_df = pd.DataFrame(comparison_list)
 
-        # KPI Точності
-        active_comp = comp_df[comp_df["Факт M1 ($)"] > 0]
-        avg_acc = active_comp["Точність (%)"].mean() if not active_comp.empty else 0.0
-        over_count = len(active_comp[active_comp["Статус виконання"].str.contains("Перевищила")])
-        target_count = len(active_comp[active_comp["Статус виконання"].str.contains("У плані")])
-        under_count = len(active_comp[active_comp["Статус виконання"].str.contains("Нижче")])
+        # KPI Точності (Тільки для ігор, які мали і факт і прогноз)
+        valid_comp = comp_df[comp_df["Точність (%)"] != "—"].copy()
+        valid_comp["Acc_Num"] = valid_comp["Точність (%)"].str.replace("%", "").astype(float)
+        
+        avg_acc = valid_comp["Acc_Num"].mean() if not valid_comp.empty else 0.0
+        over_count = len(comp_df[comp_df["Статус виконання"].str.contains("Перевищила")])
+        target_count = len(comp_df[comp_df["Статус виконання"].str.contains("У плані")])
+        under_count = len(comp_df[comp_df["Статус виконання"].str.contains("Нижче")])
 
         a_c1, a_c2, a_c3, a_c4 = st.columns(4)
-        a_c1.metric("Середня точність моделі", f"{avg_acc:.1f}%")
+        a_c1.metric("Середня точність моделі", f"{avg_acc:.1f}%" if avg_acc > 0 else "—")
         a_c2.metric("🟢 Перевищили план", f"{over_count} ігор")
-        a_c3.metric("🟡 У межах плану (±20%)", f"{target_count} ігор")
+        a_c3.metric("🟡 У межах плану (±25%)", f"{target_count} ігор")
         a_c4.metric("🔴 Нижче прогнозу", f"{under_count} ігор")
 
         st.markdown("---")
         
         # Графік План vs Факт
-        st.subheader("📊 Графік: Фактичні збори M1 проти Прогнозу ($)")
-        top_comp_chart = active_comp.sort_values(by="Факт M1 ($)", ascending=False).head(15)
-        
-        if not top_comp_chart.empty:
+        if not valid_comp.empty:
+            st.subheader("📊 Графік: Фактичні збори M1 проти Прогнозу ($)")
+            chart_plan_df = valid_comp.head(15)
             fig_plan_fact = go.Figure()
             fig_plan_fact.add_trace(go.Bar(
-                x=top_comp_chart["Гра"], y=top_comp_chart["Факт M1 ($)"],
+                x=chart_plan_df["Гра"], y=chart_plan_df["Факт M1 ($)"],
                 name="ФАКТ M1 ($)", marker_color="#10b981"
             ))
             fig_plan_fact.add_trace(go.Bar(
-                x=top_comp_chart["Гра"], y=top_comp_chart["Прогноз M1 ($)"],
+                x=chart_plan_df["Гра"], y=chart_plan_df["Прогноз M1 ($)"],
                 name="ПРОГНОЗ M1 ($)", marker_color="#6366f1"
             ))
             fig_plan_fact.update_layout(

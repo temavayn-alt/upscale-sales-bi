@@ -190,52 +190,65 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ З АВТОВИБОРОМ ДОСТУПНИХ МОДЕЛЕЙ GROQ
+    # =========================================================================
+    # 🤖 УНІВЕРСАЛЬНИЙ AI-АНАЛІТИК (СКАНУЄ 100% ТАБЛИЦІ ТА ВСІХ КОЛОНОК)
+    # =========================================================================
     st.markdown("---")
-    st.subheader("🤖 AI-Аналітик (Groq)")
+    st.subheader("🤖 AI-Аналітик по всій базі")
     groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
     
     if not groq_key:
         groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
         st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
 
-    ai_query = st.text_area("Запитай щось у бази:", placeholder="Напр.: Які топ-3 хоррори на PlayStation?")
+    ai_query = st.text_area(
+        "Запитай будь-що по всій таблиці:",
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за місяць? Або: Порівняй ефективність ігор зі Steam проти Google Play по всіх консолях."
+    )
     
-    if st.button("⚡ Запитати у ШІ", use_container_width=True):
+    if st.button("⚡ Просканувати всю таблицю через ШІ", use_container_width=True):
         clean_key = str(groq_key).strip()
         if not clean_key or not clean_key.startswith("gsk_"):
-            st.error("❌ Введи валідний ключ Groq (починається на 'gsk_') з console.groq.com!")
+            st.error("❌ Введи валідний ключ Groq (gsk_...)!")
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ аналізує портфоліо..."):
+            with st.spinner("ШІ завантажує та сканує 100% колонок і рядків таблиці..."):
                 try:
                     client = Groq(api_key=clean_key)
                     
-                    # Отримуємо реальний список моделей, доступних для твого ключа
-                    try:
-                        valid_models = [m.id for m in client.models.list().data if 'whisper' not in m.id.lower() and 'guard' not in m.id.lower() and 'embed' not in m.id.lower()]
-                    except:
-                        valid_models = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama3-8b-8192", "gemma2-9b-it", "mixtral-8x7b-32768"]
+                    # ПЕРЕДАЄМО 100% ПОВНУ ТАБЛИЦЮ З УСІМА КОЛОНКАМИ БЕЗ ЖОДНИХ ОБРІЗАНЬ
+                    full_table_csv = raw_df.to_csv(index=False)
                     
-                    cols_for_ai = ["Game_Name_Clean"]
-                    if genre_col: cols_for_ai.append(genre_col)
-                    revenue_cols = [c for c in filtered_df.columns if any(k in c.lower() for k in ["revenue", "total", "price", "switch", "playstation", "xbox"])]
-                    cols_for_ai.extend(revenue_cols[:8])
-                    cols_for_ai = list(dict.fromkeys([c for c in cols_for_ai if c in filtered_df.columns]))
+                    prompt = f"""
+                    Ти — головний фінансовий директор, дата-саєнтист та аналітик консольного видавництва Upscale Studio (Україна).
+                    Тобі надано ПОВНУ БАЗУ ДАНИХ видавництва зі 100% колонок (усі {len(raw_df)} ігор, дати релізу, ціни, джерела, інстали, виторг за 1 місяць, 3 місяці, 6 місяців, 1 рік, All-Time по PlayStation, Switch, Xbox, формули, AI-інсайти та точність):
+
+                    ```csv
+                    {full_table_csv}
+                    ```
+
+                    Запитання користувача: "{ai_query}"
+
+                    ТВОЯ ІНСТРУКЦІЯ:
+                    1. У тебе є повний доступ до всіх стовпчиків і рядків без винятку. Проаналізуй усю таблицю для відповіді на це конкретне запитання.
+                    2. Якщо запитують про кількість (наприклад, скільки ігор певного жанру перевищили суму X за період Y) — перелічи їх усі поіменно, вкажи точні суми з таблиці та підрахуй загальну кількість.
+                    3. Якщо запитують порівняння, кореляції, аналіз дат чи джерел трафіку — зроби детальний розрахунок з точними цифрами та відсотками.
+                    4. Дай практичні бізнес-висновки та стратегічні рекомендації для видавництва на основі цих даних.
+                    5. Відповідай структуровано, чітко українською мовою.
+                    """
                     
-                    data_summary_csv = filtered_df[cols_for_ai].head(45).to_csv(index=False)
-                    prompt = f"Ти провідний аналітик консольного видавництва Upscale Studio.\nДані портфоліо:\n{data_summary_csv}\n\nЗапитання: {ai_query}\n\nДай точну відповідь українською мовою з цифрами з бази та бізнес-рекомендаціями."
-                    
+                    models_to_try = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama-3.1-8b-instant", "gemma2-9b-it"]
                     response_text = None
                     last_err = ""
-                    for mod in valid_models:
+
+                    for mod in models_to_try:
                         try:
                             chat_completion = client.chat.completions.create(
                                 messages=[{"role": "user", "content": prompt}],
                                 model=mod,
-                                temperature=0.2,
-                                max_tokens=700
+                                temperature=0.1,
+                                max_tokens=1500
                             )
                             response_text = chat_completion.choices[0].message.content
                             break
@@ -244,11 +257,12 @@ with st.sidebar:
                             continue
 
                     if response_text:
+                        st.markdown("### 💡 Результат аналізу по всій базі:")
                         st.info(response_text)
                     else:
-                        st.error(f"❌ Помилка підключення до Groq: {last_err}")
+                        st.error(f"❌ Помилка Groq: {last_err}")
                 except Exception as e:
-                    st.error(f"❌ Помилка ініціалізації Groq: {e}")
+                    st.error(f"❌ Помилка: {e}")
 
 # Розрахунок All-Time сум
 def get_platform_all_time_sum(df_target, keyword):

@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + мінімалістичні вкладки БЕЗ синьої заливки
+# Стилі темної теми високої контрастності + мінімалістичні вкладки БЕЗ синьої заливки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -272,7 +272,7 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ CLAUDE
+    # AI ЧАТ CLAUDE HAIKU 4.5
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
@@ -526,11 +526,54 @@ if app_mode == "🎮 Наші ігри":
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
     # =========================================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ЧЕСНИЙ РОЗРАХУНОК ВІД ВКЛАДКИ PREDICT)
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (СУВОРИЙ ПОШУК ФАКТУ ТА ПРОГНОЗУ)
     # =========================================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
         st.caption("Аудит точності з автоматичним визначенням активних платформ релізу гри")
+
+        # Суворий пошук фактичних зборів (тільки ліва частина таблиці)
+        def get_exact_fact_m1(row_s, plat):
+            if plat == "PS":
+                for c in row_s.index:
+                    cl = c.lower()
+                    if "playstation" in cl and ("1st" in cl or "month" in cl) and "pred" not in cl and "forecast" not in cl:
+                        try: return float(row_s[c])
+                        except: pass
+            elif plat == "Switch":
+                for c in row_s.index:
+                    cl = c.lower()
+                    if "switch" in cl and ("1st" in cl or "month" in cl) and not cl.endswith(".1") and "pred" not in cl and "forecast" not in cl:
+                        try: return float(row_s[c])
+                        except: pass
+            elif plat == "Xbox":
+                for c in row_s.index:
+                    cl = c.lower()
+                    if "xbox" in cl and ("1st" in cl or "month" in cl) and not cl.endswith(".1") and "pred" not in cl and "forecast" not in cl:
+                        try: return float(row_s[c])
+                        except: pass
+            return 0.0
+
+        def get_exact_fact_all(row_s, plat):
+            if plat == "PS":
+                for c in row_s.index:
+                    cl = c.lower()
+                    if "playstation" in cl and "all" in cl and "pred" not in cl and "forecast" not in cl:
+                        try: return float(row_s[c])
+                        except: pass
+            elif plat == "Switch":
+                for c in row_s.index:
+                    cl = c.lower()
+                    if "switch" in cl and "all" in cl and not cl.endswith(".1") and "pred" not in cl and "forecast" not in cl:
+                        try: return float(row_s[c])
+                        except: pass
+            elif plat == "Xbox":
+                for c in row_s.index:
+                    cl = c.lower()
+                    if "xbox" in cl and "all" in cl and not cl.endswith(".1") and "pred" not in cl and "forecast" not in cl:
+                        try: return float(row_s[c])
+                        except: pass
+            return 0.0
 
         def find_val(row_s, keys, not_keys=[]):
             for c in row_s.index:
@@ -552,23 +595,22 @@ if app_mode == "🎮 Наші ігри":
             try: g_price = float(g_price)
             except: g_price = 9.99
 
-            # 1. ФАКТИЧНІ ЗБОРИ M1 ТА ALL-TIME ПО ПЛАТФОРМАХ
-            ps_m1_fact = find_val(r, ["playstation revenue 1st month"]) or find_val(r, ["ps", "1st"])
-            ps_all_fact = find_val(r, ["playstation revenue all time"]) or find_val(r, ["ps", "all"])
+            # 1. СУВОРИЙ РОЗРАХУНОК ФАКТУ ПО КОЖНІЙ КОНСОЛІ
+            ps_m1_fact = get_exact_fact_m1(r, "PS")
+            ps_all_fact = get_exact_fact_all(r, "PS")
             
-            sw_m1_fact = find_val(r, ["switch revenue 1st month"]) or find_val(r, ["switch", "1st"])
-            sw_all_fact = find_val(r, ["switch revenue all time"]) or find_val(r, ["switch", "all"])
+            sw_m1_fact = get_exact_fact_m1(r, "Switch")
+            sw_all_fact = get_exact_fact_all(r, "Switch")
             
-            xb_m1_fact = find_val(r, ["xbox revenue 1st month"]) or find_val(r, ["xbox", "1st"])
-            xb_all_fact = find_val(r, ["xbox revenue all time"]) or find_val(r, ["xbox", "all"])
+            xb_m1_fact = get_exact_fact_m1(r, "Xbox")
+            xb_all_fact = get_exact_fact_all(r, "Xbox")
 
-            # 2. ДЕТЕКЦІЯ АКТИВНИХ ПЛАТФОРМ (де гра реально вийшла і заробила гроші)
+            # 2. ДЕТЕКЦІЯ АКТИВНИХ ПЛАТФОРМ (де реально був реліз)
             active_platforms = []
             if ps_m1_fact > 0 or ps_all_fact > 0: active_platforms.append("PS")
             if sw_m1_fact > 0 or sw_all_fact > 0: active_platforms.append("Switch")
             if xb_m1_fact > 0 or xb_all_fact > 0: active_platforms.append("Xbox")
 
-            # Якщо фактів немає взагалі — перевіряємо текстову колонку платформи
             if not active_platforms:
                 src_plat_text = str(r.get("Platform", "")).lower()
                 if "switch" in src_plat_text: active_platforms.append("Switch")
@@ -576,7 +618,7 @@ if app_mode == "🎮 Наші ігри":
                 if "xbox" in src_plat_text: active_platforms.append("Xbox")
             
             if not active_platforms:
-                active_platforms = ["PS", "Switch", "Xbox"]
+                active_platforms = ["Switch"] # Безпечний дефолт для нішевих релізів
 
             platform_badge = " + ".join(active_platforms) if len(active_platforms) < 3 else "Усі 3 консолі"
 
@@ -662,7 +704,6 @@ if app_mode == "🎮 Наші ігри":
 
         comp_df = pd.DataFrame(comparison_list)
 
-        # KPI Точності
         valid_comp = comp_df[comp_df["Точність (%)"] != "—"].copy()
         valid_comp["Acc_Num"] = valid_comp["Точність (%)"].str.replace("%", "").astype(float)
         
@@ -911,7 +952,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             elif calc_src == "CrazyGames / Web":
                 cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
                 b_metric = (cg_r * 0.05) + 900.0
-            else: # itch.io
+            else:
                 itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
                 b_metric = (itch_r * 10.0) + 400.0
 

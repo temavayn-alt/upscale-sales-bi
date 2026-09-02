@@ -191,8 +191,9 @@ with st.sidebar:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
     # =========================================================
-    # 🤖 AI-АНАЛІТИК НА БАЗІ CLAUDE HAIKU 4.5
-    # =========================================================
+    # =========================================================================
+    # 🤖 РОЗУМНИЙ AI-АНАЛІТИК З АВТО-СОРТУВАННЯМ ТА ЗАХИСТОМ ВІД LATEX-БАГІВ
+    # =========================================================================
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
@@ -203,7 +204,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за перший місяць? Або: Топ-5 ігор на Xbox."
+        placeholder="Напр.: Топ-5 ігор на Switch за весь час або скільки симуляторів заробили більше $1000?"
     )
     
     if st.button("⚡ Проаналізувати базу через Claude", use_container_width=True):
@@ -213,22 +214,20 @@ with st.sidebar:
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("Claude Haiku 4.5 аналізує 100% портфоліо..."):
+            with st.spinner("Claude проводить точний фінансовий аудит..."):
                 try:
                     client = Anthropic(api_key=clean_key)
-                    
-                    # Формуємо чистий, точний датасет по всіх 67 іграх
-                    summary_lines = []
-                    summary_lines.append("Game|Genre|Price|PS_M1|PS_All|Switch_M1|Switch_All|Xbox_M1|Xbox_All|Total_All")
                     
                     def find_num(row_s, keys, not_keys=[]):
                         for c in row_s.index:
                             cl = c.lower()
                             if all(k in cl for k in keys) and not any(nk in cl for nk in not_keys):
-                                try: return int(round(float(row_s[c])))
+                                try: return float(row_s[c])
                                 except: pass
-                        return 0
+                        return 0.0
 
+                    # 1. Формуємо структурований датасет з точними числовими типами
+                    matrix_records = []
                     for _, r in raw_df.iterrows():
                         g_name = str(r["Game_Name_Clean"]).strip()
                         if not g_name or g_name.lower() == 'nan': continue
@@ -249,47 +248,71 @@ with st.sidebar:
                         
                         tot_all = find_num(r, ["total"]) or (ps_all + sw_all + xb_all)
 
-                        summary_lines.append(f"{g_name}|{g_genre}|${g_price}|{ps_m1}|{ps_all}|{sw_m1}|{sw_all}|{xb_m1}|{xb_all}|{tot_all}")
+                        matrix_records.append({
+                            "Game": g_name,
+                            "Genre": g_genre,
+                            "Price": g_price,
+                            "PS_M1": int(round(ps_m1)),
+                            "PS_All": int(round(ps_all)),
+                            "Switch_M1": int(round(sw_m1)),
+                            "Switch_All": int(round(sw_all)),
+                            "Xbox_M1": int(round(xb_m1)),
+                            "Xbox_All": int(round(xb_all)),
+                            "Total_All": int(round(tot_all))
+                        })
 
-                    compact_dataset = "\n".join(summary_lines)
+                    audit_df = pd.DataFrame(matrix_records)
+
+                    # 2. Python попередньо сортує топи для перевірки (щоб уникнути галюцинацій сортування в ШІ)
+                    top_switch = audit_df.sort_values(by="Switch_All", ascending=False)[["Game", "Genre", "Price", "Switch_All"]].head(10).to_string(index=False)
+                    top_ps = audit_df.sort_values(by="PS_All", ascending=False)[["Game", "Genre", "Price", "PS_All"]].head(10).to_string(index=False)
+                    top_xbox = audit_df.sort_values(by="Xbox_All", ascending=False)[["Game", "Genre", "Price", "Xbox_All"]].head(10).to_string(index=False)
+                    full_csv = audit_df.to_csv(index=False)
 
                     prompt = f"""
-                    Ти — головний фінансовий аналітик консольного видавництва ігор Upscale Studio (Україна).
-                    Перед тобою ПОВНІ фінансові дані портфоліо з {len(summary_lines)-1} ігор (суми в цілих $ USD):
-                    Колонки: Назва | Жанр | Ціна | PS 1-й місяць | PS Весь час | Switch 1-й місяць | Switch Весь час | Xbox 1-й місяць | Xbox Весь час | Загальний виторг
+                    Ти — провідний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
 
-                    ```
-                    {compact_dataset}
-                    ```
+                    Ось попередньо відсортовані точні лідери по платформах (All-Time):
+                    [ТОП NINTENDO SWITCH]:
+                    {top_switch}
+
+                    [ТОП PLAYSTATION]:
+                    {top_ps}
+
+                    [ТОП XBOX]:
+                    {top_xbox}
+
+                    ПОВНА БАЗА ДАНИХ (усі {len(audit_df)} ігор):
+                    {full_csv}
 
                     Запитання користувача: "{ai_query}"
 
-                    ІНСТРУКЦІЯ ДЛЯ ВІДПОВІДІ:
-                    1. Усі розрахунки роби СУВОРО на основі наданих вище цифр (жодних галюцинацій).
-                    2. Якщо запитують про 1-й місяць (M1) — дивись на колонки PS_M1, Switch_M1, Xbox_M1.
-                    3. Якщо просять знайти ігри чи порахувати кількість — перелічи відповідні тайтли поіменно з точними сумами в $ та підсумуй їх.
-                    4. Додай короткі професійні бізнес-висновки для видавництва.
-                    5. Відповідай структуровано, лаконічно, чистою українською мовою.
+                    СУВОРІ ПРАВИЛА:
+                    1. Використовуй ТІЛЬКИ надані цифри. Якщо запитують ТОП — переконайся, що суми розташовані в порядку спадання (від найбільшої до найменшої).
+                    2. ВАЖЛИВО ДЛЯ ФОРМАТУВАННЯ: Пиши суми як "USD 18,993" або із зворотним слешем "\\$18,993" (ніколи не пиши одинарний знак долара "$", щоб не злипалися слова).
+                    3. Дай чіткий рейтинговий список, підрахунок та професійні висновки для видавництва українською мовою.
                     """
 
-                    # Викликаємо Claude Haiku 4.5 (без параметра temperature)
                     try:
                         message = client.messages.create(
                             model="claude-haiku-4-5",
                             max_tokens=900,
                             messages=[{"role": "user", "content": prompt}]
                         )
-                        st.markdown("### 💡 Відповідь Claude Haiku 4.5:")
-                        st.info(message.content[0].text)
-                    except Exception as e_inner:
-                        # Резервний виклик базової моделі
+                        raw_text = message.content[0].text
+                    except Exception:
                         message = client.messages.create(
                             model="claude-3-5-haiku-20241022",
                             max_tokens=900,
                             messages=[{"role": "user", "content": prompt}]
                         )
-                        st.markdown("### 💡 Відповідь Claude Haiku:")
-                        st.info(message.content[0].text)
+                        raw_text = message.content[0].text
+
+                    # Фільтр від злипання слів: екрануємо всі знаки долара перед виводом
+                    clean_output = re.sub(r'(?<!\\)\$', r'\\$', raw_text)
+                    
+                    st.markdown("### 💡 Результат аналізу:")
+                    st.markdown(clean_output)
 
                 except Exception as e:
                     st.error(f"❌ Помилка Anthropic API: {e}")

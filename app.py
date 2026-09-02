@@ -15,7 +15,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Стилі для темного інтерфейсу
 st.markdown("""
 <style>
     .insight-card {
@@ -50,7 +49,6 @@ def load_data(sheet_url):
         st.error(f"❌ Помилка завантаження таблиці. Перевір доступ за посиланням ('Усі, хто має посилання - Читач'). Текст: {e}")
         return pd.DataFrame()
 
-    # Очищення числових колонок
     for col in df.columns:
         col_lower = str(col).lower()
         if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна"]):
@@ -64,7 +62,6 @@ def load_data(sheet_url):
             )
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 
-    # Визначаємо назву гри
     name_col = next((c for c in df.columns if "game" in c.lower() or "title" in c.lower() or "назва" in c.lower()), df.columns[0])
     df.rename(columns={name_col: "Game_Name_Clean"}, inplace=True)
     df = df[df["Game_Name_Clean"].astype(str).str.strip() != ""]
@@ -75,13 +72,11 @@ df = load_data(GOOGLE_SHEET_URL)
 if df.empty:
     st.stop()
 
-# Автопошук колонки Total
 total_col = next((c for c in df.columns if c.lower() == "total" or "всього" in c.lower()), None)
 if not total_col:
     total_col = "Calculated_Total"
     df[total_col] = df[[c for c in df.columns if "all" in c.lower() or "total" in c.lower()]].sum(axis=1)
 
-# Бічна панель: Фільтри та кнопка оновлення
 with st.sidebar:
     st.header("📊 Upscale BI")
     if st.button("🔄 Оновити дані з таблиці", use_container_width=True):
@@ -93,10 +88,8 @@ with st.sidebar:
     
     search = st.text_input("Пошук за назвою гри:", "")
     
-    # БЕЗПЕЧНА ФІЛЬТРАЦІЯ ЖАНРІВ (БЕЗ NaN ПОМИЛОК)
     genre_col = next((c for c in df.columns if "genre" in c.lower() or "жанр" in c.lower()), None)
     if genre_col:
-        # Вичищаємо порожні значення та перетворюємо на чисті рядки
         available_genres = sorted([
             str(g).strip() for g in df[genre_col].dropna().unique() 
             if str(g).strip() and str(g).strip().lower() != 'nan'
@@ -110,24 +103,6 @@ with st.sidebar:
     if search:
         df = df[df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-# Розрахунок платформних сум
 def get_platform_sum(keyword):
     cols = [c for c in df.columns if keyword in c.lower() and ("all" in c.lower() or "total" in c.lower() or "revenue" in c.lower())]
-    if cols:
-        return df[cols[0]].sum()
-    return 0.0
-
-total_gross = df[total_col].sum()
-switch_rev = get_platform_sum("switch")
-ps_rev = get_platform_sum("playstation") or get_platform_sum("ps")
-xbox_rev = get_platform_sum("xbox")
-
-# Головні KPI
-st.title("📊 Console Sales & Revenue Intelligence")
-st.caption(f"Портфоліо Upscale Studio • Всього тайтлів: {len(df)}")
-
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Загальна каса портфоліо", f"${total_gross:,.2f}")
-k2.metric("Nintendo Switch", f"${switch_rev:,.2f}", f"{round(switch_rev/max(total_gross, 1)*100)}% частка" if total_gross > 0 else "0%")
-k3.metric("PlayStation", f"${ps_rev:,.2f}", f"{round(ps_rev/max(total_gross, 1)*100)}% частка" if total_gross > 0 else "0%")
-k4.metric("Xbox", f"${xbox_rev:,.2f}
+    if

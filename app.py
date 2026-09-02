@@ -282,25 +282,19 @@ if app_mode == "🎮 Наші ігри":
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
         st.caption("Аналіз точності калькулятора по релізних тайтлах")
 
-        # Знаходимо всі стовпчики, що містять 'Accuracy' або порівняння
         acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower() or "точність" in c.lower()]
         
         display_cols = ["Game_Name_Clean"]
         if genre_col: display_cols.append(genre_col)
         
-        # Шукаємо прогнозні та фактичні стовпчики для виводу
         for key in ["playstation", "switch", "xbox", "total"]:
-            f_cols = [c for c in filtered_df.columns if key in c.lower() and ("revenue" in c.lower() or "1st" in c.lower() or "total" in c.lower())]
-            display_cols.extend(f_cols[:2]) # беремо до 2 ключових
+            f_cols = [c for c in filtered_df.columns if key in c.lower() and any(k in c.lower() for k in ["revenue", "1st", "total"])]
+            display_cols.extend(f_cols[:2])
         
         display_cols.extend(acc_cols)
-        # Прибираємо дублікати
         display_cols = list(dict.fromkeys([c for c in display_cols if c in filtered_df.columns]))
         
-        if len(display_cols) > 1:
-            st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
-        else:
-            st.dataframe(filtered_df, use_container_width=True, height=500)
+        st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
 
 
 # ==============================================================================
@@ -368,7 +362,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
 
         with sb_right:
             st.markdown('<div class="sandbox-box">', unsafe_allow_html=True)
-            st.markdown(f"### 📈 Прогноз для: **{calc_name}**")
+            st.markdown(f"### 📈 Розрахунок: **{calc_name}**")
             st.caption(f"💡 *{g_cfg['Desc']}*")
             st.caption(f"Органічна база: **${b_metric:,.1f}** | Ціновий множник: **{p_mod}x**")
             
@@ -411,10 +405,8 @@ elif app_mode == "🧮 Калькулятор прогнозів":
                     "Рекомендація": status_rec
                 }
                 
-                # Додаємо у внутрішній сесійний список
                 st.session_state.scouted_leads.append(new_lead_entry)
                 
-                # Якщо налаштовано Webhook — шлемо в Google Таблицю
                 if GOOGLE_WEBHOOK_URL:
                     try:
                         res = requests.post(GOOGLE_WEBHOOK_URL, json=new_lead_entry, timeout=5)
@@ -434,8 +426,15 @@ elif app_mode == "🧮 Калькулятор прогнозів":
         if st.session_state.scouted_leads:
             leads_df = pd.DataFrame(st.session_state.scouted_leads)
             
-            tot_pipeline_val = leads_df["Total M1 ($)"].sum()
-            avg_lead_val = leads_df["Total M1 ($)"].mean()
+            # Безпечний динамічний пошук колонки суми (запобігає KeyError)
+            total_lead_col = next((c for c in leads_df.columns if "total" in c.lower()), None)
+            if total_lead_col:
+                leads_df[total_lead_col] = pd.to_numeric(leads_df[total_lead_col], errors="coerce").fillna(0.0)
+                tot_pipeline_val = float(leads_df[total_lead_col].sum())
+                avg_lead_val = float(leads_df[total_lead_col].mean())
+            else:
+                tot_pipeline_val = 0.0
+                avg_lead_val = 0.0
             
             k_l1, k_l2, k_l3 = st.columns(3)
             k_l1.metric("Зібрано лідів", len(leads_df))
@@ -444,10 +443,10 @@ elif app_mode == "🧮 Калькулятор прогнозів":
 
             st.markdown("---")
             
-            # Конфігурація для клікабельних посилань
-            lead_cfg = {
-                "Посилання": st.column_config.LinkColumn("Посилання на гру", display_text="Відкрити сторінку ↗")
-            }
+            lead_cfg = {}
+            if "Посилання" in leads_df.columns:
+                lead_cfg["Посилання"] = st.column_config.LinkColumn("Посилання на гру", display_text="Відкрити ↗")
+            
             st.dataframe(leads_df, column_config=lead_cfg, use_container_width=True, height=400)
             
             c_d1, c_d2 = st.columns([1, 4])

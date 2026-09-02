@@ -115,6 +115,7 @@ def get_export_url(url_or_id):
     url_str = str(url_or_id).strip()
     match = re.search(r"/d/([a-zA-Z0-9-_]+)", url_str)
     sheet_id = match.group(1) if match else url_str
+    
     gid_match = re.search(r"[?#&]gid=([0-9]+)", url_str)
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -202,7 +203,6 @@ def load_weekly_data(sheet_url):
 
 raw_df = load_data(GOOGLE_SHEET_URL)
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
-# Якщо є посилання на Predict — читаємо його, інакше шукаємо в raw_df
 predict_df = load_data(PREDICT_SHEET_URL) if (PREDICT_SHEET_URL and "ВСТАВ_СЮДИ" not in PREDICT_SHEET_URL) else raw_df
 
 if raw_df.empty:
@@ -300,7 +300,7 @@ with st.sidebar:
                     weekly_csv_snippet = weekly_df.to_csv(index=False) if not weekly_df.empty else "No weekly data"
 
                     prompt = f"""
-                    Ти — головний фінансовий директор та аналітик консольного видавництва Upscale Studio (Україна).
+                    Ти — головний фінансовий директор та аналітик консольного видавництва ігор Upscale Studio (Україна).
                     Дані портфоліо ({len(summary_lines)-1} ігор):
                     {compact_dataset}
 
@@ -499,12 +499,12 @@ if app_mode == "🎮 Наші ігри":
         st.markdown("---")
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
-    # =========================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ЧЕСНИЙ РОЗРАХУНОК ВІД ВКЛАДКИ PREDICT)
-    # =========================================================
+    # =========================================================================
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (З УРАХУВАННЯМ РЕАЛЬНИХ ПЛАТФОРМ РЕЛІЗУ)
+    # =========================================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        st.caption("Аудит точності на основі реальних метрик (Installs / Reviews / Steam Revenue)")
+        st.caption("Аудит точності з автоматичним визначенням активних платформ релізу гри")
 
         def find_val(row_s, keys, not_keys=[]):
             for c in row_s.index:
@@ -526,34 +526,57 @@ if app_mode == "🎮 Наші ігри":
             try: g_price = float(g_price)
             except: g_price = 9.99
 
-            # 1. ФАКТ M1
+            # 1. ФАКТИЧНІ ЗБОРИ M1 ТА ALL-TIME ПО ПЛАТФОРМАХ
             ps_m1_fact = find_val(r, ["playstation revenue 1st month"]) or find_val(r, ["ps", "1st"])
+            ps_all_fact = find_val(r, ["playstation revenue all time"]) or find_val(r, ["ps", "all"])
+            
             sw_m1_fact = find_val(r, ["switch revenue 1st month"]) or find_val(r, ["switch", "1st"])
+            sw_all_fact = find_val(r, ["switch revenue all time"]) or find_val(r, ["switch", "all"])
+            
             xb_m1_fact = find_val(r, ["xbox revenue 1st month"]) or find_val(r, ["xbox", "1st"])
-            total_m1_fact = ps_m1_fact + sw_m1_fact + xb_m1_fact
+            xb_all_fact = find_val(r, ["xbox revenue all time"]) or find_val(r, ["xbox", "all"])
 
-            # 2. ПОШУК ВХІДНИХ МЕТРИК
+            # 2. ДЕТЕКЦІЯ АКТИВНИХ ПЛАТФОРМ (де гра реально вийшла і заробила гроші)
+            active_platforms = []
+            if ps_m1_fact > 0 or ps_all_fact > 0: active_platforms.append("PS")
+            if sw_m1_fact > 0 or sw_all_fact > 0: active_platforms.append("Switch")
+            if xb_m1_fact > 0 or xb_all_fact > 0: active_platforms.append("Xbox")
+
+            # Якщо фактів немає взагалі — перевіряємо текстову колонку платформи
+            if not active_platforms:
+                src_plat_text = str(r.get("Platform", "")).lower()
+                if "switch" in src_plat_text: active_platforms.append("Switch")
+                if "ps" in src_plat_text or "playstation" in src_plat_text: active_platforms.append("PS")
+                if "xbox" in src_plat_text: active_platforms.append("Xbox")
+            
+            # Якщо зовсім немає даних про платформи — за замовчуванням усі 3
+            if not active_platforms:
+                active_platforms = ["PS", "Switch", "Xbox"]
+
+            platform_badge = " + ".join(active_platforms) if len(active_platforms) < 3 else "Усі 3 консолі"
+
+            # 3. ПОШУК ВХІДНИХ МЕТРИК ДЛЯ ПРОГНОЗУ
             base_m = find_val(r, ["base metric"])
             installs_val = find_val(r, ["installs"]) or find_val(r, ["reviews"])
             steam_rev_val = find_val(r, ["steam revenue"])
-            src_platform = str(r.get("Platform", "")).lower()
+            src_platform_type = str(r.get("Platform", "")).lower()
 
             # Якщо Base Metric не було, але є інстали/Steam — рахуємо її чесно
             if base_m == 0:
-                if "steam" in src_platform or steam_rev_val > 0:
+                if "steam" in src_platform_type or steam_rev_val > 0:
                     base_m = max(500.0, min(6500.0, steam_rev_val * 0.16 + installs_val * 6.5))
-                elif "play" in src_platform or installs_val >= 10000:
+                elif "play" in src_platform_type or installs_val >= 10000:
                     if installs_val < 50000: base_m = 750.0
                     elif installs_val <= 200000: base_m = 1432.5
                     elif installs_val <= 700000: base_m = 2214.2
                     elif installs_val <= 2000000: base_m = 2800.0
                     else: base_m = 5272.0
-                elif "crazy" in src_platform or ("web" in src_platform and installs_val > 0):
+                elif "crazy" in src_platform_type or ("web" in src_platform_type and installs_val > 0):
                     base_m = max(600.0, min(3500.0, 900.0 + (installs_val / 1000.0) * 120.0))
-                elif "itch" in src_platform and installs_val > 0:
+                elif "itch" in src_platform_type and installs_val > 0:
                     base_m = max(400.0, min(2500.0, 400.0 + installs_val * 15.0))
 
-            # 3. РОЗРАХУНОК ПРОГНОЗУ ЗА КОЕФІЦІЄНТАМИ (Тільки якщо була база)
+            # 4. РОЗРАХУНОК ПРОГНОЗУ СУВОРО ДЛЯ АКТИВНИХ ПЛАТФОРМ
             if base_m > 0:
                 matched_g = "Job / Business Simulator (3D)"
                 for k in GENRE_DATABASE:
@@ -564,16 +587,23 @@ if app_mode == "🎮 Наші ігри":
                 cfg = GENRE_DATABASE[matched_g]
                 p_m = PRICE_MODIFIERS.get(g_price, 1.0)
                 
-                ps_pred = base_m * cfg["PS"] * p_m
-                sw_pred = base_m * cfg["Switch"] * p_m
-                xb_pred = base_m * cfg["Xbox"] * p_m
+                ps_pred = base_m * cfg["PS"] * p_m if "PS" in active_platforms else 0.0
+                sw_pred = base_m * cfg["Switch"] * p_m if "Switch" in active_platforms else 0.0
+                xb_pred = base_m * cfg["Xbox"] * p_m if "Xbox" in active_platforms else 0.0
+                
+                # Тотал прогноз тільки по тих платформах, де був реліз!
                 total_pred_m1 = ps_pred + sw_pred + xb_pred
                 has_valid_forecast = True
             else:
                 ps_pred, sw_pred, xb_pred, total_pred_m1 = 0.0, 0.0, 0.0, 0.0
                 has_valid_forecast = False
 
-            # 4. АНАЛІЗ ТОЧНОСТІ
+            # Тотал факт по активних платформах
+            total_m1_fact = (ps_m1_fact if "PS" in active_platforms else 0.0) + \
+                            (sw_m1_fact if "Switch" in active_platforms else 0.0) + \
+                            (xb_m1_fact if "Xbox" in active_platforms else 0.0)
+
+            # 5. ТОЧНИЙ АНАЛІЗ ТОЧНОСТІ
             if has_valid_forecast and total_m1_fact > 0:
                 acc_pct = max(0.0, round((1.0 - abs(total_m1_fact - total_pred_m1) / max(total_m1_fact, total_pred_m1)) * 100, 1))
                 delta_usd = total_m1_fact - total_pred_m1
@@ -597,23 +627,24 @@ if app_mode == "🎮 Наші ігри":
                 "Гра": g_name,
                 "Жанр": g_genre_str,
                 "Ціна ($)": g_price,
+                "Платформи релізу": platform_badge,
                 "Base Metric": round(base_m, 1) if base_m > 0 else "—",
                 "Факт M1 ($)": round(total_m1_fact, 2) if total_m1_fact > 0 else "—",
                 "Прогноз M1 ($)": round(total_pred_m1, 2) if has_valid_forecast else "—",
                 "Різниця ($)": round(delta_usd, 2) if delta_usd is not None else "—",
                 "Точність (%)": f"{acc_pct:.1f}%" if acc_pct is not None else "—",
                 "Статус виконання": perf_status,
-                "PS Факт": round(ps_m1_fact, 2) if ps_m1_fact > 0 else "—",
-                "PS Прогноз": round(ps_pred, 2) if has_valid_forecast else "—",
-                "Switch Факт": round(sw_m1_fact, 2) if sw_m1_fact > 0 else "—",
-                "Switch Прогноз": round(sw_pred, 2) if has_valid_forecast else "—",
-                "Xbox Факт": round(xb_m1_fact, 2) if xb_m1_fact > 0 else "—",
-                "Xbox Прогноз": round(xb_pred, 2) if has_valid_forecast else "—"
+                "PS Факт": round(ps_m1_fact, 2) if "PS" in active_platforms and ps_m1_fact > 0 else "—",
+                "PS Прогноз": round(ps_pred, 2) if "PS" in active_platforms and has_valid_forecast else "—",
+                "Switch Факт": round(sw_m1_fact, 2) if "Switch" in active_platforms and sw_m1_fact > 0 else "—",
+                "Switch Прогноз": round(sw_pred, 2) if "Switch" in active_platforms and has_valid_forecast else "—",
+                "Xbox Факт": round(xb_m1_fact, 2) if "Xbox" in active_platforms and xb_m1_fact > 0 else "—",
+                "Xbox Прогноз": round(xb_pred, 2) if "Xbox" in active_platforms and has_valid_forecast else "—"
             })
 
         comp_df = pd.DataFrame(comparison_list)
 
-        # KPI Точності (Тільки для ігор, які мали і факт і прогноз)
+        # KPI Точності
         valid_comp = comp_df[comp_df["Точність (%)"] != "—"].copy()
         valid_comp["Acc_Num"] = valid_comp["Точність (%)"].str.replace("%", "").astype(float)
         

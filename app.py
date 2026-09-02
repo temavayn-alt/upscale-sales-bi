@@ -191,7 +191,7 @@ with st.sidebar:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
     # =========================================================================
-    # 🤖 УНІВЕРСАЛЬНИЙ AI-АНАЛІТИК (СКАНУЄ 100% ТАБЛИЦІ ТА ВСІХ КОЛОНОК)
+    # 🤖 УНІВЕРСАЛЬНИЙ AI-АНАЛІТИК (ДИНАМІЧНИЙ ВИБІР АКТИВНИХ МОДЕЛЕЙ GROQ)
     # =========================================================================
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик по всій базі")
@@ -203,7 +203,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій таблиці:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за місяць? Або: Порівняй ефективність ігор зі Steam проти Google Play по всіх консолях."
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за місяць? Або: Топ-5 ігор на Xbox."
     )
     
     if st.button("⚡ Просканувати всю таблицю через ШІ", use_container_width=True):
@@ -213,15 +213,31 @@ with st.sidebar:
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ завантажує та сканує 100% колонок і рядків таблиці..."):
+            with st.spinner("ШІ аналізує 100% бази портфоліо..."):
                 try:
                     client = Groq(api_key=clean_key)
                     
-                    # ПЕРЕДАЄМО 100% ПОВНУ ТАБЛИЦЮ З УСІМА КОЛОНКАМИ БЕЗ ЖОДНИХ ОБРІЗАНЬ
-                    full_table_csv = raw_df.to_csv(index=False)
+                    # Отримуємо виключно активні підтримувані моделі Groq
+                    try:
+                        live_models = [
+                            m.id for m in client.models.list().data 
+                            if not any(k in m.id.lower() for k in ['whisper', 'guard', 'embed', 'vision', 'gemma2', 'llama3-70b', 'llama3-8b'])
+                        ]
+                    except:
+                        live_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+
+                    # Пріоритетні сучасні моделі
+                    priority_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+                    target_models = [m for m in priority_models if m in live_models] + [m for m in live_models if m not in priority_models]
+                    
+                    if not target_models:
+                        target_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+
+                    # Очищаємо таблицю від повністю пустих стовпчиків перед відправкою
+                    full_table_csv = raw_df.dropna(how='all', axis=1).to_csv(index=False)
                     
                     prompt = f"""
-                    Ти — головний фінансовий директор, дата-саєнтист та аналітик консольного видавництва Upscale Studio (Україна).
+                    Ти — головний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
                     Тобі надано ПОВНУ БАЗУ ДАНИХ видавництва зі 100% колонок (усі {len(raw_df)} ігор, дати релізу, ціни, джерела, інстали, виторг за 1 місяць, 3 місяці, 6 місяців, 1 рік, All-Time по PlayStation, Switch, Xbox, формули, AI-інсайти та точність):
 
                     ```csv
@@ -231,24 +247,23 @@ with st.sidebar:
                     Запитання користувача: "{ai_query}"
 
                     ТВОЯ ІНСТРУКЦІЯ:
-                    1. У тебе є повний доступ до всіх стовпчиків і рядків без винятку. Проаналізуй усю таблицю для відповіді на це конкретне запитання.
-                    2. Якщо запитують про кількість (наприклад, скільки ігор певного жанру перевищили суму X за період Y) — перелічи їх усі поіменно, вкажи точні суми з таблиці та підрахуй загальну кількість.
-                    3. Якщо запитують порівняння, кореляції, аналіз дат чи джерел трафіку — зроби детальний розрахунок з точними цифрами та відсотками.
-                    4. Дай практичні бізнес-висновки та стратегічні рекомендації для видавництва на основі цих даних.
+                    1. У тебе є повний доступ до всіх стовпчиків і рядків. Проаналізуй усю таблицю для відповіді на це конкретне запитання.
+                    2. Якщо запитують про кількість або список ігор — перелічи їх усі поіменно, вкажи точні суми в $ з таблиці та підрахуй загальну кількість.
+                    3. Якщо запитують порівняння чи аналіз — зроби точний розрахунок із реальними цифрами та відсотками.
+                    4. Додай короткі професійні бізнес-висновки для видавництва.
                     5. Відповідай структуровано, чітко українською мовою.
                     """
                     
-                    models_to_try = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama-3.1-8b-instant", "gemma2-9b-it"]
                     response_text = None
                     last_err = ""
 
-                    for mod in models_to_try:
+                    for mod in target_models:
                         try:
                             chat_completion = client.chat.completions.create(
                                 messages=[{"role": "user", "content": prompt}],
                                 model=mod,
                                 temperature=0.1,
-                                max_tokens=1500
+                                max_tokens=1000
                             )
                             response_text = chat_completion.choices[0].message.content
                             break
@@ -260,7 +275,7 @@ with st.sidebar:
                         st.markdown("### 💡 Результат аналізу по всій базі:")
                         st.info(response_text)
                     else:
-                        st.error(f"❌ Помилка Groq: {last_err}")
+                        st.error(f"❌ Помилка підключення до Groq: {last_err}")
                 except Exception as e:
                     st.error(f"❌ Помилка: {e}")
 

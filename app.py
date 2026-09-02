@@ -21,31 +21,40 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Професійні стилі темної теми + елегантні вкладки БЕЗ синьої заливки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     
+    /* Елегантний стиль вкладок (Tabs) без синього блоку */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        border-bottom: 2px solid #2d2d42;
-        padding-bottom: 5px;
+        gap: 15px;
+        border-bottom: 1px solid #28283c;
+        background-color: transparent;
+        padding-bottom: 0px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 42px;
-        background-color: #1a1a28;
-        border-radius: 8px 8px 0px 0px;
-        padding: 8px 18px;
-        color: #94a3b8;
-        font-weight: 600;
-        border: 1px solid #2d2d42;
-        border-bottom: none;
+        height: 38px;
+        background-color: transparent !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        padding: 4px 12px;
+        color: #94a3b8 !important;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #e2e8f0 !important;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #6366f1 !important;
+        background-color: transparent !important;
         color: #ffffff !important;
-        border-color: #6366f1 !important;
+        font-weight: 700 !important;
+        border-bottom: 2px solid #818cf8 !important;
     }
 
+    /* KPI Картки */
     .kpi-card {
         background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
         border: 1px solid #2e2e44;
@@ -181,46 +190,65 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ
+    # AI ЧАТ З АВТОВИБОРОМ ДОСТУПНИХ МОДЕЛЕЙ GROQ
     st.markdown("---")
-    st.subheader("🤖 AI-Аналітик (Groq Llama)")
+    st.subheader("🤖 AI-Аналітик (Groq)")
     groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
     
     if not groq_key:
         groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
         st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
 
-    ai_model = st.selectbox("Модель:", ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"], index=0)
     ai_query = st.text_area("Запитай щось у бази:", placeholder="Напр.: Які топ-3 хоррори на PlayStation?")
     
     if st.button("⚡ Запитати у ШІ", use_container_width=True):
         clean_key = str(groq_key).strip()
         if not clean_key or not clean_key.startswith("gsk_"):
-            st.error("❌ Введи валідний ключ Groq, що починається на 'gsk_' (з console.groq.com)!")
+            st.error("❌ Введи валідний ключ Groq (починається на 'gsk_') з console.groq.com!")
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner(f"Llama ({ai_model}) аналізує портфоліо..."):
+            with st.spinner("ШІ аналізує портфоліо..."):
                 try:
                     client = Groq(api_key=clean_key)
+                    
+                    # Отримуємо реальний список моделей, доступних для твого ключа
+                    try:
+                        valid_models = [m.id for m in client.models.list().data if 'whisper' not in m.id.lower() and 'guard' not in m.id.lower() and 'embed' not in m.id.lower()]
+                    except:
+                        valid_models = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama3-8b-8192", "gemma2-9b-it", "mixtral-8x7b-32768"]
+                    
                     cols_for_ai = ["Game_Name_Clean"]
                     if genre_col: cols_for_ai.append(genre_col)
                     revenue_cols = [c for c in filtered_df.columns if any(k in c.lower() for k in ["revenue", "total", "price", "switch", "playstation", "xbox"])]
                     cols_for_ai.extend(revenue_cols[:8])
                     cols_for_ai = list(dict.fromkeys([c for c in cols_for_ai if c in filtered_df.columns]))
                     
-                    data_summary_csv = filtered_df[cols_for_ai].head(40).to_csv(index=False)
-                    prompt = f"Ти провідний фінансовий аналітик консольного видавництва Upscale Studio.\nДані портфоліо:\n{data_summary_csv}\n\nЗапитання: {ai_query}\n\nДай точну відповідь українською мовою з цифрами з бази та бізнес-висновками."
+                    data_summary_csv = filtered_df[cols_for_ai].head(45).to_csv(index=False)
+                    prompt = f"Ти провідний аналітик консольного видавництва Upscale Studio.\nДані портфоліо:\n{data_summary_csv}\n\nЗапитання: {ai_query}\n\nДай точну відповідь українською мовою з цифрами з бази та бізнес-рекомендаціями."
                     
-                    chat_completion = client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model=ai_model,
-                        temperature=0.2,
-                        max_tokens=700
-                    )
-                    st.info(chat_completion.choices[0].message.content)
+                    response_text = None
+                    last_err = ""
+                    for mod in valid_models:
+                        try:
+                            chat_completion = client.chat.completions.create(
+                                messages=[{"role": "user", "content": prompt}],
+                                model=mod,
+                                temperature=0.2,
+                                max_tokens=700
+                            )
+                            response_text = chat_completion.choices[0].message.content
+                            break
+                        except Exception as e:
+                            last_err = str(e)
+                            continue
+
+                    if response_text:
+                        st.info(response_text)
+                    else:
+                        st.error(f"❌ Помилка підключення до Groq: {last_err}")
                 except Exception as e:
-                    st.error(f"❌ Помилка Groq: {e}")
+                    st.error(f"❌ Помилка ініціалізації Groq: {e}")
 
 # Розрахунок All-Time сум
 def get_platform_all_time_sum(df_target, keyword):
@@ -242,7 +270,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")

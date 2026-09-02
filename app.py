@@ -151,7 +151,7 @@ def load_data(sheet_url):
     df = df[df["Game_Name_Clean"].astype(str).str.strip() != ""]
     return df
 
-# Розумний позиційний парсер для тижневої таблиці з 2-рівневою шапкою
+# Розумний позиційний парсер для тижневої таблиці (100% захист від помилок типів)
 @st.cache_data(ttl=300, show_spinner=False)
 def load_weekly_data(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
@@ -159,16 +159,17 @@ def load_weekly_data(sheet_url):
     
     csv_url = get_export_url(sheet_url)
     try:
-        raw_w = pd.read_csv(csv_url, header=None)
+        # Читаємо всі комірки як текст (dtype=str) для уникнення помилок float
+        raw_w = pd.read_csv(csv_url, header=None, dtype=str)
         if raw_w.empty: return pd.DataFrame()
 
-        # Визначаємо де починаються чисті дані
-        first_row_str = " ".join(raw_w.iloc[0].astype(str).tolist()).lower()
-        second_row_str = " ".join(raw_w.iloc[1].astype(str).tolist()).lower() if len(raw_w) > 1 else ""
+        # Безпечно шукаємо де починаються дані
+        first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
+        second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
 
         if "from" in second_row_str or "sales" in second_row_str:
             data_df = raw_w.iloc[2:].copy().reset_index(drop=True)
-        elif "from" in first_row_str:
+        elif "from" in first_row_str or "sales" in first_row_str:
             data_df = raw_w.iloc[1:].copy().reset_index(drop=True)
         else:
             data_df = raw_w.copy()

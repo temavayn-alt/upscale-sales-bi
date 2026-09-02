@@ -119,75 +119,75 @@ if raw_df.empty:
 cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
 DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
 
-# Пошук колонки Total
-total_col = next((c for c in raw_df.columns if c.lower() == "total" or "всього" in c.lower()), None)
-if not total_col:
-    sum_cols = [c for c in raw_df.columns if "all" in c.lower() or "total" in c.lower()]
-    raw_df["Calculated_Total"] = raw_df[sum_cols].sum(axis=1) if sum_cols else 0.0
-    total_col = "Calculated_Total"
-
-if "scouted_leads" not in st.session_state:
-    st.session_state.scouted_leads = []
-
-# Сайдбар
-with st.sidebar:
-    st.header("🎮 Upscale Studio BI")
+# Чіткий пошук колонок All-Time для кожної платформи
+def get_platform_all_time_sum(df_target, keyword):
+    # Шукаємо колонку, де є назва платформи І слово 'all' або 'time'
+    exact_cols = [c for c in df_target.columns if keyword in c.lower() and any(k in c.lower() for k in ["all time", "all_time", "all", "разом"])]
+    if exact_cols:
+        return float(df_target[exact_cols[0]].sum())
     
-    app_mode = st.radio(
-        "📍 Оберіть розділ хабу:",
-        ["🎮 Наші ігри", "🧮 Калькулятор прогнозів"],
-        index=0
-    )
-    
-    st.markdown("---")
-    if st.button("🔄 Оновити дані з Google Sheets", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
-    st.markdown("---")
-    st.subheader("🔍 Фільтри")
-    search = st.text_input("Пошук гри:", "")
-    genre_col = next((c for c in raw_df.columns if "genre" in c.lower() or "жанр" in c.lower()), None)
-    
-    filtered_df = raw_df.copy()
-    if genre_col:
-        available_genres = sorted([str(g).strip() for g in raw_df[genre_col].dropna().unique() if str(g).strip().lower() != 'nan'])
-        if available_genres:
-            genres = st.multiselect("Жанри:", options=available_genres, default=available_genres)
-            if genres:
-                filtered_df = filtered_df[filtered_df[genre_col].astype(str).str.strip().isin(genres)]
-
-    if search:
-        filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
-
-def get_platform_sum(keyword):
-    cols = [c for c in filtered_df.columns if keyword in c.lower() and any(k in c.lower() for k in ["all", "total", "revenue"])]
-    if cols: return float(filtered_df[cols[0]].sum())
+    # Резервний пошук, якщо 'all' немає в назві
+    fallback_cols = [c for c in df_target.columns if keyword in c.lower() and "revenue" in c.lower() and "1st" not in c.lower() and "3" not in c.lower() and "6" not in c.lower()]
+    if fallback_cols:
+        return float(df_target[fallback_cols[0]].sum())
     return 0.0
 
-total_gross = float(filtered_df[total_col].sum())
-switch_rev = get_platform_sum("switch")
-ps_rev = get_platform_sum("playstation") if get_platform_sum("playstation") > 0 else get_platform_sum("ps")
-xbox_rev = get_platform_sum("xbox")
+# Розрахунок All-Time по кожній консолі
+switch_rev = get_platform_all_time_sum(filtered_df, "switch")
+ps_rev = get_platform_all_time_sum(filtered_df, "playstation") or get_platform_all_time_sum(filtered_df, "ps")
+xbox_rev = get_platform_all_time_sum(filtered_df, "xbox")
+steam_rev = get_platform_all_time_sum(filtered_df, "steam")
 
-# ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
-# ==============================================================================
-if app_mode == "🎮 Наші ігри":
-    st.title("📊 Портфоліо Upscale Studio")
-    st.caption(f"Фактичні результати релізних ігор • Проаналізовано тайтлів: **{len(filtered_df)}**")
+# Загальна сума (якщо в таблиці є готова колонка Total — беремо її, інакше сумуємо консолі)
+total_col = next((c for c in filtered_df.columns if c.lower() == "total" or "всього" in c.lower()), None)
+if total_col:
+    total_gross = float(filtered_df[total_col].sum())
+else:
+    total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
-    switch_pct = round(switch_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
-    ps_pct = round(ps_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
-    xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+# Реальні відсотки часток
+switch_pct = round(switch_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+ps_pct = round(ps_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса портфоліо</div><div class="kpi-value">${total_gross:,.2f}</div><span class="kpi-badge badge-total">100% Gross</span></div>', unsafe_allow_html=True)
-    c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Nintendo Switch</div><div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div><span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span></div>', unsafe_allow_html=True)
-    c3.markdown(f'<div class="kpi-card"><div class="kpi-label">PlayStation</div><div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div><span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span></div>', unsafe_allow_html=True)
-    c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Xbox</div><div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div><span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span></div>', unsafe_allow_html=True)
+# Вивід контрастних KPI
+c1, c2, c3, c4 = st.columns(4)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+with c1:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Загальна каса портфоліо (All-Time)</div>
+        <div class="kpi-value">${total_gross:,.2f}</div>
+        <span class="kpi-badge badge-total">100% Total Gross</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Nintendo Switch (All-Time)</div>
+        <div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div>
+        <span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">PlayStation (All-Time)</div>
+        <div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div>
+        <span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Xbox (All-Time)</div>
+        <div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div>
+        <span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     tab_overview, tab_decay, tab_insights, tab_table, tab_forecast_review = st.tabs([
         "📈 Огляд і Топ ігор", 

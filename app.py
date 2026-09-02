@@ -2,11 +2,15 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
+import json
+from datetime import datetime
 import re
 
 # ==============================================================================
-# 🔗 ТВОЄ ПОСИЛАННЯ НА GOOGLE ТАБЛИЦЮ:
+# 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ:
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
+GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Встав сюди Webhook URL з Apps Script для автозапису
 # ==============================================================================
 
 st.set_page_config(
@@ -47,7 +51,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 16 каліброваних профілів
+# 16 каліброваних піджанрів
 GENRE_DATABASE = {
     "Animal Chaos / Cat Simulator": {"PS": 4.2, "Switch": 3.2, "Xbox": 1.6, "Decay": 1.35, "Desc": "Топ-сегмент портфоліо (Cat From Hell, Bad Cat, Angry Cat)"},
     "Job / Business Simulator (3D)": {"PS": 2.2, "Switch": 2.6, "Xbox": 1.5, "Decay": 1.30, "Desc": "Switch/PS лідери (Supermarket, Waterpark, Drug Dealer)"},
@@ -109,26 +113,23 @@ def load_data(sheet_url):
 raw_df = load_data(GOOGLE_SHEET_URL)
 
 if raw_df.empty:
-    st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL` у коді.")
+    st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
     st.stop()
 
 cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
 DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
 
-# Автопошук колонки Total
+# Пошук колонки Total
 total_col = next((c for c in raw_df.columns if c.lower() == "total" or "всього" in c.lower()), None)
 if not total_col:
     sum_cols = [c for c in raw_df.columns if "all" in c.lower() or "total" in c.lower()]
     raw_df["Calculated_Total"] = raw_df[sum_cols].sum(axis=1) if sum_cols else 0.0
     total_col = "Calculated_Total"
 
-# Ініціалізація сховища для зібраних лідів
 if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
-# =========================================================
-# БІЧНА ПАНЕЛЬ: ГОЛОВНА НАВІГАЦІЯ
-# =========================================================
+# Сайдбар
 with st.sidebar:
     st.header("🎮 Upscale Studio BI")
     
@@ -144,7 +145,7 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    st.subheader("🔍 Фільтри портфоліо")
+    st.subheader("🔍 Фільтри")
     search = st.text_input("Пошук гри:", "")
     genre_col = next((c for c in raw_df.columns if "genre" in c.lower() or "жанр" in c.lower()), None)
     
@@ -158,7 +159,6 @@ with st.sidebar:
 
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
-
 
 def get_platform_sum(keyword):
     cols = [c for c in filtered_df.columns if keyword in c.lower() and any(k in c.lower() for k in ["all", "total", "revenue"])]
@@ -175,9 +175,8 @@ xbox_rev = get_platform_sum("xbox")
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
-    st.caption(f"Фактичні результати випущених ігор • Всього проаналізовано: **{len(filtered_df)}**")
+    st.caption(f"Фактичні результати релізних ігор • Проаналізовано тайтлів: **{len(filtered_df)}**")
 
-    # KPI Картки
     switch_pct = round(switch_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
     ps_pct = round(ps_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
     xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
@@ -262,7 +261,7 @@ if app_mode == "🎮 Наші ігри":
                 <img src="{img_url}" class="game-poster" onerror="this.src='{DEFAULT_IMAGE}'">
                 <div style="flex-grow: 1;">
                     <h4 style="margin:0 0 6px 0; color:#ffffff; font-size:16px;">🎮 {g_name} — <span style="color:#34d399; font-weight:bold;">${rev_val:,.2f}</span></h4>
-                    <p style="margin:0 0 4px 0; font-size:13px; color:#a5b4fc;"><b>📐 Формула:</b> {f_text}</p>
+                    <p style="margin:0 0 4px 0; font-size:13px; color:#a5b4fc;"><b>📐 Формула/Динаміка:</b> {f_text}</p>
                     <p style="margin:0; font-size:13px; color:#cbd5e1; line-height:1.5;"><b>💡 AI Аналіз:</b> {ai_text}</p>
                 </div>
             </div>
@@ -282,21 +281,34 @@ if app_mode == "🎮 Наші ігри":
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
         st.caption("Аналіз точності калькулятора по релізних тайтлах")
+
+        # Знаходимо всі стовпчики, що містять 'Accuracy' або порівняння
+        acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower() or "точність" in c.lower()]
         
-        # Шукаємо колонки Accuracy
-        acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower()]
-        if acc_cols:
-            st.dataframe(filtered_df[["Game_Name_Clean"] + acc_cols], use_container_width=True, height=480)
+        display_cols = ["Game_Name_Clean"]
+        if genre_col: display_cols.append(genre_col)
+        
+        # Шукаємо прогнозні та фактичні стовпчики для виводу
+        for key in ["playstation", "switch", "xbox", "total"]:
+            f_cols = [c for c in filtered_df.columns if key in c.lower() and ("revenue" in c.lower() or "1st" in c.lower() or "total" in c.lower())]
+            display_cols.extend(f_cols[:2]) # беремо до 2 ключових
+        
+        display_cols.extend(acc_cols)
+        # Прибираємо дублікати
+        display_cols = list(dict.fromkeys([c for c in display_cols if c in filtered_df.columns]))
+        
+        if len(display_cols) > 1:
+            st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
         else:
-            st.info("Колонки Accuracy не знайдено у поточній таблиці.")
+            st.dataframe(filtered_df, use_container_width=True, height=500)
 
 
 # ==============================================================================
-# 🧮 РОЗДІЛ 2: КАЛЬКУЛЯТОР ПРОГНОЗІВ (2 ВКЛАДКИ)
+# 🧮 РОЗДІЛ 2: КАЛЬКУЛЯТОР ПРОГНОЗІВ
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")
-    st.caption("Оцінка нових лідів за 16 піджанрами та збір перспективного пайплайну")
+    st.caption("Оцінка нових лідів за 16 піджанрами та формування пайплайну")
 
     calc_tab1, calc_tab2 = st.tabs([
         "🧮 Інтерактивний калькулятор ліда",
@@ -311,7 +323,8 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             st.markdown('<div class="sandbox-box">', unsafe_allow_html=True)
             st.markdown("#### 1. Вхідні дані ліда")
             
-            calc_name = st.text_input("Назва гри / ліда:", "Project Mystery")
+            calc_name = st.text_input("Назва гри / ліда:", "Project Prototype")
+            calc_link = st.text_input("🔗 Посилання на гру (Steam / GP / itch / Web):", "https://store.steampowered.com/app/...")
             calc_src = st.selectbox("Джерело аналізу:", ["Steam", "Google Play", "CrazyGames / Web", "itch.io"])
             
             if calc_src == "Steam":
@@ -355,13 +368,12 @@ elif app_mode == "🧮 Калькулятор прогнозів":
 
         with sb_right:
             st.markdown('<div class="sandbox-box">', unsafe_allow_html=True)
-            st.markdown(f"### 📈 Розрахунок: **{calc_name}**")
+            st.markdown(f"### 📈 Прогноз для: **{calc_name}**")
             st.caption(f"💡 *{g_cfg['Desc']}*")
             st.caption(f"Органічна база: **${b_metric:,.1f}** | Ціновий множник: **{p_mod}x**")
             
-            # Рекомендація
             if tot_m1 >= 6500:
-                st.success("🟢 **ТОП ЛІД:** Висока окупність (M1 > $6.5k)")
+                st.success("🟢 **ТОП ЛІД:** Рекомендовано надсилати пітч (M1 > $6.5k)")
                 status_rec = "✅ ТОП ЛІД"
             elif tot_m1 >= 3000:
                 st.info("🟡 **СТАНДАРТНИЙ ТАЙТЛ:** Стабільний кандидат ($3k–$6.5k)")
@@ -381,22 +393,37 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             t_c1.metric("🔥 Всього за M1", f"${tot_m1:,.0f}")
             t_c2.metric("📅 Річний виторг (1Y)", f"${tot_year:,.0f}", f"{g_cfg['Decay']}x")
 
-            # Кнопка збереження в таблицю лідів
-            if st.button("➕ Зберегти цей лід до таблиці лідів", use_container_width=True):
-                st.session_state.scouted_leads.append({
+            # Кнопка збереження ліда
+            if st.button("➕ Зберегти цей лід (в таблицю та Google Sheets)", use_container_width=True):
+                new_lead_entry = {
+                    "Дата": datetime.now().strftime("%Y-%m-%d %H:%M"),
                     "Назва гри": calc_name,
+                    "Посилання": calc_link,
                     "Джерело": calc_src,
                     "Жанр": calc_genre,
                     "Ціна ($)": calc_price,
                     "Base Metric": round(b_metric, 1),
-                    "PlayStation (M1)": round(ps_est, 1),
-                    "Nintendo Switch (M1)": round(ns_est, 1),
-                    "Xbox (M1)": round(xb_est, 1),
-                    "Total M1 Forecast ($)": round(tot_m1, 1),
-                    "1 Year LTV Forecast ($)": round(tot_year, 1),
+                    "PS M1 ($)": round(ps_est, 1),
+                    "Switch M1 ($)": round(ns_est, 1),
+                    "Xbox M1 ($)": round(xb_est, 1),
+                    "Total M1 ($)": round(tot_m1, 1),
+                    "1Y LTV ($)": round(tot_year, 1),
                     "Рекомендація": status_rec
-                })
-                st.toast(f"✅ Гру '{calc_name}' додано до таблиці лідів!")
+                }
+                
+                # Додаємо у внутрішній сесійний список
+                st.session_state.scouted_leads.append(new_lead_entry)
+                
+                # Якщо налаштовано Webhook — шлемо в Google Таблицю
+                if GOOGLE_WEBHOOK_URL:
+                    try:
+                        res = requests.post(GOOGLE_WEBHOOK_URL, json=new_lead_entry, timeout=5)
+                        if res.status_code == 200:
+                            st.toast("🚀 Успішно записано в Google Таблицю на вкладку Leads!")
+                    except Exception as e:
+                        st.warning(f"Збережено локально. Помилка запису в Webhook: {e}")
+                else:
+                    st.toast(f"✅ Лід '{calc_name}' додано до таблиці!")
 
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -407,9 +434,8 @@ elif app_mode == "🧮 Калькулятор прогнозів":
         if st.session_state.scouted_leads:
             leads_df = pd.DataFrame(st.session_state.scouted_leads)
             
-            # KPI пайплайну
-            tot_pipeline_val = leads_df["Total M1 Forecast ($)"].sum()
-            avg_lead_val = leads_df["Total M1 Forecast ($)"].mean()
+            tot_pipeline_val = leads_df["Total M1 ($)"].sum()
+            avg_lead_val = leads_df["Total M1 ($)"].mean()
             
             k_l1, k_l2, k_l3 = st.columns(3)
             k_l1.metric("Зібрано лідів", len(leads_df))
@@ -417,7 +443,12 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             k_l3.metric("Середній очікуваний M1", f"${avg_lead_val:,.2f}")
 
             st.markdown("---")
-            st.dataframe(leads_df, use_container_width=True, height=400)
+            
+            # Конфігурація для клікабельних посилань
+            lead_cfg = {
+                "Посилання": st.column_config.LinkColumn("Посилання на гру", display_text="Відкрити сторінку ↗")
+            }
+            st.dataframe(leads_df, column_config=lead_cfg, use_container_width=True, height=400)
             
             c_d1, c_d2 = st.columns([1, 4])
             with c_d1:
@@ -428,4 +459,4 @@ elif app_mode == "🧮 Калькулятор прогнозів":
                     st.session_state.scouted_leads = []
                     st.rerun()
         else:
-            st.info("💡 Таблиця лідів порожня. Перейди на вкладку 'Інтерактивний калькулятор ліда', розрахуй гру та натисни кнопку '➕ Зберегти цей лід до таблиці'.")
+            st.info("💡 Таблиця лідів порожня. Розрахуй гру у вкладці калькулятора та натисни '➕ Зберегти цей лід'.")

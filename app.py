@@ -21,24 +21,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + елегантні вкладки БЕЗ синьої заливки
+# Професійні стилі темної теми + МІНІМАЛІСТИЧНІ ВКЛАДКИ (БЕЗ СИНЬОЇ ЗАЛИВКИ)
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     
-    /* Елегантний стиль вкладок (Tabs) без синього блоку */
+    /* Чистий стиль вкладок без кольорових блоків */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 15px;
+        gap: 16px;
         border-bottom: 1px solid #28283c;
-        background-color: transparent;
+        background-color: transparent !important;
         padding-bottom: 0px;
     }
     .stTabs [data-baseweb="tab"] {
         height: 38px;
         background-color: transparent !important;
+        background: transparent !important;
         border: none !important;
         border-bottom: 2px solid transparent !important;
-        padding: 4px 12px;
+        padding: 4px 10px;
         color: #94a3b8 !important;
         font-size: 14px;
         font-weight: 500;
@@ -49,6 +50,7 @@ st.markdown("""
     }
     .stTabs [aria-selected="true"] {
         background-color: transparent !important;
+        background: transparent !important;
         color: #ffffff !important;
         font-weight: 700 !important;
         border-bottom: 2px solid #818cf8 !important;
@@ -190,21 +192,20 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # =========================================================================
-    # =========================================================================
-    # 🤖 УНІВЕРСАЛЬНИЙ AI-АНАЛІТИК З АВТО-КОМПРЕСІЄЮ (100% ІГОР, 0% ПОМИЛОК ЛІМІТУ)
-    # =========================================================================
+    # =========================================================
+    # 🤖 AI-АНАЛІТИК З АВТОМАТИЧНИМ ПОШУКОМ АКТИВНОЇ МОДЕЛІ GROQ
+    # =========================================================
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик по всій базі")
     groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
     
     if not groq_key:
         groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
-        st.caption("🎁 Безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
+        st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
 
     ai_query = st.text_area(
         "Запитай будь-що по всій таблиці:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000 за перший місяць? Або: Порівняй ефективність жанрів на PS проти Switch."
+        placeholder="Напр.: Топ-5 ігор на Xbox або скільки симуляторів заробили більше $1000?"
     )
     
     if st.button("⚡ Просканувати всю таблицю через ШІ", use_container_width=True):
@@ -214,16 +215,33 @@ with st.sidebar:
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ оптимізує та аналізує 100% бази портфоліо..."):
+            with st.spinner("ШІ аналізує 100% бази портфоліо..."):
                 try:
                     client = Groq(api_key=clean_key)
                     
-                    # 1. РОЗУМНЕ СТИСНЕННЯ: прибираємо важкі URL, залишаємо 100% фінансів
+                    # Отримуємо живі доступні моделі
+                    try:
+                        live_models = [m.id for m in client.models.list().data if not any(k in m.id.lower() for k in ['whisper', 'guard', 'embed', 'vision'])]
+                    except:
+                        live_models = []
+
+                    # Пріоритетний список актуальних моделей Groq
+                    target_models = [m for m in [
+                        "openai/gpt-oss-120b",
+                        "openai/gpt-oss-20b",
+                        "qwen/qwen3.6-27b",
+                        "llama-3.3-70b-versatile",
+                        "llama-3.1-8b-instant"
+                    ] if m in live_models]
+                    
+                    if not target_models:
+                        target_models = live_models if live_models else ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+
+                    # Очищаємо таблицю від важких URL
                     ai_df = raw_df.copy()
                     cols_to_drop = [c for c in ai_df.columns if any(k in c.lower() for k in ["link", "посилання", "cover", "image", "url", "фото"])]
                     ai_df = ai_df.drop(columns=cols_to_drop, errors="ignore")
                     
-                    # Скорочуємо довгі текстові стовпчики до 60 символів, щоб вміститися в ліміт токенів
                     for col in ai_df.select_dtypes(include=['object']).columns:
                         if col != "Game_Name_Clean":
                             ai_df[col] = ai_df[col].astype(str).str.slice(0, 60)
@@ -231,8 +249,8 @@ with st.sidebar:
                     compressed_csv = ai_df.to_csv(index=False)
                     
                     prompt = f"""
-                    Ти — провідний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
-                    Ось ПОВНІ фінансові дані портфоліо видавництва (усі {len(ai_df)} ігор, усі консолі, періоди M1, M3, 1Y, All-Time, ціни, жанри, формули):
+                    Ти — головний фінансовий директор та дата-аналітик консольного видавництва Upscale Studio (Україна).
+                    Тобі надано ПОВНІ фінансові дані портфоліо видавництва (усі {len(ai_df)} ігор, усі консолі, періоди M1, M3, 1Y, All-Time, ціни, жанри, формули):
 
                     ```csv
                     {compressed_csv}
@@ -242,23 +260,22 @@ with st.sidebar:
 
                     ТВОЯ ІНСТРУКЦІЯ:
                     1. Проаналізуй усю таблицю. У тебе є повний доступ до всіх ігор та періодів (M1, 3M, 1Y, All-Time).
-                    2. Якщо запитують кількість або список ігор за критерієм — чітко підрахуй їх, перелічи поіменно та вкажи точні суми в $.
+                    2. Якщо запитують кількість або список ігор — перелічи їх поіменно та вкажи точні суми в $.
                     3. Якщо просять порівняння чи аналіз — зроби розрахунок з реальними цифрами та частками.
                     4. Додай короткі професійні висновки для видавництва.
                     5. Відповідай структуровано, чітко українською мовою.
                     """
                     
-                    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
                     response_text = None
                     last_err = ""
 
-                    for mod in models_to_try:
+                    for mod in target_models:
                         try:
                             chat_completion = client.chat.completions.create(
                                 messages=[{"role": "user", "content": prompt}],
                                 model=mod,
                                 temperature=0.1,
-                                max_tokens=900
+                                max_tokens=1000
                             )
                             response_text = chat_completion.choices[0].message.content
                             break
@@ -270,7 +287,7 @@ with st.sidebar:
                         st.markdown("### 💡 Результат аналізу по всій базі:")
                         st.info(response_text)
                     else:
-                        st.error(f"❌ Помилка Groq: {last_err}")
+                        st.error(f"❌ Помилка підключення до Groq: {last_err}")
                 except Exception as e:
                     st.error(f"❌ Помилка: {e}")
 

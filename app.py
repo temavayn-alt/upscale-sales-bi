@@ -376,70 +376,50 @@ if app_mode == "🎮 Наші ігри":
 
     with tab_one_pager:
         st.subheader("📄 One-Pager Executive Звіт (Social Proof для пітчів)")
+        
+        # Рендеримо чистий HTML без пробілів на початку рядків
         st.markdown(f"""
-        <div class="one-pager-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px; margin-bottom:16px;">
-                <div>
-                    <h2 style="margin:0; color:#ffffff; letter-spacing:0.5px;">UPSCALE STUDIO</h2>
-                    <p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p>
-                </div>
-                <div style="text-align:right;">
-                    <span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span>
-                    <p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">Data as of {datetime.now().strftime('%B %Y')}</p>
-                </div>
-            </div>
+<div style="background-color: #0f172a; color: #f8fafc; padding: 25px; border-radius: 12px; border: 1px solid #334155; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 16px;">
+<div>
+<h2 style="margin:0; color:#ffffff; font-weight:800; letter-spacing:0.5px;">UPSCALE STUDIO</h2>
+<p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p>
+</div>
+<div style="text-align:right;">
+<span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span>
+<p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">Data as of {datetime.now().strftime('%B %Y')}</p>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
+<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">TOTAL CONSOLE GROSS</p>
+<h3 style="margin:4px 0 0 0; color:#38bdf8; font-size:22px;">${total_gross:,.0f}</h3>
+</div>
+<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
+<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">PLAYSTATION</p>
+<h3 style="margin:4px 0 0 0; color:#60a5fa; font-size:22px;">${ps_rev:,.0f}</h3>
+</div>
+<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
+<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">NINTENDO SWITCH</p>
+<h3 style="margin:4px 0 0 0; color:#f87171; font-size:22px;">${switch_rev:,.0f}</h3>
+</div>
+<div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
+<p style="margin:0; font-size:11px; color:#94a3b8; font-weight:600;">XBOX</p>
+<h3 style="margin:4px 0 0 0; color:#4ade80; font-size:22px;">${xbox_rev:,.0f}</h3>
+</div>
+</div>
+<h4 style="color:#f1f5f9; margin:0 0 8px 0; font-size:15px;">🏆 Key Portfolio Breakouts:</h4>
+<p style="color:#cbd5e1; font-size:13px; line-height:1.7; margin:0;">
+• <b>Cat From Hell:</b> Multi-platform viral hit ($119k+ All-Time Gross) driven by PlayStation engagement.<br>
+• <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time Gross).<br>
+• <b>Skinwalker:</b> High-converting Xbox 3D Horror breakout ($21k+ All-Time).<br>
+• <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
+</p>
+</div>
+""", unsafe_allow_html=True)
 
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:20px;">
-                <div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">TOTAL CONSOLE GROSS</p>
-                    <h3 style="margin:4px 0 0 0; color:#38bdf8;">${total_gross:,.0f}</h3>
-                </div>
-                <div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">PLAYSTATION</p>
-                    <h3 style="margin:4px 0 0 0; color:#60a5fa;">${ps_rev:,.0f}</h3>
-                </div>
-                <div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">NINTENDO SWITCH</p>
-                    <h3 style="margin:4px 0 0 0; color:#f87171;">${switch_rev:,.0f}</h3>
-                </div>
-                <div style="background:#1e293b; padding:14px; border-radius:8px; text-align:center;">
-                    <p style="margin:0; font-size:11px; color:#94a3b8;">XBOX</p>
-                    <h3 style="margin:4px 0 0 0; color:#4ade80;">${xbox_rev:,.0f}</h3>
-                </div>
-            </div>
-
-            <h4 style="color:#f1f5f9; margin-bottom:8px;">🏆 Key Portfolio Breakouts:</h4>
-            <p style="color:#cbd5e1; font-size:13px; line-height:1.6; margin:0 0 10px 0;">
-                • <b>Cat From Hell:</b> Multi-platform hit ($119k+ All-Time Gross) driven by viral PlayStation engagement.<br>
-                • <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time Gross).<br>
-                • <b>Skinwalker:</b> High-converting Xbox 3D Horror breakout ($21k+ All-Time).<br>
-                • <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         st.info("💡 Щоб зберегти як PDF: натисни **Ctrl + P (Cmd + P на Mac)** ➔ обери *Зберегти як PDF*.")
-
-    with tab_forecast_review:
-        st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower() or "точність" in c.lower()]
-        display_cols = ["Game_Name_Clean"]
-        if genre_col: display_cols.append(genre_col)
-        for key in ["playstation", "switch", "xbox", "total"]:
-            f_cols = [c for c in filtered_df.columns if key in c.lower() and any(k in c.lower() for k in ["revenue", "1st", "total"])]
-            display_cols.extend(f_cols[:2])
-        display_cols.extend(acc_cols)
-        display_cols = list(dict.fromkeys([c for c in display_cols if c in filtered_df.columns]))
-        st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
-
-    with tab_table:
-        st.subheader("Повна фінансова таблиця портфоліо")
-        column_config = {}
-        if cover_col:
-            column_config[cover_col] = st.column_config.ImageColumn("Обкладинка", width="small")
-        st.dataframe(filtered_df, column_config=column_config, use_container_width=True, height=520)
-        csv_data = filtered_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Експортувати у CSV", data=csv_data, file_name="console_sales_portfolio.csv", mime="text/csv")
 
 
 # ==============================================================================

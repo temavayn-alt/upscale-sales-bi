@@ -10,7 +10,7 @@ from groq import Groq
 # ==============================================================================
 # 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ:
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
-GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL для автозапису лідів
+GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL з Apps Script для автозапису
 GROQ_API_KEY = ""       # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
 # ==============================================================================
 
@@ -21,7 +21,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Стилі темної теми високої контрастності + вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -182,57 +181,46 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ З АВТО-FALLBACK НАДІЙНИХ МОДЕЛЕЙ
+    # AI ЧАТ
     st.markdown("---")
-    st.subheader("🤖 AI-Аналітик (Groq)")
+    st.subheader("🤖 AI-Аналітик (Groq Llama)")
     groq_key = GROQ_API_KEY or st.secrets.get("GROQ_API_KEY", "")
     
     if not groq_key:
         groq_key = st.text_input("Введи Groq API Key:", type="password", placeholder="gsk_...")
-        st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/)")
+        st.caption("🎁 Отримати безкоштовний ключ: [console.groq.com](https://console.groq.com/keys)")
 
+    ai_model = st.selectbox("Модель:", ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"], index=0)
     ai_query = st.text_area("Запитай щось у бази:", placeholder="Напр.: Які топ-3 хоррори на PlayStation?")
     
     if st.button("⚡ Запитати у ШІ", use_container_width=True):
-        if not groq_key:
-            st.error("Потрібен Groq API Key!")
+        clean_key = str(groq_key).strip()
+        if not clean_key or not clean_key.startswith("gsk_"):
+            st.error("❌ Введи валідний ключ Groq, що починається на 'gsk_' (з console.groq.com)!")
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("ШІ аналізує портфоліо..."):
+            with st.spinner(f"Llama ({ai_model}) аналізує портфоліо..."):
                 try:
-                    client = Groq(api_key=groq_key)
+                    client = Groq(api_key=clean_key)
                     cols_for_ai = ["Game_Name_Clean"]
                     if genre_col: cols_for_ai.append(genre_col)
                     revenue_cols = [c for c in filtered_df.columns if any(k in c.lower() for k in ["revenue", "total", "price", "switch", "playstation", "xbox"])]
                     cols_for_ai.extend(revenue_cols[:8])
                     cols_for_ai = list(dict.fromkeys([c for c in cols_for_ai if c in filtered_df.columns]))
                     
-                    data_summary_csv = filtered_df[cols_for_ai].head(45).to_csv(index=False)
-                    prompt = f"Ти провідний аналітик консольного видавництва Upscale Studio.\nДані портфоліо:\n{data_summary_csv}\n\nЗапитання: {ai_query}\n\nДай точну відповідь українською з цифрами та рекомендаціями."
+                    data_summary_csv = filtered_df[cols_for_ai].head(40).to_csv(index=False)
+                    prompt = f"Ти провідний фінансовий аналітик консольного видавництва Upscale Studio.\nДані портфоліо:\n{data_summary_csv}\n\nЗапитання: {ai_query}\n\nДай точну відповідь українською мовою з цифрами з бази та бізнес-висновками."
                     
-                    models_to_try = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
-                    response_text = None
-
-                    for model_name in models_to_try:
-                        try:
-                            chat_completion = client.chat.completions.create(
-                                messages=[{"role": "user", "content": prompt}],
-                                model=model_name,
-                                temperature=0.2,
-                                max_tokens=700
-                            )
-                            response_text = chat_completion.choices[0].message.content
-                            break
-                        except Exception:
-                            continue
-
-                    if response_text:
-                        st.info(response_text)
-                    else:
-                        st.error("Не вдалося отримати відповідь від Groq. Перевір правильність API-ключа.")
+                    chat_completion = client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=ai_model,
+                        temperature=0.2,
+                        max_tokens=700
+                    )
+                    st.info(chat_completion.choices[0].message.content)
                 except Exception as e:
-                    st.error(f"Помилка Groq API: {e}")
+                    st.error(f"❌ Помилка Groq: {e}")
 
 # Розрахунок All-Time сум
 def get_platform_all_time_sum(df_target, keyword):
@@ -254,7 +242,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")

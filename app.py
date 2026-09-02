@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
-import json
 from datetime import datetime
 import re
 
@@ -113,81 +112,88 @@ def load_data(sheet_url):
 raw_df = load_data(GOOGLE_SHEET_URL)
 
 if raw_df.empty:
-    st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
+    st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL` у коді.")
     st.stop()
 
 cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
 DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
 
-# Чіткий пошук колонок All-Time для кожної платформи
+if "scouted_leads" not in st.session_state:
+    st.session_state.scouted_leads = []
+
+# Сайдбар
+with st.sidebar:
+    st.header("🎮 Upscale Studio BI")
+    
+    app_mode = st.radio(
+        "📍 Оберіть розділ хабу:",
+        ["🎮 Наші ігри", "🧮 Калькулятор прогнозів"],
+        index=0
+    )
+    
+    st.markdown("---")
+    if st.button("🔄 Оновити дані з Google Sheets", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    st.markdown("---")
+    st.subheader("🔍 Фільтри")
+    search = st.text_input("Пошук гри:", "")
+    genre_col = next((c for c in raw_df.columns if "genre" in c.lower() or "жанр" in c.lower()), None)
+    
+    filtered_df = raw_df.copy()
+    if genre_col:
+        available_genres = sorted([str(g).strip() for g in raw_df[genre_col].dropna().unique() if str(g).strip().lower() != 'nan'])
+        if available_genres:
+            genres = st.multiselect("Жанри:", options=available_genres, default=available_genres)
+            if genres:
+                filtered_df = filtered_df[filtered_df[genre_col].astype(str).str.strip().isin(genres)]
+
+    if search:
+        filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
+
+
+# ЧІТКИЙ РОЗРАХУНОК ALL-TIME СУМ ДЛЯ КОНСОЛЕЙ
 def get_platform_all_time_sum(df_target, keyword):
-    # Шукаємо колонку, де є назва платформи І слово 'all' або 'time'
     exact_cols = [c for c in df_target.columns if keyword in c.lower() and any(k in c.lower() for k in ["all time", "all_time", "all", "разом"])]
     if exact_cols:
         return float(df_target[exact_cols[0]].sum())
     
-    # Резервний пошук, якщо 'all' немає в назві
     fallback_cols = [c for c in df_target.columns if keyword in c.lower() and "revenue" in c.lower() and "1st" not in c.lower() and "3" not in c.lower() and "6" not in c.lower()]
     if fallback_cols:
         return float(df_target[fallback_cols[0]].sum())
     return 0.0
 
-# Розрахунок All-Time по кожній консолі
 switch_rev = get_platform_all_time_sum(filtered_df, "switch")
-ps_rev = get_platform_all_time_sum(filtered_df, "playstation") or get_platform_all_time_sum(filtered_df, "ps")
+ps_rev = get_platform_all_time_sum(filtered_df, "playstation") if get_platform_all_time_sum(filtered_df, "playstation") > 0 else get_platform_all_time_sum(filtered_df, "ps")
 xbox_rev = get_platform_all_time_sum(filtered_df, "xbox")
 steam_rev = get_platform_all_time_sum(filtered_df, "steam")
 
-# Загальна сума (якщо в таблиці є готова колонка Total — беремо її, інакше сумуємо консолі)
 total_col = next((c for c in filtered_df.columns if c.lower() == "total" or "всього" in c.lower()), None)
 if total_col:
     total_gross = float(filtered_df[total_col].sum())
 else:
     total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
 
-# Реальні відсотки часток
-switch_pct = round(switch_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
-ps_pct = round(ps_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
-xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+# ==============================================================================
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
+# ==============================================================================
+if app_mode == "🎮 Наші ігри":
+    st.title("📊 Портфоліо Upscale Studio")
+    st.caption(f"Фактичні результати випущених ігор • Всього проаналізовано: **{len(filtered_df)}**")
 
-# Вивід контрастних KPI
-c1, c2, c3, c4 = st.columns(4)
+    # Розрахунок часток
+    switch_pct = round(switch_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+    ps_pct = round(ps_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
+    xbox_pct = round(xbox_rev / max(total_gross, 1) * 100) if total_gross > 0 else 0
 
-with c1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Загальна каса портфоліо (All-Time)</div>
-        <div class="kpi-value">${total_gross:,.2f}</div>
-        <span class="kpi-badge badge-total">100% Total Gross</span>
-    </div>
-    """, unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса портфоліо (All-Time)</div><div class="kpi-value">${total_gross:,.2f}</div><span class="kpi-badge badge-total">100% Total Gross</span></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Nintendo Switch (All-Time)</div><div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div><span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="kpi-card"><div class="kpi-label">PlayStation (All-Time)</div><div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div><span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Xbox (All-Time)</div><div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div><span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span></div>', unsafe_allow_html=True)
 
-with c2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Nintendo Switch (All-Time)</div>
-        <div class="kpi-value" style="color:#ff6b6b !important;">${switch_rev:,.2f}</div>
-        <span class="kpi-badge badge-switch">↑ {switch_pct}% частка</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">PlayStation (All-Time)</div>
-        <div class="kpi-value" style="color:#60a5fa !important;">${ps_rev:,.2f}</div>
-        <span class="kpi-badge badge-ps">↑ {ps_pct}% частка</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c4:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Xbox (All-Time)</div>
-        <div class="kpi-value" style="color:#4ade80 !important;">${xbox_rev:,.2f}</div>
-        <span class="kpi-badge badge-xbox">↑ {xbox_pct}% частка</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     tab_overview, tab_decay, tab_insights, tab_table, tab_forecast_review = st.tabs([
         "📈 Огляд і Топ ігор", 
@@ -200,12 +206,13 @@ with c4:
     # --- 1. ОГЛЯД ---
     with tab_overview:
         st.subheader("🏆 Топ-3 бестселери портфоліо")
-        top3_df = filtered_df.sort_values(by=total_col, ascending=False).head(3)
+        actual_total_col = total_col if total_col else filtered_df.columns[0]
+        top3_df = filtered_df.sort_values(by=actual_total_col, ascending=False).head(3)
         p_cols = st.columns(3)
         for idx, (_, top_row) in enumerate(top3_df.iterrows()):
             img_url = top_row[cover_col] if cover_col and pd.notna(top_row[cover_col]) and str(top_row[cover_col]).startswith("http") else DEFAULT_IMAGE
             with p_cols[idx]:
-                st.markdown(f'<div class="top-podium-card"><img src="{img_url}" style="width:100%; height:135px; object-fit:cover; border-radius:6px; margin-bottom:8px;"><h4 style="margin:0 0 4px 0; color:#fff;">#{idx+1} {top_row["Game_Name_Clean"]}</h4><p style="margin:0; font-size:18px; color:#34d399; font-weight:bold;">${top_row[total_col]:,.2f}</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="top-podium-card"><img src="{img_url}" style="width:100%; height:135px; object-fit:cover; border-radius:6px; margin-bottom:8px;"><h4 style="margin:0 0 4px 0; color:#fff;">#{idx+1} {top_row["Game_Name_Clean"]}</h4><p style="margin:0; font-size:18px; color:#34d399; font-weight:bold;">${top_row[actual_total_col]:,.2f}</p></div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         c_left, c_right = st.columns([1, 2])
@@ -219,8 +226,8 @@ with c4:
                 st.plotly_chart(fig_pie, use_container_width=True)
         with c_right:
             st.subheader("Топ-15 тайтлів за виторгом ($)")
-            top_df = filtered_df.sort_values(by=total_col, ascending=True).tail(15)
-            fig_bar = px.bar(top_df, x=total_col, y="Game_Name_Clean", orientation="h", text=total_col, color_discrete_sequence=["#6366f1"])
+            top_df = filtered_df.sort_values(by=actual_total_col, ascending=True).tail(15)
+            fig_bar = px.bar(top_df, x=actual_total_col, y="Game_Name_Clean", orientation="h", text=actual_total_col, color_discrete_sequence=["#6366f1"])
             fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside', textfont=dict(color="#ffffff"))
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis=dict(gridcolor="#28283c", title="Виторг ($)"), yaxis=dict(gridcolor="#28283c", title=""), margin=dict(t=15, b=15, l=15, r=15))
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -250,9 +257,10 @@ with c4:
         st.subheader("Стратегічні висновки та постери тайтлів")
         formula_col = next((c for c in filtered_df.columns if "formula" in c.lower()), None)
         ai_col = next((c for c in filtered_df.columns if "ai" in c.lower()), None)
+        actual_total_col = total_col if total_col else filtered_df.columns[0]
         for _, row in filtered_df.iterrows():
             g_name = row["Game_Name_Clean"]
-            rev_val = row[total_col]
+            rev_val = row[actual_total_col]
             f_text = row[formula_col] if formula_col and pd.notna(row[formula_col]) else "—"
             ai_text = row[ai_col] if ai_col and pd.notna(row[ai_col]) else "—"
             img_url = row[cover_col] if cover_col and pd.notna(row[cover_col]) and str(row[cover_col]).startswith("http") else DEFAULT_IMAGE
@@ -283,7 +291,6 @@ with c4:
         st.caption("Аналіз точності калькулятора по релізних тайтлах")
 
         acc_cols = [c for c in filtered_df.columns if "accuracy" in c.lower() or "точність" in c.lower()]
-        
         display_cols = ["Game_Name_Clean"]
         if genre_col: display_cols.append(genre_col)
         
@@ -293,7 +300,6 @@ with c4:
         
         display_cols.extend(acc_cols)
         display_cols = list(dict.fromkeys([c for c in display_cols if c in filtered_df.columns]))
-        
         st.dataframe(filtered_df[display_cols], use_container_width=True, height=500)
 
 
@@ -426,7 +432,6 @@ elif app_mode == "🧮 Калькулятор прогнозів":
         if st.session_state.scouted_leads:
             leads_df = pd.DataFrame(st.session_state.scouted_leads)
             
-            # Безпечний динамічний пошук колонки суми (запобігає KeyError)
             total_lead_col = next((c for c in leads_df.columns if "total" in c.lower()), None)
             if total_lead_col:
                 leads_df[total_lead_col] = pd.to_numeric(leads_df[total_lead_col], errors="coerce").fillna(0.0)

@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Стилі темної теми високої контрастності + мінімалістичні вкладки БЕЗ синьої заливки
+# Професійні стилі темної теми + елегантні вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -158,9 +158,9 @@ def load_data(sheet_url):
 
     for col in df.columns:
         col_lower = str(col).lower()
-        if any(img_k in col_lower for img_k in ["cover", "image", "постер", "url", "фото", "link"]):
+        if any(img_k in col_lower for img_k in ["cover", "image", "постер", "url", "фото", "link", "посилання"]):
             continue
-        if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна", "accuracy", "base metric", "installs", "reviews"]):
+        if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна", "accuracy", "base metric", "installs", "reviews", "forecast"]):
             df[col] = (
                 df[col].astype(str)
                 .str.replace("$", "", regex=False)
@@ -282,7 +282,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000? Або: Проаналізуй динаміку останнього тижня."
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000? Або: Топ-5 ігор на PlayStation."
     )
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
@@ -313,11 +313,11 @@ with st.sidebar:
                         try: g_price = round(float(g_price), 2)
                         except: g_price = 0.0
 
-                        ps_m1 = find_num(r, ["ps", "1st"]) or find_num(r, ["playstation", "1st"]) or find_num(r, ["ps", "m1"])
-                        ps_all = find_num(r, ["ps", "all"]) or find_num(r, ["playstation", "all"])
-                        sw_m1 = find_num(r, ["switch", "1st"]) or find_num(r, ["switch", "m1"])
+                        ps_m1 = find_num(r, ["playstation", "1st"]) or find_num(r, ["ps", "1st"])
+                        ps_all = find_num(r, ["playstation", "all"]) or find_num(r, ["ps", "all"])
+                        sw_m1 = find_num(r, ["switch", "1st"])
                         sw_all = find_num(r, ["switch", "all"])
-                        xb_m1 = find_num(r, ["xbox", "1st"]) or find_num(r, ["xbox", "m1"])
+                        xb_m1 = find_num(r, ["xbox", "1st"])
                         xb_all = find_num(r, ["xbox", "all"])
                         tot_all = find_num(r, ["total"]) or (ps_all + sw_all + xb_all)
                         summary_lines.append(f"{g_name}|{g_genre}|${g_price}|{ps_m1}|{ps_all}|{sw_m1}|{sw_all}|{xb_m1}|{xb_all}|{tot_all}")
@@ -360,27 +360,37 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ Помилка Anthropic API: {e}")
 
-# Розрахунок All-Time сум
-def get_platform_all_time_sum(df_target, keyword):
-    exact_cols = [c for c in df_target.columns if keyword in c.lower() and any(k in c.lower() for k in ["all time", "all_time", "all", "разом"])]
-    if exact_cols: return float(df_target[exact_cols[0]].sum())
-    fallback_cols = [c for c in df_target.columns if keyword in c.lower() and "revenue" in c.lower() and "1st" not in c.lower() and "3" not in c.lower() and "6" not in c.lower()]
-    if fallback_cols: return float(df_target[fallback_cols[0]].sum())
+# ЧІТКИЙ РОЗРАХУНОК ALL-TIME СУМ
+def get_exact_all_time(df_target, plat):
+    if plat == "PS":
+        for c in df_target.columns:
+            cl = c.lower()
+            if "playstation" in cl and "all" in cl:
+                return float(df_target[c].sum())
+    elif plat == "Switch":
+        for c in df_target.columns:
+            cl = c.lower()
+            if "switch" in cl and "all" in cl:
+                return float(df_target[c].sum())
+    elif plat == "Xbox":
+        for c in df_target.columns:
+            cl = c.lower()
+            if "xbox" in cl and "all" in cl:
+                return float(df_target[c].sum())
     return 0.0
 
-switch_rev = get_platform_all_time_sum(filtered_df, "switch")
-ps_rev = get_platform_all_time_sum(filtered_df, "playstation") if get_platform_all_time_sum(filtered_df, "playstation") > 0 else get_platform_all_time_sum(filtered_df, "ps")
-xbox_rev = get_platform_all_time_sum(filtered_df, "xbox")
-steam_rev = get_platform_all_time_sum(filtered_df, "steam")
+ps_rev = get_exact_all_time(filtered_df, "PS")
+switch_rev = get_exact_all_time(filtered_df, "Switch")
+xbox_rev = get_exact_all_time(filtered_df, "Xbox")
 
 total_col = next((c for c in filtered_df.columns if c.lower() == "total" or "всього" in c.lower()), None)
 if total_col:
     total_gross = float(filtered_df[total_col].sum())
 else:
-    total_gross = switch_rev + ps_rev + xbox_rev + steam_rev
+    total_gross = switch_rev + ps_rev + xbox_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
@@ -525,14 +535,13 @@ if app_mode == "🎮 Наші ігри":
         st.markdown("---")
         st.dataframe(tracker_df, use_container_width=True, height=360)
 
-    # =========================================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (СУВОРИЙ ПОШУК ФАКТУ ТА ПРОГНОЗУ)
-    # =========================================================================
+    # =========================================================
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ТОЧНИЙ РОЗРАХУНОК)
+    # =========================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        st.caption("Аудит точності з автоматичним визначенням активних платформ релізу гри")
+        st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та джерел (Steam / Google Play / Web / Itch)")
 
-        # Суворий пошук фактичних зборів (тільки ліва частина таблиці)
         def get_exact_fact_m1(row_s, plat):
             if plat == "PS":
                 for c in row_s.index:
@@ -595,38 +604,36 @@ if app_mode == "🎮 Наші ігри":
             try: g_price = float(g_price)
             except: g_price = 9.99
 
-            # 1. СУВОРИЙ РОЗРАХУНОК ФАКТУ ПО КОЖНІЙ КОНСОЛІ
+            # 1. ФАКТИЧНІ ЗБОРИ
             ps_m1_fact = get_exact_fact_m1(r, "PS")
             ps_all_fact = get_exact_fact_all(r, "PS")
-            
             sw_m1_fact = get_exact_fact_m1(r, "Switch")
             sw_all_fact = get_exact_fact_all(r, "Switch")
-            
             xb_m1_fact = get_exact_fact_m1(r, "Xbox")
             xb_all_fact = get_exact_fact_all(r, "Xbox")
 
-            # 2. ДЕТЕКЦІЯ АКТИВНИХ ПЛАТФОРМ (де реально був реліз)
+            # 2. АКТИВНІ ПЛАТФОРМИ
             active_platforms = []
             if ps_m1_fact > 0 or ps_all_fact > 0: active_platforms.append("PS")
             if sw_m1_fact > 0 or sw_all_fact > 0: active_platforms.append("Switch")
             if xb_m1_fact > 0 or xb_all_fact > 0: active_platforms.append("Xbox")
 
             if not active_platforms:
-                src_plat_text = str(r.get("Platform", "")).lower()
+                src_plat_text = str(r.get("Platform Source", r.get("Platform", ""))).lower()
                 if "switch" in src_plat_text: active_platforms.append("Switch")
                 if "ps" in src_plat_text or "playstation" in src_plat_text: active_platforms.append("PS")
                 if "xbox" in src_plat_text: active_platforms.append("Xbox")
             
             if not active_platforms:
-                active_platforms = ["Switch"] # Безпечний дефолт для нішевих релізів
+                active_platforms = ["Switch"]
 
             platform_badge = " + ".join(active_platforms) if len(active_platforms) < 3 else "Усі 3 консолі"
 
-            # 3. ТОЧНИЙ РОЗРАХУНОК BASE METRIC ВІД ДЖЕРЕЛА
+            # 3. РОЗРАХУНОК BASE METRIC ВІД ДЖЕРЕЛА
             base_m = find_val(r, ["base metric"])
             installs_val = find_val(r, ["installs"]) or find_val(r, ["reviews"])
             steam_rev_val = find_val(r, ["steam revenue"])
-            src_platform_type = str(r.get("Platform", "")).lower()
+            src_platform_type = str(r.get("Platform Source", r.get("Platform", ""))).lower()
 
             if base_m == 0:
                 if "steam" in src_platform_type or steam_rev_val > 0:
@@ -652,7 +659,6 @@ if app_mode == "🎮 Наші ігри":
                 ps_pred = base_m * cfg["PS"] * p_m if "PS" in active_platforms else 0.0
                 sw_pred = base_m * cfg["Switch"] * p_m if "Switch" in active_platforms else 0.0
                 xb_pred = base_m * cfg["Xbox"] * p_m if "Xbox" in active_platforms else 0.0
-                
                 total_pred_m1 = ps_pred + sw_pred + xb_pred
                 has_valid_forecast = True
             else:
@@ -952,7 +958,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             elif calc_src == "CrazyGames / Web":
                 cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
                 b_metric = (cg_r * 0.05) + 900.0
-            else:
+            else: # itch.io
                 itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
                 b_metric = (itch_r * 10.0) + 400.0
 

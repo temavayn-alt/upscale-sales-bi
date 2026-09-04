@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Стилі темної теми високої контрастності + мінімалістичні вкладки
+# Професійні стилі темної теми + мінімалістичні вкладки БЕЗ синьої заливки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -83,7 +83,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Графік розпродажів Nintendo eShop
 NINTENDO_SCHEDULE = [
     {"name": "1. Autumn Sale", "start": "2026-09-11", "end": "2026-09-24", "status": "🔥 Найближчий", "region": "Global / EU / US"},
     {"name": "2. Halloween Sale", "start": "2026-10-26", "end": "2026-11-15", "status": "🎃 Сезонний", "region": "Global"},
@@ -93,7 +92,6 @@ NINTENDO_SCHEDULE = [
 
 # 30 ВІДКАЛІБРОВАНИХ ПІДЖАНРІВ
 GENRE_DATABASE = {
-    # 1. Симулятори та Менеджмент (8)
     "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.8, "Xbox": 1.8, "Switch": 2.6, "Decay": 1.35, "Desc": "Cat From Hell, Bad Cat, Angry Cat (Топ PS/Switch)"},
     "Simulator: Crime / Black Market (3D)": {"PS": 4.2, "Xbox": 3.5, "Switch": 1.2, "Decay": 1.15, "Desc": "Drug Dealer Empire, Thief Sim (Високий чек на PS/Xbox)"},
     "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 2.2, "Xbox": 1.5, "Switch": 2.8, "Decay": 1.30, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo (Switch-лідер)"},
@@ -102,33 +100,23 @@ GENRE_DATABASE = {
     "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.5, "Xbox": 2.4, "Switch": 1.8, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben (Xbox лідер)"},
     "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 3.2, "Decay": 1.40, "Desc": "Монополія аудиторії Nintendo"},
     "Simulator: Casual Flight / Paper Plane": {"PS": 0.4, "Xbox": 0.3, "Switch": 0.4, "Decay": 1.10, "Desc": "🔴 Paperly, Fly for Fly (Зона низького чека)"},
-
-    # 2. Хоррори та Виживання (5)
     "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.8, "Xbox": 2.8, "Switch": 0.5, "Decay": 1.15, "Desc": "Skinwalker ($9.4k XB), TROX (Xbox домінує)"},
     "Horror: 3D First-Person Atmospheric": {"PS": 1.6, "Xbox": 2.2, "Switch": 0.5, "Decay": 1.10, "Desc": "Cornfield, Death Attraction, Dr. Psycho"},
     "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.4, "Switch": 1.0, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (Стримерські продажі PS)"},
     "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 2.0, "Xbox": 2.6, "Switch": 1.8, "Decay": 1.35, "Desc": "From the Bunker, Survival After War"},
     "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 2.0, "Switch": 1.5, "Decay": 1.30, "Desc": "Call of Island, WinterCraft"},
-
-    # 3. Платформери та Фізика (4)
     "Platformer: 3D Physics / Character Adventure": {"PS": 2.0, "Xbox": 1.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Super Adventure Hand ($3.4k PS / $2.6k XB)"},
     "Platformer: 3D Obby / Roblox-style": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.4, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball (Молода аудиторія)"},
     "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 3.0, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
     "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.15, "Desc": "Super Rock Climber (Only Up вайб)"},
-
-    # 4. Пазли та Козі (4)
     "Cozy: Organization / Packing / Decor": {"PS": 0.8, "Xbox": 0.5, "Switch": 3.5, "Decay": 1.45, "Desc": "Packit List, Unpacking-вайб (Switch топ)"},
     "Puzzle: 2D Match-3D / Goods Sort / Nuts": {"PS": 0.6, "Xbox": 0.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Goods Sort, Bus Jam, Bolts & Nuts"},
     "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.8, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge (Імпульсивні покупки)"},
     "Puzzle: Hidden Object / Detective Quest": {"PS": 1.6, "Xbox": 0.9, "Switch": 1.8, "Decay": 1.40, "Desc": "Conquistadorio ($25k All-time), Minima, Dollmaker"},
-
-    # 5. Екшн, Шутери та Перегони (4)
     "Racing: 3D Arcade / Traffic Driving": {"PS": 3.0, "Xbox": 1.0, "Switch": 1.8, "Decay": 1.15, "Desc": "Gran Carismo ($3.6k PS), Hyper Cars"},
     "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.8, "Xbox": 2.2, "Switch": 1.0, "Decay": 1.25, "Desc": "Bunker 22 ($3.4k PS), Zombiescraper"},
     "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.2, "Xbox": 1.0, "Switch": 1.4, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
     "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Street Combat Fighting"},
-
-    # 6. RPG, Роглайки та Стратегії (5)
     "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.4, "Xbox": 1.4, "Switch": 1.8, "Decay": 1.35, "Desc": "Nom Nom Apocalypse"},
     "Roguelike: Turn-Based / Deckbuilder / Dice": {"PS": 1.0, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.40, "Desc": "Rabbit Samurai, Bag Hero, Slice & Dice"},
     "Metroidvania: 2D Pixel / Action Platformer": {"PS": 1.0, "Xbox": 0.8, "Switch": 0.4, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild (Перенасичення Switch)"},
@@ -147,7 +135,6 @@ def get_export_url(url_or_id):
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
-# Розумний парсер дати
 def parse_flexible_date(d_val):
     if pd.isna(d_val) or not str(d_val).strip() or str(d_val).strip().lower() == 'nan':
         return None
@@ -501,14 +488,10 @@ if app_mode == "🎮 Наші ігри":
             </div>
             """, unsafe_allow_html=True)
 
-    # =========================================================================
-    # 📅 ВКЛАДКА 3: РОЗПРОДАЖІ NINTENDO (З КАЛЕНДАРЕМ ТА ТАЙМЛАЙНОМ)
-    # =========================================================================
     with tab_sales_tracker:
         st.subheader("📅 Календар та трекер розпродажів Nintendo eShop")
         st.caption("Офіційний таймлайн сейлів та автоматичний розрахунок 30-денного кулдауну для кожної гри")
 
-        # 1. Візуальний таймлайн розпродажів
         st.markdown("#### 🗓️ Графік розпродажів Nintendo на часовій осі")
         cal_df = pd.DataFrame([
             {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]}
@@ -529,7 +512,6 @@ if app_mode == "🎮 Наші ігри":
 
         st.markdown("---")
         
-        # 2. Вибір конкретного сейлу
         sale_choice = st.selectbox(
             "Оберіть цільовий розпродаж для перевірки готовності портфоліо:",
             [f"{s['name']} (Старт: {s['start']} | {s['status']} | {s['region']})" for s in NINTENDO_SCHEDULE],
@@ -543,10 +525,6 @@ if app_mode == "🎮 Наші ігри":
 
         target_start_date = datetime.strptime(selected_sale_data["start"], "%Y-%m-%d")
         rel_col = next((c for c in filtered_df.columns if any(k in c.lower() for k in ["release", "date", "дата"])), None)
-        
-        # Рахуємо дні до старту сейлу від сьогодні
-        today_date = datetime.now()
-        days_to_sale = (target_start_date - today_date).days
 
         tracker_rows = []
         for _, r in filtered_df.iterrows():
@@ -555,14 +533,12 @@ if app_mode == "🎮 Наші ігри":
             r_date = parse_flexible_date(raw_date_val)
             
             if not r_date:
-                r_date = datetime(2026, 5, 1) # якщо зовсім немає дати
+                r_date = datetime(2026, 5, 1)
                 date_display = "— (Не вказано)"
             else:
                 date_display = r_date.strftime("%Y-%m-%d")
 
-            # Правило Nintendo: мінімум 30 днів після релізу
             days_since_rel = (target_start_date - r_date).days
-            
             if days_since_rel >= 30:
                 sale_status = "🟢 Готова до сейлу"
                 note = f"Пройшло {days_since_rel} дн. (Кулдаун OK)"
@@ -587,8 +563,6 @@ if app_mode == "🎮 Наші ігри":
         t_c3.metric("У кулдауні (нові релізи)", len(tracker_df) - ready_count)
 
         st.markdown("---")
-        
-        # Фільтр тільки готових
         only_ready = st.checkbox("Показати тільки готові до подачі тайтли (🟢 Готова до сейлу)", value=False)
         if only_ready:
             st.dataframe(tracker_df[tracker_df["Статус Nintendo"].str.contains("Готова")], use_container_width=True, height=360)
@@ -596,11 +570,11 @@ if app_mode == "🎮 Наші ігри":
             st.dataframe(tracker_df, use_container_width=True, height=360)
 
     # =========================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ТОЧНИЙ РОЗРАХУНОК)
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (СУВОРИЙ ПОШУК ФАКТУ ТА ПРОГНОЗУ)
     # =========================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та джерел (Steam / Google Play / Web / Itch)")
+        st.caption("Аудит точності з автоматичним визначенням активних платформ релізу гри")
 
         def get_exact_fact_m1(row_s, plat):
             if plat == "PS":
@@ -961,4 +935,170 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.subheader("🎯 BizDev Воронка: темпи залучення нових тайтлів")
         bd_cols = [c for c in ["Leads", "Contacts", "Calls", "Deals"] if c in weekly_df.columns]
         if bd_cols:
-            fig_bd = px.bar(we
+            fig_bd = px.bar(weekly_df, x="From", y=bd_cols, barmode="group", color_discrete_sequence=["#6366f1", "#3b82f6", "#f59e0b", "#10b981"])
+            fig_bd.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Кількість")
+            st.plotly_chart(fig_bd, use_container_width=True)
+            
+            b_c1, b_c2, b_c3, b_c4 = st.columns(4)
+            b_c1.metric("Всього лідів", int(weekly_df["Leads"].sum()) if "Leads" in weekly_df.columns else 0)
+            b_c2.metric("Контактів", int(weekly_df["Contacts"].sum()) if "Contacts" in weekly_df.columns else 0)
+            b_c3.metric("Дзвінків (Calls)", int(weekly_df["Calls"].sum()) if "Calls" in weekly_df.columns else 0)
+            b_c4.metric("Угод (Deals)", int(weekly_df["Deals"].sum()) if "Deals" in weekly_df.columns else 0)
+
+    with w_tab3:
+        st.subheader("📱 Ріст аудиторії та соцмереж видавництва")
+        social_cols = [c for c in ["Twitter", "TikTok", "YouTube", "Discord", "Instagram"] if c in weekly_df.columns]
+        if social_cols:
+            fig_social = px.line(weekly_df, x="From", y=social_cols, markers=True)
+            fig_social.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Підписників")
+            st.plotly_chart(fig_social, use_container_width=True)
+
+    with w_tab4:
+        st.subheader("📑 Повний архів щотижневої звітності")
+        st.dataframe(weekly_df, use_container_width=True, height=450)
+        csv_w = weekly_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Експортувати тижневий звіт (.CSV)", data=csv_w, file_name="upscale_weekly_reporting.csv", mime="text/csv")
+
+
+# ==============================================================================
+# 🧮 РОЗДІЛ 3: КАЛЬКУЛЯТОР ПРОГНОЗІВ
+# ==============================================================================
+elif app_mode == "🧮 Калькулятор прогнозів":
+    st.title("🧮 Sourcing & Lead Forecasting Hub")
+    st.caption("Оцінка нових лідів за 30 піджанрами та формування пайплайну")
+
+    calc_tab1, calc_tab2 = st.tabs([
+        "🧮 Інтерактивний калькулятор ліда",
+        "📋 Таблиця куди збираються ліди"
+    ])
+
+    with calc_tab1:
+        sb_left, sb_right = st.columns([1, 1.25])
+
+        with sb_left:
+            st.markdown('<div class="sandbox-box">', unsafe_allow_html=True)
+            st.markdown("#### 1. Вхідні дані ліда")
+            
+            calc_name = st.text_input("Назва гри / ліда:", "Project Prototype")
+            calc_link = st.text_input("🔗 Посилання на гру (Steam / GP / itch / Web):", "https://store.steampowered.com/app/...")
+            calc_src = st.selectbox("Джерело аналізу:", ["Steam", "Google Play", "CrazyGames / Web", "itch.io"])
+            
+            if calc_src == "Steam":
+                s_rev = st.number_input("Steam All-Time Revenue ($):", min_value=0, value=6000, step=1000)
+                b_metric = (s_rev * 0.10) + 500.0
+            elif calc_src == "Google Play":
+                gp_installs = st.number_input("Завантаження Google Play (Installs):", min_value=0, value=500000, step=50000)
+                b_metric = (math.sqrt(gp_installs) * 2.0) + 800.0 if gp_installs > 0 else 0.0
+            elif calc_src == "CrazyGames / Web":
+                cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
+                b_metric = (cg_r * 0.05) + 900.0
+            else: # itch.io
+                itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
+                b_metric = (itch_r * 10.0) + 400.0
+
+            st.markdown("---")
+            st.markdown("#### 2. Жанр і Ціноутворення")
+            calc_genre = st.selectbox("Точний піджанр гри:", list(GENRE_DATABASE.keys()))
+            calc_price = st.selectbox("Планова ціна на консолях ($):", list(PRICE_MODIFIERS.keys()), index=3)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        g_cfg = GENRE_DATABASE[calc_genre]
+        p_mod = PRICE_MODIFIERS[calc_price]
+
+        ps_est = b_metric * g_cfg["PS"] * p_mod
+        ns_est = b_metric * g_cfg["Switch"] * p_mod
+        xb_est = b_metric * g_cfg["Xbox"] * p_mod
+        tot_m1 = ps_est + ns_est + xb_est
+        tot_year = tot_m1 * g_cfg["Decay"]
+
+        with sb_right:
+            st.markdown('<div class="sandbox-box">', unsafe_allow_html=True)
+            st.markdown(f"### 📈 Розрахунок: **{calc_name}**")
+            st.caption(f"💡 *{g_cfg['Desc']}*")
+            st.caption(f"Органічна база: **${b_metric:,.1f}** | Ціновий множник: **{p_mod}x**")
+            
+            if tot_m1 >= 6500:
+                st.success("🟢 **ТОП ЛІД:** Рекомендовано надсилати пітч (M1 > $6.5k)")
+                status_rec = "✅ ТОП ЛІД"
+            elif tot_m1 >= 3000:
+                st.info("🟡 **СТАНДАРТНИЙ ТАЙТЛ:** Стабільний кандидат ($3k–$6.5k)")
+                status_rec = "⚠️ СТАНДАРТ"
+            else:
+                st.warning("🔴 **ВИСОКИЙ РИЗИК:** Низька прогнозована каса (M1 < $3k)")
+                status_rec = "❌ РИЗИК"
+
+            st.markdown("---")
+            m_c1, m_c2, m_c3 = st.columns(3)
+            m_c1.metric("PlayStation (M1)", f"${ps_est:,.0f}", f"{g_cfg['PS']}x")
+            m_c2.metric("Nintendo Switch (M1)", f"${ns_est:,.0f}", f"{g_cfg['Switch']}x")
+            m_c3.metric("Xbox (M1)", f"${xb_est:,.0f}", f"{g_cfg['Xbox']}x")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            t_c1, t_c2 = st.columns(2)
+            t_c1.metric("🔥 Всього за M1", f"${tot_m1:,.0f}")
+            t_c2.metric("📅 Річний виторг (1Y)", f"${tot_year:,.0f}", f"{g_cfg['Decay']}x")
+
+            if st.button("➕ Зберегти цей лід (в таблицю та Google Sheets)", use_container_width=True):
+                new_lead_entry = {
+                    "Дата": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Назва гри": calc_name,
+                    "Посилання": calc_link,
+                    "Джерело": calc_src,
+                    "Жанр": calc_genre,
+                    "Ціна ($)": calc_price,
+                    "Base Metric": round(b_metric, 1),
+                    "PS M1 ($)": round(ps_est, 1),
+                    "Switch M1 ($)": round(ns_est, 1),
+                    "Xbox M1 ($)": round(xb_est, 1),
+                    "Total M1 ($)": round(tot_m1, 1),
+                    "1Y LTV ($)": round(tot_year, 1),
+                    "Рекомендація": status_rec
+                }
+                st.session_state.scouted_leads.append(new_lead_entry)
+                
+                if GOOGLE_WEBHOOK_URL:
+                    try:
+                        res = requests.post(GOOGLE_WEBHOOK_URL, json=new_lead_entry, timeout=5)
+                        if res.status_code == 200:
+                            st.toast("🚀 Успішно записано в Google Таблицю на вкладку Leads!")
+                    except Exception as e:
+                        st.warning(f"Збережено локально. Помилка запису в Webhook: {e}")
+                else:
+                    st.toast(f"✅ Лід '{calc_name}' додано до таблиці!")
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with calc_tab2:
+        st.subheader("📋 Сформований пайплайн нових лідів")
+        if st.session_state.scouted_leads:
+            leads_df = pd.DataFrame(st.session_state.scouted_leads)
+            total_lead_col = next((c for c in leads_df.columns if "total" in c.lower()), None)
+            if total_lead_col:
+                leads_df[total_lead_col] = pd.to_numeric(leads_df[total_lead_col], errors="coerce").fillna(0.0)
+                tot_pipeline_val = float(leads_df[total_lead_col].sum())
+                avg_lead_val = float(leads_df[total_lead_col].mean())
+            else:
+                tot_pipeline_val, avg_lead_val = 0.0, 0.0
+            
+            k_l1, k_l2, k_l3 = st.columns(3)
+            k_l1.metric("Зібрано лідів", len(leads_df))
+            k_l2.metric("Потенціал M1 пайплайну", f"${tot_pipeline_val:,.2f}")
+            k_l3.metric("Середній очікуваний M1", f"${avg_lead_val:,.2f}")
+
+            st.markdown("---")
+            lead_cfg = {}
+            if "Посилання" in leads_df.columns:
+                lead_cfg["Посилання"] = st.column_config.LinkColumn("Посилання на гру", display_text="Відкрити ↗")
+            
+            st.dataframe(leads_df, column_config=lead_cfg, use_container_width=True, height=400)
+            
+            c_d1, c_d2 = st.columns([1, 4])
+            with c_d1:
+                csv_leads = leads_df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Експортувати ліди (.CSV)", data=csv_leads, file_name="upscale_scouted_leads.csv", mime="text/csv")
+            with c_d2:
+                if st.button("🗑️ Очистити список лідів"):
+                    st.session_state.scouted_leads = []
+                    st.rerun()
+        else:
+            st.info("💡 Таблиця лідів порожня. Розрахуй гру у вкладці калькулятора та натисни '➕ Зберегти цей лід'.")

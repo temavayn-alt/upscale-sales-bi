@@ -12,7 +12,6 @@ from anthropic import Anthropic
 # 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ:
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
-PREDICT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=646742574#gid=646742574"  # Вкладка Predict
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL з Apps Script для автозапису
 ANTHROPIC_API_KEY = ""  # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
 # ==============================================================================
@@ -24,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + мінімалістичні вкладки БЕЗ синьої заливки
+# Професійні стилі темної теми + елегантні вкладки БЕЗ синьої заливки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -92,6 +91,7 @@ NINTENDO_SCHEDULE = [
 
 # 30 ВІДКАЛІБРОВАНИХ ПІДЖАНРІВ
 GENRE_DATABASE = {
+    # 1. Симулятори та Менеджмент (8)
     "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.8, "Xbox": 1.8, "Switch": 2.6, "Decay": 1.35, "Desc": "Cat From Hell, Bad Cat, Angry Cat (Топ PS/Switch)"},
     "Simulator: Crime / Black Market (3D)": {"PS": 4.2, "Xbox": 3.5, "Switch": 1.2, "Decay": 1.15, "Desc": "Drug Dealer Empire, Thief Sim (Високий чек на PS/Xbox)"},
     "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 2.2, "Xbox": 1.5, "Switch": 2.8, "Decay": 1.30, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo (Switch-лідер)"},
@@ -100,23 +100,33 @@ GENRE_DATABASE = {
     "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.5, "Xbox": 2.4, "Switch": 1.8, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben (Xbox лідер)"},
     "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 3.2, "Decay": 1.40, "Desc": "Монополія аудиторії Nintendo"},
     "Simulator: Casual Flight / Paper Plane": {"PS": 0.4, "Xbox": 0.3, "Switch": 0.4, "Decay": 1.10, "Desc": "🔴 Paperly, Fly for Fly (Зона низького чека)"},
+
+    # 2. Хоррори та Виживання (5)
     "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.8, "Xbox": 2.8, "Switch": 0.5, "Decay": 1.15, "Desc": "Skinwalker ($9.4k XB), TROX (Xbox домінує)"},
     "Horror: 3D First-Person Atmospheric": {"PS": 1.6, "Xbox": 2.2, "Switch": 0.5, "Decay": 1.10, "Desc": "Cornfield, Death Attraction, Dr. Psycho"},
     "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.4, "Switch": 1.0, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (Стримерські продажі PS)"},
     "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 2.0, "Xbox": 2.6, "Switch": 1.8, "Decay": 1.35, "Desc": "From the Bunker, Survival After War"},
     "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 2.0, "Switch": 1.5, "Decay": 1.30, "Desc": "Call of Island, WinterCraft"},
+
+    # 3. Платформери та Фізика (4)
     "Platformer: 3D Physics / Character Adventure": {"PS": 2.0, "Xbox": 1.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Super Adventure Hand ($3.4k PS / $2.6k XB)"},
     "Platformer: 3D Obby / Roblox-style": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.4, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball (Молода аудиторія)"},
     "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 3.0, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
     "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.15, "Desc": "Super Rock Climber (Only Up вайб)"},
+
+    # 4. Пазли та Козі (4)
     "Cozy: Organization / Packing / Decor": {"PS": 0.8, "Xbox": 0.5, "Switch": 3.5, "Decay": 1.45, "Desc": "Packit List, Unpacking-вайб (Switch топ)"},
     "Puzzle: 2D Match-3D / Goods Sort / Nuts": {"PS": 0.6, "Xbox": 0.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Goods Sort, Bus Jam, Bolts & Nuts"},
     "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.8, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge (Імпульсивні покупки)"},
     "Puzzle: Hidden Object / Detective Quest": {"PS": 1.6, "Xbox": 0.9, "Switch": 1.8, "Decay": 1.40, "Desc": "Conquistadorio ($25k All-time), Minima, Dollmaker"},
+
+    # 5. Екшн, Шутери та Перегони (4)
     "Racing: 3D Arcade / Traffic Driving": {"PS": 3.0, "Xbox": 1.0, "Switch": 1.8, "Decay": 1.15, "Desc": "Gran Carismo ($3.6k PS), Hyper Cars"},
     "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.8, "Xbox": 2.2, "Switch": 1.0, "Decay": 1.25, "Desc": "Bunker 22 ($3.4k PS), Zombiescraper"},
     "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.2, "Xbox": 1.0, "Switch": 1.4, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
     "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Street Combat Fighting"},
+
+    # 6. RPG, Роглайки та Стратегії (5)
     "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.4, "Xbox": 1.4, "Switch": 1.8, "Decay": 1.35, "Desc": "Nom Nom Apocalypse"},
     "Roguelike: Turn-Based / Deckbuilder / Dice": {"PS": 1.0, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.40, "Desc": "Rabbit Samurai, Bag Hero, Slice & Dice"},
     "Metroidvania: 2D Pixel / Action Platformer": {"PS": 1.0, "Xbox": 0.8, "Switch": 0.4, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild (Перенасичення Switch)"},
@@ -135,19 +145,32 @@ def get_export_url(url_or_id):
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
+# Розумний парсер дати з підтримкою європейського формату DD.MM.YYYY
 def parse_flexible_date(d_val):
     if pd.isna(d_val) or not str(d_val).strip() or str(d_val).strip().lower() == 'nan':
         return None
     d_str = str(d_val).strip()
-    try:
-        dt = pd.to_datetime(d_str, dayfirst=True)
-        if pd.notna(dt):
-            return dt.to_pydatetime()
-    except: pass
-    for fmt in ["%Y-%m-%d", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"]:
+    for fmt in ["%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%Y.%m.%d", "%m/%d/%Y"]:
         try: return datetime.strptime(d_str[:10], fmt)
         except: continue
+    try:
+        dt = pd.to_datetime(d_str, dayfirst=True)
+        if pd.notna(dt): return dt.to_pydatetime()
+    except: pass
     return None
+
+# Очищення європейських чисел з комами та пробілами
+def clean_num_val(val):
+    if pd.isna(val): return 0.0
+    s = str(val).strip().replace("$", "").replace("€", "").replace("%", "").replace("\xa0", "").replace(" ", "")
+    if not s or s.lower() == 'nan': return 0.0
+    if "," in s and "." in s:
+        if s.find(".") < s.find(","): s = s.replace(".", "").replace(",", ".")
+        else: s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    try: return float(s)
+    except: return 0.0
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data(sheet_url):
@@ -155,23 +178,16 @@ def load_data(sheet_url):
         return pd.DataFrame()
     csv_url = get_export_url(sheet_url)
     try:
-        df = pd.read_csv(csv_url)
+        df = pd.read_csv(csv_url, dtype=str)
     except Exception:
         return pd.DataFrame()
 
+    # Очищення числових стовпчиків
     for col in df.columns:
         col_lower = str(col).lower()
-        if any(img_k in col_lower for img_k in ["cover", "image", "постер", "url", "фото", "link", "посилання", "date", "дата"]):
+        if any(img_k in col_lower for img_k in ["cover", "image", "постер", "url", "фото", "link", "посилання", "date", "дата", "name", "назва", "genre", "жанр", "status", "platform"]):
             continue
-        if any(k in col_lower for k in ["revenue", "price", "total", "$", "month", "year", "time", "всього", "ціна", "accuracy", "base metric", "installs", "reviews", "forecast"]):
-            df[col] = (
-                df[col].astype(str)
-                .str.replace("$", "", regex=False)
-                .str.replace("€", "", regex=False)
-                .str.replace(",", "", regex=False)
-                .str.replace(" ", "", regex=False)
-            )
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+        df[col] = df[col].apply(clean_num_val)
 
     name_col = next((c for c in df.columns if any(k in c.lower() for k in ["game", "title", "назва"])), df.columns[0])
     df.rename(columns={name_col: "Game_Name_Clean"}, inplace=True)
@@ -214,15 +230,7 @@ def load_weekly_data(sheet_url):
         df_out = pd.DataFrame(parsed_dict)
         for c in df_out.columns:
             if c not in ["From", "To"]:
-                df_out[c] = (
-                    df_out[c].astype(str)
-                    .str.replace("$", "", regex=False)
-                    .str.replace("€", "", regex=False)
-                    .str.replace(",", "", regex=False)
-                    .str.replace("%", "", regex=False)
-                    .str.replace(" ", "", regex=False)
-                )
-                df_out[c] = pd.to_numeric(df_out[c], errors="coerce").fillna(0.0)
+                df_out[c] = df_out[c].apply(clean_num_val)
 
         df_out = df_out[df_out["From"].astype(str).str.strip().str.lower() != 'nan']
         df_out = df_out[df_out["From"].astype(str).str.strip() != '']
@@ -230,9 +238,9 @@ def load_weekly_data(sheet_url):
     except Exception:
         return pd.DataFrame()
 
+# ЗЧИТУВАННЯ ЄДИНОЇ ГОЛОВНОЇ ТАБЛИЦІ
 raw_df = load_data(GOOGLE_SHEET_URL)
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
-predict_df = load_data(PREDICT_SHEET_URL) if (PREDICT_SHEET_URL and "ВСТАВ_СЮДИ" not in PREDICT_SHEET_URL) else raw_df
 
 if raw_df.empty:
     st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
@@ -363,7 +371,7 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ Помилка Anthropic API: {e}")
 
-# ЧІТКИЙ РОЗРАХУНОК ALL-TIME СУМ
+# ЧІТКИЙ РОЗРАХУНОК ALL-TIME СУМ ВІД ЄДИНОЇ ТАБЛИЦІ
 def get_exact_all_time(df_target, plat):
     if plat == "PS":
         for c in df_target.columns:
@@ -570,7 +578,7 @@ if app_mode == "🎮 Наші ігри":
             st.dataframe(tracker_df, use_container_width=True, height=360)
 
     # =========================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (СУВОРИЙ ПОШУК ФАКТУ ТА ПРОГНОЗУ)
+    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (З УНІФІКОВАНОЇ ГОЛОВНОЇ ТАБЛИЦІ)
     # =========================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
@@ -627,9 +635,8 @@ if app_mode == "🎮 Наші ігри":
             return 0.0
 
         comparison_list = []
-        audit_source_df = predict_df if not predict_df.empty else filtered_df
         
-        for _, r in audit_source_df.iterrows():
+        for _, r in filtered_df.iterrows():
             g_name = str(r["Game_Name_Clean"]).strip()
             if not g_name or g_name.lower() == 'nan': continue
             

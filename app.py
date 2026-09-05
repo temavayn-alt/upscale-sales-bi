@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + елегантні вкладки БЕЗ синьої заливки
+# Професійні стилі темної теми + елегантні вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -82,6 +82,30 @@ st.markdown("""
     .report-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; color: #f8fafc; }
 </style>
 """, unsafe_allow_html=True)
+
+# 🎯 ВІДКАЛІБРОВАНІ ЦІЛІ НА 2026 РІК
+TARGETS_2026 = {
+    "Year 2026 (Весь рік)": {
+        "Revenue": 200000.0, "Nintendo_Revenue": 90000.0, "PS_Revenue": 70000.0, "Xbox_Revenue": 40000.0,
+        "Deals": 16, "Calls": 80, "Contacts": 400, "Leads": 1200
+    },
+    "Q1 2026": {
+        "Revenue": 35000.0, "Nintendo_Revenue": 15750.0, "PS_Revenue": 12250.0, "Xbox_Revenue": 7000.0,
+        "Deals": 3, "Calls": 15, "Contacts": 75, "Leads": 225
+    },
+    "Q2 2026": {
+        "Revenue": 45000.0, "Nintendo_Revenue": 20250.0, "PS_Revenue": 15750.0, "Xbox_Revenue": 9000.0,
+        "Deals": 4, "Calls": 20, "Contacts": 100, "Leads": 300
+    },
+    "Q3 2026": {
+        "Revenue": 50000.0, "Nintendo_Revenue": 22500.0, "PS_Revenue": 17500.0, "Xbox_Revenue": 10000.0,
+        "Deals": 4, "Calls": 20, "Contacts": 100, "Leads": 300
+    },
+    "Q4 2026": {
+        "Revenue": 70000.0, "Nintendo_Revenue": 31500.0, "PS_Revenue": 24500.0, "Xbox_Revenue": 14000.0,
+        "Deals": 5, "Calls": 25, "Contacts": 125, "Leads": 375
+    }
+}
 
 # Графік розпродажів Nintendo eShop
 NINTENDO_SCHEDULE = [
@@ -147,7 +171,6 @@ def get_export_url(url_or_id):
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
-# Розумний парсер дати
 def parse_flexible_date(d_val):
     if pd.isna(d_val) or not str(d_val).strip() or str(d_val).strip().lower() == 'nan':
         return None
@@ -161,7 +184,6 @@ def parse_flexible_date(d_val):
     except: pass
     return None
 
-# Очищення чисел з комами та пробілами
 def clean_num_val(val):
     if pd.isna(val): return 0.0
     s = str(val).strip().replace("$", "").replace("€", "").replace("%", "").replace("\xa0", "").replace(" ", "")
@@ -239,6 +261,18 @@ def load_weekly_data(sheet_url):
     except Exception:
         return pd.DataFrame()
 
+# Підготовка квартальної структури даних
+def prepare_quarterly_data(df_weekly):
+    if df_weekly.empty or "From" not in df_weekly.columns:
+        return pd.DataFrame()
+    df = df_weekly.copy()
+    df["Parsed_Date"] = df["From"].apply(parse_flexible_date)
+    df = df.dropna(subset=["Parsed_Date"]).copy()
+    df["Year"] = df["Parsed_Date"].apply(lambda d: d.year)
+    df["Quarter"] = df["Parsed_Date"].apply(lambda d: f"Q{math.ceil(d.month/3)} {d.year}")
+    df["Total_Revenue"] = df.get("PS_Revenue", 0.0) + df.get("Nintendo_Revenue", 0.0) + df.get("Xbox_Revenue", 0.0)
+    return df
+
 raw_df = load_data(GOOGLE_SHEET_URL)
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
 
@@ -253,13 +287,20 @@ DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
 if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
-# Сайдбар
+# ==============================================================================
+# 🧭 САЙДБАР ТА НАВІГАЦІЯ
+# ==============================================================================
 with st.sidebar:
     st.header("🎮 Upscale Studio BI")
     
     app_mode = st.radio(
         "📍 Оберіть розділ хабу:",
-        ["🎮 Наші ігри", "📈 Тижнева динаміка (WoW)", "🧮 Калькулятор прогнозів"],
+        [
+            "🎮 Наші ігри", 
+            "🎯 Цілі та KPI 2026", 
+            "📈 Тижнева динаміка (WoW)", 
+            "🧮 Калькулятор прогнозів"
+        ],
         index=0
     )
     
@@ -284,9 +325,9 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ CLAUDE HAIKU 4.5
+    # AI ЧАТ CLAUDE HAIKU
     st.markdown("---")
-    st.subheader("🤖 AI-Аналітик (Claude Haiku 4.5)")
+    st.subheader("🤖 AI-Аналітик (Claude Haiku)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
     
     if not claude_key:
@@ -294,7 +335,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Скільки симуляторів заробили більше $1000? Або: Проаналізуй динаміку останнього тижня."
+        placeholder="Напр.: Які симулятори найкраще продаються на Switch? Або: Як ми йдемо по таргету 2026 року?"
     )
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
@@ -337,7 +378,8 @@ with st.sidebar:
                     weekly_csv_snippet = weekly_df.to_csv(index=False) if not weekly_df.empty else "No weekly data"
 
                     prompt = f"""
-                    Ти — головний фінансовий директор та аналітик консольного видавництва ігор Upscale Studio (Україна).
+                    Ти — головний фінансовий директор та аналітик консольного видавництва Upscale Studio (Україна).
+                    Ціль на 2026 рік: $200,000 консольної виручки.
                     Дані портфоліо ({len(summary_lines)-1} ігор):
                     {compact_dataset}
 
@@ -346,7 +388,7 @@ with st.sidebar:
 
                     Запитання: "{ai_query}"
 
-                    Дай точну відповідь українською мовою з реальними цифрами та висновками.
+                    Дай точну, професійну та реалістичну відповідь українською мовою з реальними цифрами.
                     ВАЖЛИВО: Пиши суми як "USD 1,500" або "\\$1,500" (без одинарного знака $).
                     """
 
@@ -401,7 +443,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ЗРУЧНИХ ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (5 ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
@@ -496,15 +538,10 @@ if app_mode == "🎮 Наші ігри":
             </div>
             """, unsafe_allow_html=True)
 
-    # =========================================================
-    # 📅 ВКЛАДКА 3: РОЗПРОДАЖІ NINTENDO + КОНСТРУКТОР ЗНИЖОК
-    # =========================================================
     with tab_sales_tracker:
         st.subheader("📅 Календар розпродажів та Конструктор знижок Nintendo")
         st.caption("Автоматичне зчитування цільових знижок із Google Таблиці та генерація 1-клік Bookmarklet")
 
-        # 1. Графік розпродажів
-        st.markdown("#### 🗓️ Графік розпродажів Nintendo на часовій осі")
         cal_df = pd.DataFrame([
             {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]}
             for s in NINTENDO_SCHEDULE
@@ -523,7 +560,6 @@ if app_mode == "🎮 Наші ігри":
         st.plotly_chart(fig_timeline, use_container_width=True)
 
         st.markdown("---")
-        
         sale_choice = st.selectbox(
             "Оберіть плановий розпродаж Nintendo:",
             [f"{s['name']} (Старт: {s['start']} | {s['status']} | {s['region']})" for s in NINTENDO_SCHEDULE],
@@ -560,7 +596,6 @@ if app_mode == "🎮 Наші ігри":
                 note = f"Залишилось {30 - days_since_rel} дн."
                 is_ready = False
 
-            # ПРЯМЕ ЗЧИТУВАННЯ ЗНИЖКИ З GOOGLE ТАБЛИЦІ
             sheet_discount_val = r.get(discount_col, 70.0) if discount_col else 70.0
             try:
                 final_discount_num = int(round(float(sheet_discount_val))) if float(sheet_discount_val) > 0 else 70
@@ -586,8 +621,6 @@ if app_mode == "🎮 Наші ігри":
 
         st.markdown("---")
         st.markdown("#### 🛠️ Інтерактивний Конструктор кампанії знижок")
-        st.caption("Знижки автоматично підтягнуті з твоєї Google Таблиці. За потреби можна підправити значення перед генерацією:")
-
         edited_tracker_df = st.data_editor(
             tracker_df,
             column_config={
@@ -605,7 +638,6 @@ if app_mode == "🎮 Наші ігри":
         st.markdown("---")
         if st.button("⚡ Згенерувати оновлений Bookmarklet для Nintendo", use_container_width=True):
             selected_games = edited_tracker_df[edited_tracker_df["Включити"] == True]
-            
             if selected_games.empty:
                 st.warning("Оберіть хоча б одну гру галочкою!")
             else:
@@ -630,7 +662,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 }})();"""
 
                 st.success(f"🎉 Bookmarklet згенеровано для {len(selected_games)} ігор на основі твоїх знижок із Google Таблиці!")
-                
                 b_c1, b_c2 = st.columns(2)
                 with b_c1:
                     st.markdown("##### 📌 Код закладки (встав у URL закладки Chrome):")
@@ -639,12 +670,9 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                     st.markdown("##### 📋 Список назв (для швидкого пошуку на порталі Nintendo):")
                     st.text_area("Назви ігор:", "\n".join(names_list), height=180)
 
-    # =========================================================
-    # 🎯 ВКЛАДКА 4: ПЛАН VS ФАКТ (ТОЧНИЙ РОЗРАХУНОК)
-    # =========================================================
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та джерел (Steam / Google Play / Web / Itch)")
+        st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та джерел")
 
         def get_exact_fact_m1(row_s, plat):
             if plat == "PS":
@@ -697,7 +725,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             return 0.0
 
         comparison_list = []
-        
         for _, r in filtered_df.iterrows():
             g_name = str(r["Game_Name_Clean"]).strip()
             if not g_name or g_name.lower() == 'nan': continue
@@ -707,7 +734,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             try: g_price = float(g_price)
             except: g_price = 9.99
 
-            # 1. ФАКТИЧНІ ЗБОРИ
             ps_m1_fact = get_exact_fact_m1(r, "PS")
             ps_all_fact = get_exact_fact_all(r, "PS")
             sw_m1_fact = get_exact_fact_m1(r, "Switch")
@@ -715,7 +741,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             xb_m1_fact = get_exact_fact_m1(r, "Xbox")
             xb_all_fact = get_exact_fact_all(r, "Xbox")
 
-            # 2. АКТИВНІ ПЛАТФОРМИ
             active_platforms = []
             if ps_m1_fact > 0 or ps_all_fact > 0: active_platforms.append("PS")
             if sw_m1_fact > 0 or sw_all_fact > 0: active_platforms.append("Switch")
@@ -732,7 +757,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
             platform_badge = " + ".join(active_platforms) if len(active_platforms) < 3 else "Усі 3 консолі"
 
-            # 3. ТОЧНИЙ РОЗРАХУНОК BASE METRIC ВІД ДЖЕРЕЛА
             base_m = find_val(r, ["base metric"])
             installs_val = find_val(r, ["installs"]) or find_val(r, ["reviews"])
             steam_rev_val = find_val(r, ["steam revenue"])
@@ -748,7 +772,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                 elif "itch" in src_platform_type and installs_val > 0:
                     base_m = (installs_val * 10.0) + 400.0
 
-            # 4. РОЗРАХУНОК ПРОГНОЗУ СУВОРО ДЛЯ АКТИВНИХ ПЛАТФОРМ
             if base_m > 0:
                 matched_g = "Simulator: Job / Service / Business (3D)"
                 for k in GENRE_DATABASE:
@@ -772,47 +795,28 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                             (sw_m1_fact if "Switch" in active_platforms else 0.0) + \
                             (xb_m1_fact if "Xbox" in active_platforms else 0.0)
 
-            # 5. ТОЧНИЙ АНАЛІЗ ТОЧНОСТІ
             if has_valid_forecast and total_m1_fact > 0:
                 acc_pct = max(0.0, round((1.0 - abs(total_m1_fact - total_pred_m1) / max(total_m1_fact, total_pred_m1)) * 100, 1))
                 delta_usd = total_m1_fact - total_pred_m1
-                
-                if total_m1_fact > total_pred_m1 * 1.25:
-                    perf_status = "🟢 Перевищила план"
-                elif total_m1_fact < total_pred_m1 * 0.70:
-                    perf_status = "🔴 Нижче плану"
-                else:
-                    perf_status = "🟡 У плані (±25%)"
+                if total_m1_fact > total_pred_m1 * 1.25: perf_status = "🟢 Перевищила план"
+                elif total_m1_fact < total_pred_m1 * 0.70: perf_status = "🔴 Нижче плану"
+                else: perf_status = "🟡 У плані (±25%)"
             elif total_m1_fact > 0 and not has_valid_forecast:
-                acc_pct = None
-                delta_usd = None
-                perf_status = "⚪ Немає вхідних метрик"
+                acc_pct, delta_usd, perf_status = None, None, "⚪ Немає вхідних метрик"
             else:
-                acc_pct = None
-                delta_usd = None
-                perf_status = "⚪ Немає факт даних"
+                acc_pct, delta_usd, perf_status = None, None, "⚪ Немає факт даних"
 
             comparison_list.append({
-                "Гра": g_name,
-                "Жанр": g_genre_str,
-                "Ціна ($)": g_price,
-                "Платформи релізу": platform_badge,
-                "Base Metric": round(base_m, 1) if base_m > 0 else "—",
+                "Гра": g_name, "Жанр": g_genre_str, "Ціна ($)": g_price,
+                "Платформи релізу": platform_badge, "Base Metric": round(base_m, 1) if base_m > 0 else "—",
                 "Факт M1 ($)": round(total_m1_fact, 2) if total_m1_fact > 0 else "—",
                 "Прогноз M1 ($)": round(total_pred_m1, 2) if has_valid_forecast else "—",
                 "Різниця ($)": round(delta_usd, 2) if delta_usd is not None else "—",
                 "Точність (%)": f"{acc_pct:.1f}%" if acc_pct is not None else "—",
-                "Статус виконання": perf_status,
-                "PS Факт": round(ps_m1_fact, 2) if "PS" in active_platforms and ps_m1_fact > 0 else "—",
-                "PS Прогноз": round(ps_pred, 2) if "PS" in active_platforms and has_valid_forecast else "—",
-                "Switch Факт": round(sw_m1_fact, 2) if "Switch" in active_platforms and sw_m1_fact > 0 else "—",
-                "Switch Прогноз": round(sw_pred, 2) if "Switch" in active_platforms and has_valid_forecast else "—",
-                "Xbox Факт": round(xb_m1_fact, 2) if "Xbox" in active_platforms and xb_m1_fact > 0 else "—",
-                "Xbox Прогноз": round(xb_pred, 2) if "Xbox" in active_platforms and has_valid_forecast else "—"
+                "Статус виконання": perf_status
             })
 
         comp_df = pd.DataFrame(comparison_list)
-
         valid_comp = comp_df[comp_df["Точність (%)"] != "—"].copy()
         valid_comp["Acc_Num"] = valid_comp["Точність (%)"].str.replace("%", "").astype(float)
         
@@ -828,19 +832,12 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         a_c4.metric("🔴 Нижче прогнозу", f"{under_count} ігор")
 
         st.markdown("---")
-        
         if not valid_comp.empty:
             st.subheader("📊 Графік: Фактичні збори M1 проти Прогнозу ($)")
             chart_plan_df = valid_comp.head(15)
             fig_plan_fact = go.Figure()
-            fig_plan_fact.add_trace(go.Bar(
-                x=chart_plan_df["Гра"], y=chart_plan_df["Факт M1 ($)"],
-                name="ФАКТ M1 ($)", marker_color="#10b981"
-            ))
-            fig_plan_fact.add_trace(go.Bar(
-                x=chart_plan_df["Гра"], y=chart_plan_df["Прогноз M1 ($)"],
-                name="ПРОГНОЗ M1 ($)", marker_color="#6366f1"
-            ))
+            fig_plan_fact.add_trace(go.Bar(x=chart_plan_df["Гра"], y=chart_plan_df["Факт M1 ($)"], name="ФАКТ M1 ($)", marker_color="#10b981"))
+            fig_plan_fact.add_trace(go.Bar(x=chart_plan_df["Гра"], y=chart_plan_df["Прогноз M1 ($)"], name="ПРОГНОЗ M1 ($)", marker_color="#6366f1"))
             fig_plan_fact.update_layout(
                 barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color="#e2e8f0"), height=380, margin=dict(t=20, b=20, l=10, r=10),
@@ -862,73 +859,128 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         csv_data = filtered_df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Експортувати дані (.CSV)", data=csv_data, file_name="console_sales_portfolio.csv", mime="text/csv")
 
-        st.markdown("---")
-        st.subheader("📄 One-Pager Executive Звіт")
-        
-        report_html_content = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Upscale Studio Executive Report</title>
-<style>
-body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; margin: 0; }}
-.card {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; text-align: center; }}
-.grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }}
-.title {{ font-size: 24px; font-weight: bold; color: #fff; margin: 0; }}
-.subtitle {{ color: #94a3b8; font-size: 14px; margin: 4px 0 0 0; }}
-.val {{ font-size: 26px; font-weight: 800; margin: 6px 0 0 0; }}
-.breakouts {{ background-color: #1e293b; border-left: 4px solid #6366f1; padding: 16px; border-radius: 6px; line-height: 1.7; font-size: 14px; color: #cbd5e1; }}
-</style></head>
-<body>
-<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px;">
-<div><div class="title">UPSCALE STUDIO</div><div class="subtitle">Console Publishing & Porting Operations Report</div></div>
-<div style="text-align:right;"><span style="background:#4f46e5; color:#fff; padding:5px 12px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span><div style="color:#64748b; font-size:12px; margin-top:4px;">Date: {datetime.now().strftime('%B %Y')}</div></div>
-</div>
-<div class="grid">
-<div class="card"><div style="color:#94a3b8; font-size:12px;">TOTAL CONSOLE GROSS</div><div class="val" style="color:#38bdf8;">${total_gross:,.0f}</div></div>
-<div class="card"><div style="color:#94a3b8; font-size:12px;">PLAYSTATION</div><div class="val" style="color:#60a5fa;">${ps_rev:,.0f}</div></div>
-<div class="card"><div style="color:#94a3b8; font-size:12px;">NINTENDO SWITCH</div><div class="val" style="color:#f87171;">${switch_rev:,.0f}</div></div>
-<div class="card"><div style="color:#94a3b8; font-size:12px;">XBOX</div><div class="val" style="color:#4ade80;">${xbox_rev:,.0f}</div></div>
-</div>
-<h3 style="color:#f1f5f9; margin-top:25px;">🏆 Key Portfolio Breakouts:</h3>
-<div class="breakouts">
-• <b>Cat From Hell:</b> Multi-platform hit ($119k+ All-Time Gross) driven by viral PlayStation engagement.<br>
-• <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time Gross).<br>
-• <b>Skinwalker:</b> High-converting Xbox 3D Horror breakout ($21k+ All-Time).<br>
-• <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
-</div></body></html>"""
 
-        st.markdown(f"""
-        <div class="report-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px; margin-bottom:16px;">
-                <div><h3 style="margin:0; color:#fff;">UPSCALE STUDIO</h3><p style="margin:0; color:#94a3b8; font-size:13px;">Console Publishing & Porting Operations Report</p></div>
-                <div style="text-align:right;"><span style="background:#4f46e5; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:12px;">PORTFOLIO AUDIT</span><p style="margin:4px 0 0 0; color:#64748b; font-size:11px;">{datetime.now().strftime('%B %Y')}</p></div>
-            </div>
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">TOTAL GROSS</p><h4 style="margin:4px 0 0 0; color:#38bdf8;">${total_gross:,.0f}</h4></div>
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">PLAYSTATION</p><h4 style="margin:4px 0 0 0; color:#60a5fa;">${ps_rev:,.0f}</h4></div>
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">SWITCH</p><h4 style="margin:4px 0 0 0; color:#f87171;">${switch_rev:,.0f}</h4></div>
-                <div style="background:#1e293b; padding:12px; border-radius:8px; text-align:center;"><p style="margin:0; font-size:11px; color:#94a3b8;">XBOX</p><h4 style="margin:4px 0 0 0; color:#4ade80;">${xbox_rev:,.0f}</h4></div>
-            </div>
-            <h5 style="color:#f1f5f9; margin:0 0 6px 0;">🏆 Key Portfolio Breakouts:</h5>
-            <p style="color:#cbd5e1; font-size:13px; line-height:1.6; margin:0;">
-            • <b>Cat From Hell:</b> Multi-platform hit ($119k+ All-Time Gross).<br>
-            • <b>Bad Cat:</b> Outstanding Switch & PS performance ($78k+ All-Time).<br>
-            • <b>Skinwalker:</b> High-converting Xbox 3D Horror ($21k+ All-Time).<br>
-            • <b>Conquistadorio:</b> High-price tier ($19.99) quest success ($25k+ All-Time).
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.download_button(
-            label="📥 Завантажити One-Pager звіт (.HTML / PDF)",
-            data=report_html_content,
-            file_name=f"Upscale_Studio_Executive_Report_{datetime.now().strftime('%Y_%m')}.html",
-            mime="text/html"
+# ==============================================================================
+# 🎯 РОЗДІЛ 2: ЦІЛІ ТА KPI 2026 (НОВИЙ БЛОК)
+# ==============================================================================
+elif app_mode == "🎯 Цілі та KPI 2026":
+    st.title("🎯 Виконання річного та квартальних планів (2026)")
+    st.caption("Ціль на 2026 рік: **$200,000 консольної виручки** • Дані синхронізуються з Weekly Updates")
+
+    if weekly_df.empty:
+        st.warning("⚠️ Вкажи валідне посилання на тижневу вкладку з `#gid=...` у рядку `WEEKLY_SHEET_URL`.")
+        st.stop()
+
+    q_df = prepare_quarterly_data(weekly_df)
+
+    if q_df.empty:
+        st.info("💡 У щотижневій таблиці немає валідних дат для розрахунку 2026 року.")
+        st.stop()
+
+    # Селектор періоду
+    col_sel, col_info = st.columns([1.5, 2.5])
+    with col_sel:
+        period_choice = st.radio(
+            "📌 Оберіть період для аналізу:",
+            ["Year 2026 (Весь рік)", "Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026"],
+            horizontal=True
         )
+
+    # Фільтрація факту під обраний період
+    if period_choice == "Year 2026 (Весь рік)":
+        fact_period_df = q_df[q_df["Year"] == 2026]
+    else:
+        q_label = period_choice.split(" ")[0] + " 2026"
+        fact_period_df = q_df[q_df["Quarter"] == q_label]
+
+    fact_rev = float(fact_period_df["Total_Revenue"].sum()) if not fact_period_df.empty else 0.0
+    fact_sw = float(fact_period_df["Nintendo_Revenue"].sum()) if not fact_period_df.empty else 0.0
+    fact_ps = float(fact_period_df["PS_Revenue"].sum()) if not fact_period_df.empty else 0.0
+    fact_xb = float(fact_period_df["Xbox_Revenue"].sum()) if not fact_period_df.empty else 0.0
+
+    fact_deals = int(fact_period_df["Deals"].sum()) if "Deals" in fact_period_df.columns else 0
+    fact_calls = int(fact_period_df["Calls"].sum()) if "Calls" in fact_period_df.columns else 0
+    fact_contacts = int(fact_period_df["Contacts"].sum()) if "Contacts" in fact_period_df.columns else 0
+    fact_leads = int(fact_period_df["Leads"].sum()) if "Leads" in fact_period_df.columns else 0
+
+    target = TARGETS_2026[period_choice]
+    rev_pct = round((fact_rev / max(target["Revenue"], 1.0)) * 100, 1)
+
+    # Великий прогрес-бар
+    st.markdown(f"""
+    <div style="background:#171724; border:1px solid #2f2f45; border-radius:12px; padding:22px; margin-top:10px; margin-bottom:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <span style="font-size:12px; font-weight:600; color:#94a3b8; text-transform:uppercase;">ФІНАНСОВИЙ ТАРГЕТ</span>
+                <h2 style="margin:2px 0 0 0; color:#ffffff;">💰 Виручка: ${fact_rev:,.2f} <span style="font-size:18px; color:#94a3b8; font-weight:normal;">/ ${target['Revenue']:,.0f}</span></h2>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-size:28px; font-weight:800; color:{'#10b981' if rev_pct >= 80 else ('#f59e0b' if rev_pct >= 40 else '#ef4444')};">{rev_pct}%</span>
+                <p style="margin:0; font-size:12px; color:#94a3b8;">виконання плану</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.progress(min(rev_pct / 100.0, 1.0))
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader("🎮 Виконання плану виручки за платформами")
+    k1, k2, k3 = st.columns(3)
+    sw_pct = (fact_sw / max(target["Nintendo_Revenue"], 1.0)) * 100
+    ps_pct = (fact_ps / max(target["PS_Revenue"], 1.0)) * 100
+    xb_pct = (fact_xb / max(target["Xbox_Revenue"], 1.0)) * 100
+
+    k1.metric("🔴 Nintendo Switch", f"${fact_sw:,.0f}", f"{sw_pct:.1f}% від цілі ${target['Nintendo_Revenue']:,.0f}")
+    k2.metric("🔵 PlayStation", f"${fact_ps:,.0f}", f"{ps_pct:.1f}% від цілі ${target['PS_Revenue']:,.0f}")
+    k3.metric("🟢 Xbox", f"${fact_xb:,.0f}", f"{xb_pct:.1f}% від цілі ${target['Xbox_Revenue']:,.0f}")
+
+    st.markdown("---")
+    st.subheader("🎯 BizDev Воронка: План vs Факт підписання")
+    b1, b2, b3, b4 = st.columns(4)
+    b1.metric("🤝 Deals (Угоди)", f"{fact_deals} / {target['Deals']}", f"{(fact_deals/max(target['Deals'],1))*100:.0f}% виконання")
+    b2.metric("📞 Calls (Дзвінки)", f"{fact_calls} / {target['Calls']}", f"{(fact_calls/max(target['Calls'],1))*100:.0f}% виконання")
+    b3.metric("✉️ Contacts (Контакти)", f"{fact_contacts} / {target['Contacts']}", f"{(fact_contacts/max(target['Contacts'],1))*100:.0f}% виконання")
+    b4.metric("🔍 Leads (Знайдено лідів)", f"{fact_leads} / {target['Leads']}", f"{(fact_leads/max(target['Leads'],1))*100:.0f}% виконання")
+
+    st.markdown("---")
+    c_p1, c_p2 = st.columns([1.5, 1])
+    with c_p1:
+        st.subheader("📊 Порівняння: План vs Факт по платформах ($)")
+        chart_plan_df = pd.DataFrame({
+            "Платформа": ["Nintendo Switch", "PlayStation", "Xbox"],
+            "Факт ($)": [fact_sw, fact_ps, fact_xb],
+            "План ($)": [target["Nintendo_Revenue"], target["PS_Revenue"], target["Xbox_Revenue"]]
+        })
+        fig_plan = go.Figure()
+        fig_plan.add_trace(go.Bar(x=chart_plan_df["Платформа"], y=chart_plan_df["Факт ($)"], name="ФАКТ", marker_color="#10b981"))
+        fig_plan.add_trace(go.Bar(x=chart_plan_df["Платформа"], y=chart_plan_df["План ($)"], name="ПЛАН", marker_color="#6366f1"))
+        fig_plan.update_layout(
+            barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color="#e2e8f0"), height=360, margin=dict(t=15, b=15, l=15, r=15)
+        )
+        st.plotly_chart(fig_plan, use_container_width=True)
+
+    with c_p2:
+        st.subheader("📋 Зведена таблиця кварталів 2026")
+        q_summary = []
+        for q_key in ["Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026"]:
+            q_f = q_df[q_df["Quarter"] == q_key]
+            q_rev_fact = float(q_f["Total_Revenue"].sum()) if not q_f.empty else 0.0
+            q_target_rev = TARGETS_2026[q_key]["Revenue"]
+            q_deals_fact = int(q_f["Deals"].sum()) if "Deals" in q_f.columns else 0
+            q_deals_target = TARGETS_2026[q_key]["Deals"]
+            q_summary.append({
+                "Квартал": q_key,
+                "Факт ($)": f"${q_rev_fact:,.0f}",
+                "План ($)": f"${q_target_rev:,.0f}",
+                "Виконання": f"{(q_rev_fact/q_target_rev)*100:.1f}%",
+                "Угоди": f"{q_deals_fact}/{q_deals_target}"
+            })
+        st.dataframe(pd.DataFrame(q_summary), use_container_width=True, hide_index=True)
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 2: ТИЖНЕВА ДИНАМІКА (WEEKLY OPS & GROWTH TRACKER)
+# 📈 РОЗДІЛ 3: ТИЖНЕВА ДИНАМІКА (WEEKLY OPS & GROWTH TRACKER)
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
@@ -1030,7 +1082,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 
 
 # ==============================================================================
-# 🧮 РОЗДІЛ 3: КАЛЬКУЛЯТОР ПРОГНОЗІВ
+# 🧮 РОЗДІЛ 4: КАЛЬКУЛЯТОР ПРОГНОЗІВ
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")
@@ -1061,7 +1113,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             elif calc_src == "CrazyGames / Web":
                 cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
                 b_metric = (cg_r * 0.05) + 900.0
-            else: # itch.io
+            else:
                 itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
                 b_metric = (itch_r * 10.0) + 400.0
 

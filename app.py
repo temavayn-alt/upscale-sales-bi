@@ -309,11 +309,12 @@ if raw_df.empty:
     st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
     st.stop()
 
-# Автоматичне виявлення колонок за структурою
+# Точне автовиявлення колонок з Google Таблиці
 cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
 discount_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["target discount", "discount", "знижк"])), None)
-porting_cost_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["porting cost", "porting", "cost", "витрати"])), None)
-rev_split_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["revenue split", "split", "розподіл"])), None)
+porting_cost_col = next((c for c in raw_df.columns if "porting cost" in c.lower() or "porting" in c.lower() or "витрати" in c.lower()), None)
+rev_split_col = next((c for c in raw_df.columns if "revenue split" in c.lower() or "split" in c.lower()), None)
+recoup_col = next((c for c in raw_df.columns if "recoup" in c.lower() or "рекуп" in c.lower()), None)
 
 DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
 
@@ -367,7 +368,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Які ігри ще не окупили витрати на портінг?"
+        placeholder="Напр.: Який чистий прибуток студії після оплати зарплат розробникам?"
     )
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
@@ -380,7 +381,7 @@ with st.sidebar:
             with st.spinner("Claude аналізує базу даних..."):
                 try:
                     client = Anthropic(api_key=clean_key)
-                    summary_lines = ["Game|Genre|Price|PortCost|DevSplit|PS_All|Switch_All|Xbox_All|Total_All"]
+                    summary_lines = ["Game|Genre|Price|DevCost|DevSplit|Recoup|PS_All|Switch_All|Xbox_All|Total_All"]
                     def find_num(row_s, keys, not_keys=[]):
                         for c in row_s.index:
                             cl = c.lower()
@@ -396,12 +397,13 @@ with st.sidebar:
                         g_price = clean_num_val(r.get("Price consoles, $", r.get("Price consoles", 0.0)))
                         g_cost = clean_num_val(r.get(porting_cost_col, 0.0)) if porting_cost_col else 0.0
                         g_split = clean_num_val(r.get(rev_split_col, 50.0)) if rev_split_col else 50.0
+                        g_rec = clean_num_val(r.get(recoup_col, 0.0)) if recoup_col else 0.0
 
                         ps_all = find_num(r, ["playstation", "all"]) or find_num(r, ["ps", "all"])
                         sw_all = find_num(r, ["switch", "all"])
                         xb_all = find_num(r, ["xbox", "all"])
                         tot_all = find_num(r, ["total"]) or (ps_all + sw_all + xb_all)
-                        summary_lines.append(f"{g_name}|{g_genre}|${g_price}|${g_cost}|{g_split}%|{ps_all}|{sw_all}|{xb_all}|{tot_all}")
+                        summary_lines.append(f"{g_name}|{g_genre}|${g_price}|Cost:${g_cost}|Split:{g_split}%|Recoup:${g_rec}|PS:${ps_all}|Switch:${sw_all}|Xbox:${xb_all}|Total:${tot_all}")
 
                     compact_dataset = "\n".join(summary_lines)
                     weekly_csv_snippet = weekly_df.to_csv(index=False) if not weekly_df.empty else "No weekly data"
@@ -494,7 +496,7 @@ if app_mode == "🎮 Наші ігри":
         "🧠 Інсайти та Постери", 
         "📅 Розпродажі (Nintendo & Xbox)",
         "🎯 План vs Факт (Точність)",
-        "💵 P&L, Рекуп та Роялті",
+        "💵 P&L, Зарплати та Роялті",
         "📑 Таблиця та One-Pager Звіт"
     ])
 
@@ -939,25 +941,24 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         st.dataframe(comp_df, use_container_width=True, height=480)
 
     # ==============================================================================
-    # 💵 ВКЛАДКА 5: P&L, РЕКУП ТА РОЯЛТІ (ІНДИВІДУАЛЬНІ УМОВИ З ТАБЛИЦІ)
+    # 💵 ВКЛАДКА 5: P&L, ЗАРПЛАТИ ПОРТІНГУ ТА РОЯЛТІ (НОВА БІЗНЕС-МОДЕЛЬ)
     # ==============================================================================
     with tab_pnl_royalty:
-        st.subheader("💵 Фінансовий P&L, Окупність портів (Recoup) та Роялті")
-        st.caption("Індивідуальний розрахунок за контрактами з Google Таблиці (`Porting Cost, $` та `Revenue Split, %`)")
+        st.subheader("💵 Фінансовий P&L, Зарплати портінгу та Роялті девелоперів")
+        st.caption("Повний розрахунок на основі колонок `Porting Cost, $` (зарплата розробника), `Revenue Split, %` (частка автора) та `Recoup, $` (контрактне утримання)")
 
-        with st.expander("⚙️ Глобальні податкові параметри (Sony/MS/Nintendo: 30% | Податки: 7%)", expanded=False):
+        with st.expander("⚙️ Глобальні параметри комісій (Стори: 30% | Податки: 7%)", expanded=False):
             sc1, sc2 = st.columns(2)
-            sim_store_cut = sc1.slider("Комісія консолей (Sony/Nintendo/Xbox %):", 15, 35, 30, step=1)
+            sim_store_cut = sc1.slider("Комісія сторів (Sony/Nintendo/Xbox %):", 15, 35, 30, step=1)
             sim_tax_cut = sc2.slider("Податки та резерви (Withholding / VAT %):", 0, 15, 7, step=1)
 
         net_receipt_pct = (100 - sim_store_cut - sim_tax_cut) / 100.0
         pnl_actual_total_col = total_col if total_col else filtered_df.columns[0]
 
-        # Розрахунок P&L та Рекупу по кожній грі
         pnl_rows = []
-        tot_invested_cost = 0.0
-        tot_recouped_recovered = 0.0
-        tot_studio_profit_all = 0.0
+        tot_internal_porting_cost = 0.0
+        tot_studio_gross_margin = 0.0
+        tot_studio_pure_net_profit = 0.0
         tot_dev_royalties_all = 0.0
         tot_gross_all = 0.0
         tot_net_receipts_all = 0.0
@@ -965,36 +966,48 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         for _, r in filtered_df.iterrows():
             g_name = r["Game_Name_Clean"]
             g_gross = clean_num_val(r[pnl_actual_total_col])
-            g_cost = clean_num_val(r.get(porting_cost_col, 0.0)) if porting_cost_col else 0.0
+            
+            # Зчитування нових колонок
+            g_porting_salary = clean_num_val(r.get(porting_cost_col, 0.0)) if porting_cost_col else 0.0
             
             raw_split = r.get(rev_split_col, 50.0) if rev_split_col else 50.0
             g_dev_split = clean_num_val(raw_split)
             if g_dev_split <= 0: g_dev_split = 50.0
 
-            g_net_rec = g_gross * net_receipt_pct
-            
-            # Логіка рекупу
-            if g_cost > 0:
-                g_recouped = min(g_net_rec, g_cost)
-                g_recoup_pct = min(100.0, round((g_net_rec / g_cost) * 100.0, 1))
-                g_remaining_recoup = max(0.0, g_cost - g_net_rec)
-                g_post_recoup_profit = max(0.0, g_net_rec - g_cost)
-                g_dev_royalty = g_post_recoup_profit * (g_dev_split / 100.0)
-                g_studio_profit = g_recouped + (g_post_recoup_profit * (1 - g_dev_split / 100.0))
-                g_roi = f"{g_studio_profit / g_cost:.1f}x"
-                status_rec = "🟢 Окупився (100%)" if g_recoup_pct >= 100 else f"🟡 У процесі ({g_recoup_pct:.0f}%)"
-            else: # Без витрат на порт
-                g_recouped = 0.0
-                g_recoup_pct = 100.0
-                g_remaining_recoup = 0.0
-                g_dev_royalty = g_net_rec * (g_dev_split / 100.0)
-                g_studio_profit = g_net_rec * (1 - g_dev_split / 100.0)
-                g_roi = "— (Без витрат)"
-                status_rec = "⚪ Без витрат ($0)"
+            g_contract_recoup = clean_num_val(r.get(recoup_col, 0.0)) if recoup_col else 0.0
 
-            tot_invested_cost += g_cost
-            tot_recouped_recovered += g_recouped
-            tot_studio_profit_all += g_studio_profit
+            # 1. Чисті надходження у банк
+            g_net_rec = g_gross * net_receipt_pct
+
+            # 2. Розрахунок роялті автора з урахуванням контрактного рекупу
+            if g_contract_recoup > 0:
+                recouped_from_author = min(g_net_rec, g_contract_recoup)
+                distributable_net = max(0.0, g_net_rec - g_contract_recoup)
+                g_dev_royalty = distributable_net * (g_dev_split / 100.0)
+                g_studio_gross_margin = recouped_from_author + (distributable_net * (1.0 - g_dev_split / 100.0))
+            else:
+                g_dev_royalty = g_net_rec * (g_dev_split / 100.0)
+                g_studio_gross_margin = g_net_rec * (1.0 - g_dev_split / 100.0)
+
+            # 3. Чистий прибуток студії після покриття зарплати розробника порту
+            g_pure_studio_profit = g_studio_gross_margin - g_porting_salary
+
+            # 4. ROI та статус окупності зарплати портінгу
+            if g_porting_salary > 0:
+                covered_pct = min(100.0, round((g_studio_gross_margin / g_porting_salary) * 100.0, 1))
+                roi_val = g_studio_gross_margin / g_porting_salary
+                roi_text = f"{roi_val:.1f}x ROI"
+                if g_pure_studio_profit >= 0:
+                    status_badge = f"🟢 Прибутковий (+${g_pure_studio_profit:,.0f})"
+                else:
+                    status_badge = f"🟡 Відбиває зарплату ({covered_pct:.0f}%)"
+            else:
+                roi_text = "— (Без зарплати)"
+                status_badge = "🟢 Чистий прибуток"
+
+            tot_internal_porting_cost += g_porting_salary
+            tot_studio_gross_margin += g_studio_gross_margin
+            tot_studio_pure_net_profit += g_pure_studio_profit
             tot_dev_royalties_all += g_dev_royalty
             tot_gross_all += g_gross
             tot_net_receipts_all += g_net_rec
@@ -1002,32 +1015,35 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             pnl_rows.append({
                 "Гра": g_name,
                 "Gross ($)": round(g_gross, 2),
-                "Net в банку ($)": round(g_net_rec, 2),
-                "Бюджет порту ($)": round(g_cost, 2),
-                "Статус рекупу": status_rec,
-                "Частка дева (%)": f"{g_dev_split:.0f}%",
-                "Чистий прибуток студії ($)": round(g_studio_profit, 2),
-                "Роялті девелоперу ($)": round(g_dev_royalty, 2),
-                "ROI портінгу": g_roi
+                "Net у банку ($)": round(g_net_rec, 2),
+                "Контрактний рекуп ($)": round(g_contract_recoup, 2) if g_contract_recoup > 0 else "—",
+                "Частка автора (%)": f"{g_dev_split:.0f}%",
+                "Роялті автору ($)": round(g_dev_royalty, 2),
+                "Дохід студії брутто ($)": round(g_studio_gross_margin, 2),
+                "Зарплата портінгу ($)": round(g_porting_salary, 2),
+                "🔥 Чистий прибуток студії ($)": round(g_pure_studio_profit, 2),
+                "Окупність зарплати (ROI)": roi_text,
+                "Статус": status_badge
             })
 
         pnl_df = pd.DataFrame(pnl_rows).sort_values(by="Gross ($)", ascending=False)
-        recoup_overall_pct = (tot_recouped_recovered / max(tot_invested_cost, 1.0)) * 100 if tot_invested_cost > 0 else 100.0
+        overall_dev_roi = tot_studio_gross_margin / max(tot_internal_porting_cost, 1.0) if tot_internal_porting_cost > 0 else 0.0
 
         pn1, pn2, pn3, pn4 = st.columns(4)
-        pn1.markdown(f'<div class="kpi-card"><div class="kpi-label">Чисті надходження (Net Receipts)</div><div class="kpi-value" style="color:#38bdf8 !important;">${tot_net_receipts_all:,.2f}</div><span class="kpi-badge badge-ps">63% від Gross</span></div>', unsafe_allow_html=True)
-        pn2.markdown(f'<div class="kpi-card"><div class="kpi-label">Інвестиції в порти (CAPEX)</div><div class="kpi-value">${tot_invested_cost:,.0f}</div><span class="kpi-badge badge-total">Повернуто: {recoup_overall_pct:.0f}%</span></div>', unsafe_allow_html=True)
-        pn3.markdown(f'<div class="kpi-card"><div class="kpi-label">Чистий прибуток Upscale Studio</div><div class="kpi-value" style="color:#4ade80 !important;">${tot_studio_profit_all:,.2f}</div><span class="kpi-badge badge-xbox">Включаючи рекуп</span></div>', unsafe_allow_html=True)
-        pn4.markdown(f'<div class="kpi-card"><div class="kpi-label">Фонд роялті девелоперам</div><div class="kpi-value" style="color:#f87171 !important;">${tot_dev_royalties_all:,.2f}</div><span class="kpi-badge badge-switch">До виплати розробникам</span></div>', unsafe_allow_html=True)
+        pn1.markdown(f'<div class="kpi-card"><div class="kpi-label">Чисті надходження (Net Receipts)</div><div class="kpi-value" style="color:#38bdf8 !important;">${tot_net_receipts_all:,.2f}</div><span class="kpi-badge badge-ps">63% у банку</span></div>', unsafe_allow_html=True)
+        pn2.markdown(f'<div class="kpi-card"><div class="kpi-label">Роялті авторам ігор</div><div class="kpi-value" style="color:#f87171 !important;">${tot_dev_royalties_all:,.2f}</div><span class="kpi-badge badge-switch">До виплати девам</span></div>', unsafe_allow_html=True)
+        pn3.markdown(f'<div class="kpi-card"><div class="kpi-label">Зарплати на портінг (CAPEX)</div><div class="kpi-value">${tot_internal_porting_cost:,.0f}</div><span class="kpi-badge badge-total">ROI: {overall_dev_roi:.1f}x</span></div>', unsafe_allow_html=True)
+        pn4.markdown(f'<div class="kpi-card"><div class="kpi-label">🔥 Чистий прибуток Upscale Studio</div><div class="kpi-value" style="color:#4ade80 !important;">${tot_studio_pure_net_profit:,.2f}</div><span class="kpi-badge badge-xbox">Після всіх зарплат</span></div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Порівняльний графік прибутку студії проти роялті
-        st.subheader("📊 Порівняння: Чистий прибуток студії vs Роялті девелоперів ($)")
+        # Графік: Розподіл Net надходжень (Студія Net vs Зарплати vs Роялті девів)
+        st.subheader("📊 Порівняння: Чистий прибуток студії vs Зарплати розробникам vs Роялті авторам ($)")
         top_pnl_chart = pnl_df.head(12)
         fig_pnl_bar = go.Figure()
-        fig_pnl_bar.add_trace(go.Bar(x=top_pnl_chart["Гра"], y=top_pnl_chart["Чистий прибуток студії ($)"], name="Upscale Studio Net ($)", marker_color="#10b981"))
-        fig_pnl_bar.add_trace(go.Bar(x=top_pnl_chart["Гра"], y=top_pnl_chart["Роялті девелоперу ($)"], name="Developer Royalty ($)", marker_color="#6366f1"))
+        fig_pnl_bar.add_trace(go.Bar(x=top_pnl_chart["Гра"], y=top_pnl_chart["🔥 Чистий прибуток студії ($)"], name="Чистий прибуток Upscale ($)", marker_color="#10b981"))
+        fig_pnl_bar.add_trace(go.Bar(x=top_pnl_chart["Гра"], y=top_pnl_chart["Роялті автору ($)"], name="Роялті автору гри ($)", marker_color="#6366f1"))
+        fig_pnl_bar.add_trace(go.Bar(x=top_pnl_chart["Гра"], y=top_pnl_chart["Зарплата портінгу ($)"], name="Зарплата на порт ($)", marker_color="#f59e0b"))
         fig_pnl_bar.update_layout(
             barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color="#e2e8f0"), height=360, margin=dict(t=15, b=15, l=15, r=15)
@@ -1035,11 +1051,11 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         st.plotly_chart(fig_pnl_bar, use_container_width=True)
 
         st.markdown("---")
-        st.subheader("📑 Детальна фінансова таблиця P&L та Рекупу")
+        st.subheader("📑 Детальна фінансова таблиця P&L, Зарплат та Роялті")
         st.dataframe(pnl_df, use_container_width=True, height=450)
         
         csv_pnl = pnl_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Завантажити повний P&L та Royalty звіт (.CSV)", data=csv_pnl, file_name="upscale_pnl_recoupment_report.csv", mime="text/csv")
+        st.download_button("📥 Завантажити повний P&L та Royalty звіт (.CSV)", data=csv_pnl, file_name="upscale_pnl_royalty_report.csv", mime="text/csv")
 
     with tab_table_report:
         st.subheader("📑 Повна фінансова таблиця портфоліо")
@@ -1320,8 +1336,8 @@ elif app_mode == "🧮 Калькулятор прогнозів":
         tot_m1 = ps_est + ns_est + xb_est
         tot_year = tot_m1 * g_cfg["Decay"]
 
-        studio_net_m1 = tot_m1 * 0.315
-        studio_net_year = tot_year * 0.315
+        studio_gross_margin_m1 = tot_m1 * 0.315
+        studio_gross_margin_year = tot_year * 0.315
 
         with sb_right:
             st.markdown('<div class="sandbox-box">', unsafe_allow_html=True)
@@ -1347,8 +1363,8 @@ elif app_mode == "🧮 Калькулятор прогнозів":
 
             st.markdown("<br>", unsafe_allow_html=True)
             t_c1, t_c2 = st.columns(2)
-            t_c1.metric("🔥 Всього Gross M1", f"${tot_m1:,.0f}", f"Net студії: ${studio_net_m1:,.0f}")
-            t_c2.metric("📅 Річний Gross (1Y)", f"${tot_year:,.0f}", f"Net студії: ${studio_net_year:,.0f}")
+            t_c1.metric("🔥 Всього Gross M1", f"${tot_m1:,.0f}", f"Дохід студії: ${studio_gross_margin_m1:,.0f}")
+            t_c2.metric("📅 Річний Gross (1Y)", f"${tot_year:,.0f}", f"Дохід студії: ${studio_gross_margin_year:,.0f}")
 
             if st.button("➕ Зберегти цей лід (в таблицю та Google Sheets)", use_container_width=True):
                 new_lead_entry = {
@@ -1363,7 +1379,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
                     "Switch M1 ($)": round(ns_est, 1),
                     "Xbox M1 ($)": round(xb_est, 1),
                     "Total M1 ($)": round(tot_m1, 1),
-                    "Net Studio M1 ($)": round(studio_net_m1, 1),
+                    "Studio Margin M1 ($)": round(studio_gross_margin_m1, 1),
                     "1Y LTV ($)": round(tot_year, 1),
                     "Рекомендація": status_rec
                 }
@@ -1396,7 +1412,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             k_l1, k_l2, k_l3 = st.columns(3)
             k_l1.metric("Зібрано лідів", len(leads_df))
             k_l2.metric("Потенціал Gross M1", f"${tot_pipeline_val:,.2f}")
-            k_l3.metric("Очікуваний Net студії (31.5%)", f"${tot_pipeline_val * 0.315:,.2f}")
+            k_l3.metric("Очікуваний дохід студії (31.5%)", f"${tot_pipeline_val * 0.315:,.2f}")
 
             st.markdown("---")
             lead_cfg = {}

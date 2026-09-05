@@ -13,8 +13,8 @@ from anthropic import Anthropic
 # 🔗 НАЛАШТУВАННЯ ТАБЛИЦЬ:
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
-GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec" # (Опціонально) Webhook URL з Apps Script для автозапису
-ANTHROPIC_API_KEY = ""  # Залиш порожнім (додай у share.streamlit.io -> Settings -> Secrets)
+GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec"
+ANTHROPIC_API_KEY = ""  # Залиш порожнім або додай у Secrets
 # ==============================================================================
 
 st.set_page_config(
@@ -107,7 +107,7 @@ TARGETS_2026 = {
     }
 }
 
-# Графік розпродажів Nintendo eShop
+# 🗓️ ГРАФІК РОЗПРОДАЖІВ NINTENDO
 NINTENDO_SCHEDULE = [
     {"name": "1. Autumn Sale", "start": "2026-09-11", "end": "2026-09-24", "status": "🔥 Найближчий", "region": "Global / EU / US"},
     {"name": "2. Halloween Sale", "start": "2026-10-26", "end": "2026-11-15", "status": "🎃 Сезонний", "region": "Global"},
@@ -115,9 +115,48 @@ NINTENDO_SCHEDULE = [
     {"name": "4. Holiday Sale (US)", "start": "2026-12-21", "end": "2027-01-11", "status": "🎄 Головний (US)", "region": "Americas"}
 ]
 
+# 🗓️ ГРАФІК ТА ПРАВИЛА РОЗПРОДАЖІВ XBOX (2026)
+XBOX_SCHEDULE = [
+    {
+        "name": "Deep Discounts Sale (ID Sale)",
+        "start": "2026-11-05",
+        "end": "2026-11-11",
+        "deadline": "2026-10-01",
+        "feedback": "2026-10-14",
+        "limit": 10,
+        "min_price": 0.0,
+        "min_discount": 65,
+        "type": "ID Sale (Глибокі знижки)",
+        "note": "Знижка 65% або більше. Ліміт: до 10 тайтлів."
+    },
+    {
+        "name": "Black Friday Sale (Tentpole Store Sale)",
+        "start": "2026-11-20",
+        "end": "2026-12-02",
+        "deadline": "2026-10-02",
+        "feedback": "2026-10-15",
+        "limit": 5,
+        "min_price": 9.99,
+        "min_discount": 10,
+        "type": "Tentpole Sale",
+        "note": "Базова ціна від $9.99. Ліміт: до 5 тайтлів. Кулдаун знято тільки між BF та Countdown."
+    },
+    {
+        "name": "Countdown Sale (Tentpole Store Sale)",
+        "start": "2026-12-17",
+        "end": "2027-01-06",
+        "deadline": "2026-10-30",
+        "feedback": "2026-11-13",
+        "limit": 5,
+        "min_price": 9.99,
+        "min_discount": 10,
+        "type": "Tentpole Sale",
+        "note": "Базова ціна від $9.99. Ліміт: до 5 тайтлів."
+    }
+]
+
 # 30 ВІДКАЛІБРОВАНИХ ПІДЖАНРІВ
 GENRE_DATABASE = {
-    # 1. Симулятори та Менеджмент (8)
     "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.8, "Xbox": 1.8, "Switch": 2.6, "Decay": 1.35, "Desc": "Cat From Hell, Bad Cat, Angry Cat"},
     "Simulator: Crime / Black Market (3D)": {"PS": 4.2, "Xbox": 3.5, "Switch": 1.2, "Decay": 1.15, "Desc": "Drug Dealer Empire, Thief Sim"},
     "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 2.2, "Xbox": 1.5, "Switch": 2.8, "Decay": 1.30, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo"},
@@ -126,33 +165,23 @@ GENRE_DATABASE = {
     "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.5, "Xbox": 2.4, "Switch": 1.8, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben"},
     "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 3.2, "Decay": 1.40, "Desc": "Монополія аудиторії Nintendo"},
     "Simulator: Casual Flight / Paper Plane": {"PS": 0.4, "Xbox": 0.3, "Switch": 0.4, "Decay": 1.10, "Desc": "🔴 Paperly, Fly for Fly (Зона низького чека)"},
-
-    # 2. Хоррори та Виживання (5)
     "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.8, "Xbox": 2.8, "Switch": 0.5, "Decay": 1.15, "Desc": "Skinwalker, TROX (Xbox домінує)"},
     "Horror: 3D First-Person Atmospheric": {"PS": 1.6, "Xbox": 2.2, "Switch": 0.5, "Decay": 1.10, "Desc": "Cornfield, Death Attraction, Dr. Psycho"},
     "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.4, "Switch": 1.0, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (PS попит)"},
     "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 2.0, "Xbox": 2.6, "Switch": 1.8, "Decay": 1.35, "Desc": "From the Bunker, Survival After War"},
     "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 2.0, "Switch": 1.5, "Decay": 1.30, "Desc": "Call of Island, WinterCraft"},
-
-    # 3. Платформери та Фізика (4)
     "Platformer: 3D Physics / Character Adventure": {"PS": 2.0, "Xbox": 1.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Super Adventure Hand"},
     "Platformer: 3D Obby / Roblox-style": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.4, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball"},
     "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 3.0, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
     "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.15, "Desc": "Super Rock Climber (Only Up вайб)"},
-
-    # 4. Пазли та Козі (4)
     "Cozy: Organization / Packing / Decor": {"PS": 0.8, "Xbox": 0.5, "Switch": 3.5, "Decay": 1.45, "Desc": "Packit List, Unpacking-вайб"},
     "Puzzle: 2D Match-3D / Goods Sort / Nuts": {"PS": 0.6, "Xbox": 0.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Goods Sort, Bus Jam, Bolts & Nuts"},
     "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.8, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge"},
     "Puzzle: Hidden Object / Detective Quest": {"PS": 1.6, "Xbox": 0.9, "Switch": 1.8, "Decay": 1.40, "Desc": "Conquistadorio, Minima, Dollmaker"},
-
-    # 5. Екшн, Шутери та Перегони (4)
     "Racing: 3D Arcade / Traffic Driving": {"PS": 3.0, "Xbox": 1.0, "Switch": 1.8, "Decay": 1.15, "Desc": "Gran Carismo, Hyper Cars"},
     "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.8, "Xbox": 2.2, "Switch": 1.0, "Decay": 1.25, "Desc": "Bunker 22, Zombiescraper"},
     "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.2, "Xbox": 1.0, "Switch": 1.4, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
     "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Street Combat Fighting"},
-
-    # 6. RPG, Роглайки та Стратегії (5)
     "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.4, "Xbox": 1.4, "Switch": 1.8, "Decay": 1.35, "Desc": "Nom Nom Apocalypse"},
     "Roguelike: Turn-Based / Deckbuilder / Dice": {"PS": 1.0, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.40, "Desc": "Rabbit Samurai, Bag Hero, Slice & Dice"},
     "Metroidvania: 2D Pixel / Action Platformer": {"PS": 1.0, "Xbox": 0.8, "Switch": 0.4, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild"},
@@ -261,7 +290,6 @@ def load_weekly_data(sheet_url):
     except Exception:
         return pd.DataFrame()
 
-# Підготовка квартальної структури даних
 def prepare_quarterly_data(df_weekly):
     if df_weekly.empty or "From" not in df_weekly.columns:
         return pd.DataFrame()
@@ -288,7 +316,7 @@ if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
 # ==============================================================================
-# 🧭 САЙДБАР ТА НАВІГАЦІЯ
+# 🧭 САЙДБАР
 # ==============================================================================
 with st.sidebar:
     st.header("🎮 Upscale Studio BI")
@@ -325,7 +353,6 @@ with st.sidebar:
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    # AI ЧАТ CLAUDE HAIKU
     st.markdown("---")
     st.subheader("🤖 AI-Аналітик (Claude Haiku)")
     claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
@@ -335,7 +362,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Які симулятори найкраще продаються на Switch? Або: Як ми йдемо по таргету 2026 року?"
+        placeholder="Напр.: Скільки симуляторів заробили більше $1000?"
     )
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
@@ -379,7 +406,6 @@ with st.sidebar:
 
                     prompt = f"""
                     Ти — головний фінансовий директор та аналітик консольного видавництва Upscale Studio (Україна).
-                    Ціль на 2026 рік: $200,000 консольної виручки.
                     Дані портфоліо ({len(summary_lines)-1} ігор):
                     {compact_dataset}
 
@@ -388,7 +414,7 @@ with st.sidebar:
 
                     Запитання: "{ai_query}"
 
-                    Дай точну, професійну та реалістичну відповідь українською мовою з реальними цифрами.
+                    Дай точну відповідь українською мовою з реальними цифрами та висновками.
                     ВАЖЛИВО: Пиши суми як "USD 1,500" або "\\$1,500" (без одинарного знака $).
                     """
 
@@ -464,7 +490,7 @@ if app_mode == "🎮 Наші ігри":
     tab_analytics, tab_insights, tab_sales_tracker, tab_forecast_review, tab_table_report = st.tabs([
         "📈 Аналітика та Динаміка", 
         "🧠 Інсайти та Постери", 
-        "📅 Розпродажі Nintendo",
+        "📅 Розпродажі (Nintendo & Xbox)",
         "🎯 План vs Факт (Точність)",
         "📑 Таблиця та One-Pager Звіт"
     ])
@@ -538,119 +564,131 @@ if app_mode == "🎮 Наші ігри":
             </div>
             """, unsafe_allow_html=True)
 
+    # ==============================================================================
+    # 📅 ВКЛАДКА: РОЗПРОДАЖІ (NINTENDO + XBOX)
+    # ==============================================================================
     with tab_sales_tracker:
-        st.subheader("📅 Календар розпродажів та Конструктор знижок Nintendo")
-        st.caption("Автоматичне зчитування цільових знижок із Google Таблиці та генерація 1-клік Bookmarklet")
-
-        cal_df = pd.DataFrame([
-            {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]}
-            for s in NINTENDO_SCHEDULE
-        ])
+        st.subheader("📅 Центр управління консольними розпродажами")
         
-        fig_timeline = px.timeline(
-            cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Статус",
-            color_discrete_map={"🔥 Найближчий": "#f59e0b", "🎃 Сезонний": "#ec4899", "🎄 Головний (EU)": "#10b981", "🎄 Головний (US)": "#3b82f6"}
+        sale_platform_choice = st.radio(
+            "Оберіть консольну платформу:",
+            ["🔴 Nintendo eShop", "🟢 Xbox Store"],
+            horizontal=True
         )
-        fig_timeline.update_yaxes(autorange="reversed")
-        fig_timeline.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color="#e2e8f0"), height=260, margin=dict(t=10, b=10, l=10, r=10),
-            xaxis=dict(gridcolor="#28283c", title="Дати проведення розпродажів")
-        )
-        st.plotly_chart(fig_timeline, use_container_width=True)
 
-        st.markdown("---")
-        sale_choice = st.selectbox(
-            "Оберіть плановий розпродаж Nintendo:",
-            [f"{s['name']} (Старт: {s['start']} | {s['status']} | {s['region']})" for s in NINTENDO_SCHEDULE],
-            index=0
-        )
-        selected_sale_data = NINTENDO_SCHEDULE[0]
-        for s in NINTENDO_SCHEDULE:
-            if s["name"] in sale_choice:
-                selected_sale_data = s
-                break
-
-        target_start_date = datetime.strptime(selected_sale_data["start"], "%Y-%m-%d")
-        rel_col = next((c for c in filtered_df.columns if any(k in c.lower() for k in ["release", "date", "дата"])), None)
-
-        tracker_rows = []
-        for _, r in filtered_df.iterrows():
-            g_name = r["Game_Name_Clean"]
-            raw_date_val = r.get(rel_col, None) if rel_col else None
-            r_date = parse_flexible_date(raw_date_val)
+        # -------------------------------------------------------------
+        # 🔴 NINTENDO ESHOP TRACKER
+        # -------------------------------------------------------------
+        if sale_platform_choice == "🔴 Nintendo eShop":
+            st.markdown("#### 🗓️ Графік розпродажів Nintendo eShop на часовій осі")
+            cal_df = pd.DataFrame([
+                {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]}
+                for s in NINTENDO_SCHEDULE
+            ])
             
-            if not r_date:
-                r_date = datetime(2026, 5, 1)
-                date_display = "— (Не вказано)"
-            else:
-                date_display = r_date.strftime("%Y-%m-%d")
+            fig_timeline = px.timeline(
+                cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Статус",
+                color_discrete_map={"🔥 Найближчий": "#f59e0b", "🎃 Сезонний": "#ec4899", "🎄 Головний (EU)": "#10b981", "🎄 Головний (US)": "#3b82f6"}
+            )
+            fig_timeline.update_yaxes(autorange="reversed")
+            fig_timeline.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color="#e2e8f0"), height=260, margin=dict(t=10, b=10, l=10, r=10),
+                xaxis=dict(gridcolor="#28283c", title="Дати проведення")
+            )
+            st.plotly_chart(fig_timeline, use_container_width=True)
 
-            days_since_rel = (target_start_date - r_date).days
-            if days_since_rel >= 30:
-                sale_status = "🟢 Готова до сейлу"
-                note = f"Пройшло {days_since_rel} дн. (Кулдаун OK)"
-                is_ready = True
-            else:
-                sale_status = "🟡 Кулдаун"
-                note = f"Залишилось {30 - days_since_rel} дн."
-                is_ready = False
+            st.markdown("---")
+            sale_choice = st.selectbox(
+                "Оберіть плановий розпродаж Nintendo:",
+                [f"{s['name']} (Старт: {s['start']} | {s['status']} | {s['region']})" for s in NINTENDO_SCHEDULE],
+                index=0
+            )
+            selected_sale_data = NINTENDO_SCHEDULE[0]
+            for s in NINTENDO_SCHEDULE:
+                if s["name"] in sale_choice:
+                    selected_sale_data = s
+                    break
 
-            sheet_discount_val = r.get(discount_col, 70.0) if discount_col else 70.0
-            try:
-                final_discount_num = int(round(float(sheet_discount_val))) if float(sheet_discount_val) > 0 else 70
-            except:
-                final_discount_num = 70
+            target_start_date = datetime.strptime(selected_sale_data["start"], "%Y-%m-%d")
+            rel_col = next((c for c in filtered_df.columns if any(k in c.lower() for k in ["release", "date", "дата"])), None)
 
-            tracker_rows.append({
-                "Включити": is_ready,
-                "Гра": g_name,
-                "Знижка % (з Таблиці)": final_discount_num,
-                "Реальна дата релізу": date_display,
-                "Статус Nintendo": sale_status,
-                "Деталі кулдауну": note
-            })
+            tracker_rows = []
+            for _, r in filtered_df.iterrows():
+                g_name = r["Game_Name_Clean"]
+                raw_date_val = r.get(rel_col, None) if rel_col else None
+                r_date = parse_flexible_date(raw_date_val)
+                
+                if not r_date:
+                    r_date = datetime(2026, 5, 1)
+                    date_display = "— (Не вказано)"
+                else:
+                    date_display = r_date.strftime("%Y-%m-%d")
 
-        tracker_df = pd.DataFrame(tracker_rows)
-        ready_count = len(tracker_df[tracker_df["Статус Nintendo"].str.contains("Готова")])
-        
-        t_c1, t_c2, t_c3 = st.columns(3)
-        t_c1.metric("Цільовий сейл", selected_sale_data["name"], f"Старт: {selected_sale_data['start']}")
-        t_c2.metric("Готових ігор до участі", f"{ready_count} з {len(tracker_df)}")
-        t_c3.metric("У кулдауні (нові релізи)", len(tracker_df) - ready_count)
+                days_since_rel = (target_start_date - r_date).days
+                if days_since_rel >= 30:
+                    sale_status = "🟢 Готова до сейлу"
+                    note = f"Пройшло {days_since_rel} дн. (Кулдаун OK)"
+                    is_ready = True
+                else:
+                    sale_status = "🟡 Кулдаун"
+                    note = f"Залишилось {30 - days_since_rel} дн."
+                    is_ready = False
 
-        st.markdown("---")
-        st.markdown("#### 🛠️ Інтерактивний Конструктор кампанії знижок")
-        edited_tracker_df = st.data_editor(
-            tracker_df,
-            column_config={
-                "Включити": st.column_config.CheckboxColumn("Включити в сейл", default=True),
-                "Знижка % (з Таблиці)": st.column_config.NumberColumn("Знижка (%)", min_value=10, max_value=90, step=5),
-                "Гра": st.column_config.TextColumn("Назва гри", disabled=True),
-                "Статус Nintendo": st.column_config.TextColumn("Статус", disabled=True)
-            },
-            disabled=["Реальна дата релізу", "Деталі кулдауну"],
-            hide_index=True,
-            use_container_width=True,
-            height=380
-        )
+                sheet_discount_val = r.get(discount_col, 70.0) if discount_col else 70.0
+                try:
+                    final_discount_num = int(round(float(sheet_discount_val))) if float(sheet_discount_val) > 0 else 70
+                except:
+                    final_discount_num = 70
 
-        st.markdown("---")
-        if st.button("⚡ Згенерувати оновлений Bookmarklet для Nintendo", use_container_width=True):
-            selected_games = edited_tracker_df[edited_tracker_df["Включити"] == True]
-            if selected_games.empty:
-                st.warning("Оберіть хоча б одну гру галочкою!")
-            else:
-                discounts_payload = {}
-                names_list = []
-                for _, s_row in selected_games.iterrows():
-                    g_n = s_row["Гра"].strip().lower()
-                    discounts_payload[g_n] = int(s_row["Знижка % (з Таблиці)"])
-                    names_list.append(s_row["Гра"].strip())
+                tracker_rows.append({
+                    "Включити": is_ready,
+                    "Гра": g_name,
+                    "Знижка % (з Таблиці)": final_discount_num,
+                    "Реальна дата релізу": date_display,
+                    "Статус Nintendo": sale_status,
+                    "Деталі кулдауну": note
+                })
 
-                json_str = json.dumps(discounts_payload, ensure_ascii=False)
+            tracker_df = pd.DataFrame(tracker_rows)
+            ready_count = len(tracker_df[tracker_df["Статус Nintendo"].str.contains("Готова")])
+            
+            t_c1, t_c2, t_c3 = st.columns(3)
+            t_c1.metric("Цільовий сейл", selected_sale_data["name"], f"Старт: {selected_sale_data['start']}")
+            t_c2.metric("Готових ігор до участі", f"{ready_count} з {len(tracker_df)}")
+            t_c3.metric("У кулдауні (нові релізи)", len(tracker_df) - ready_count)
 
-                bookmarklet_code = f"""javascript:(function(){{
+            st.markdown("---")
+            st.markdown("#### 🛠️ Конструктор кампанії знижок Nintendo")
+            edited_tracker_df = st.data_editor(
+                tracker_df,
+                column_config={
+                    "Включити": st.column_config.CheckboxColumn("Включити в сейл", default=True),
+                    "Знижка % (з Таблиці)": st.column_config.NumberColumn("Знижка (%)", min_value=10, max_value=90, step=5),
+                    "Гра": st.column_config.TextColumn("Назва гри", disabled=True),
+                    "Статус Nintendo": st.column_config.TextColumn("Статус", disabled=True)
+                },
+                disabled=["Реальна дата релізу", "Деталі кулдауну"],
+                hide_index=True,
+                use_container_width=True,
+                height=340
+            )
+
+            if st.button("⚡ Згенерувати оновлений Bookmarklet для Nintendo", use_container_width=True):
+                selected_games = edited_tracker_df[edited_tracker_df["Включити"] == True]
+                if selected_games.empty:
+                    st.warning("Оберіть хоча б одну гру галочкою!")
+                else:
+                    discounts_payload = {}
+                    names_list = []
+                    for _, s_row in selected_games.iterrows():
+                        g_n = s_row["Гра"].strip().lower()
+                        discounts_payload[g_n] = int(s_row["Знижка % (з Таблиці)"])
+                        names_list.append(s_row["Гра"].strip())
+
+                    json_str = json.dumps(discounts_payload, ensure_ascii=False)
+
+                    bookmarklet_code = f"""javascript:(function(){{
 const discounts = {json_str};
 function parsePrice(text){{let s=text.trim().replace(/[^0-9.,]/g,'');if(!s)return null;if(s.includes('.')&&s.includes(',')){{if(s.indexOf('.')<s.indexOf(',')){{s=s.replace(/\\./g,'').replace(',','.')}}else{{s=s.replace(/,/g,'')}}}}else if(s.includes(',')){{s=s.replace(',','.')}}return parseFloat(s);}}
 function getGameTitle(el){{let current=el;while(current&&current!==document.body){{let prev=current.previousElementSibling;while(prev){{let text=prev.innerText||"";if(text.includes('HAC-')&&text.includes(':')){{let rawTitle=text.substring(text.indexOf(':')+1).trim();rawTitle=rawTitle.replace(/\\s*\\(\\d+\\/\\d+\\)\\s*$/, '').trim();return rawTitle;}}prev=prev.previousElementSibling;}}current=current.parentElement;}}return null;}}
@@ -661,14 +699,155 @@ inputs.forEach(priceInput=>{{const td=priceInput.closest('td');const regularPric
 alert("🎉 Заповнено цін для обраних ігор: "+updatedCount);
 }})();"""
 
-                st.success(f"🎉 Bookmarklet згенеровано для {len(selected_games)} ігор на основі твоїх знижок із Google Таблиці!")
-                b_c1, b_c2 = st.columns(2)
-                with b_c1:
-                    st.markdown("##### 📌 Код закладки (встав у URL закладки Chrome):")
-                    st.code(bookmarklet_code, language="javascript")
-                with b_c2:
-                    st.markdown("##### 📋 Список назв (для швидкого пошуку на порталі Nintendo):")
-                    st.text_area("Назви ігор:", "\n".join(names_list), height=180)
+                    st.success(f"🎉 Bookmarklet згенеровано для {len(selected_games)} ігор на основі твоїх знижок із Google Таблиці!")
+                    b_c1, b_c2 = st.columns(2)
+                    with b_c1:
+                        st.markdown("##### 📌 Код закладки (встав у URL закладки Chrome):")
+                        st.code(bookmarklet_code, language="javascript")
+                    with b_c2:
+                        st.markdown("##### 📋 Список назв (для швидкого пошуку на порталі Nintendo):")
+                        st.text_area("Назви ігор:", "\n".join(names_list), height=160)
+
+        # -------------------------------------------------------------
+        # 🟢 XBOX STORE TRACKER (NEW MODULE)
+        # -------------------------------------------------------------
+        else:
+            st.markdown("#### 🟢 Графік та правила подачі заявок на розпродажі Xbox")
+            st.caption("Повна відповідність вимогам ID@Xbox: контроль базової ціни, глибини знижки та лімітів тайтлів")
+
+            # Календар Xbox на часовій осі
+            xb_cal_df = pd.DataFrame([
+                {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Тип": s["type"], "Дедлайн": s["deadline"]}
+                for s in XBOX_SCHEDULE
+            ])
+            fig_xb_tl = px.timeline(
+                xb_cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Тип",
+                color_discrete_map={"ID Sale (Глибокі знижки)": "#10b981", "Tentpole Sale": "#6366f1"}
+            )
+            fig_xb_tl.update_yaxes(autorange="reversed")
+            fig_xb_tl.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color="#e2e8f0"), height=230, margin=dict(t=10, b=10, l=10, r=10),
+                xaxis=dict(gridcolor="#28283c", title="Дати проведення на Xbox")
+            )
+            st.plotly_chart(fig_xb_tl, use_container_width=True)
+
+            st.markdown("---")
+            
+            # Вибір Xbox Сейлу
+            xb_sale_names = [f"{s['name']} (Старт: {s['start']} | Дедлайн: {s['deadline']})" for s in XBOX_SCHEDULE]
+            xb_choice = st.selectbox("Оберіть цільовий розпродаж Xbox для формування подачі:", xb_sale_names, index=0)
+            
+            cur_xb_sale = XBOX_SCHEDULE[0]
+            for s in XBOX_SCHEDULE:
+                if s["name"] in xb_choice:
+                    cur_xb_sale = s
+                    break
+
+            # Розрахунок днів до дедлайну
+            deadline_dt = datetime.strptime(cur_xb_sale["deadline"], "%Y-%m-%d")
+            today_dt = datetime(2026, 9, 5) # Поточна дата
+            days_to_deadline = (deadline_dt - today_dt).days
+
+            xc1, xc2, xc3, xc4 = st.columns(4)
+            xc1.metric("🎯 Цільовий сейл", cur_xb_sale["name"].split(" (")[0])
+            xc2.metric("⏰ Дедлайн подачі", cur_xb_sale["deadline"], f"{days_to_deadline} дн. залишилось")
+            xc3.metric("🔒 Ліміт тайтлів", f"до {cur_xb_sale['limit']} ігор", "Квота на видавця")
+            xc4.metric("📩 Зворотний зв'язок (Approval)", cur_xb_sale["feedback"])
+
+            st.info(f"💡 **Вимоги Microsoft:** {cur_xb_sale['note']}")
+
+            # Формування списку ігор під вимоги обраного сейлу
+            xb_tracker_rows = []
+            for _, r in filtered_df.iterrows():
+                g_name = r["Game_Name_Clean"]
+                g_price = r.get("Price consoles, $", r.get("Price consoles", 9.99))
+                try: g_price = float(g_price)
+                except: g_price = 9.99
+
+                # Базова знижка з таблиці або за замовчуванням
+                sheet_disc = r.get(discount_col, 70.0) if discount_col else 70.0
+                try: sheet_disc = int(round(float(sheet_disc)))
+                except: sheet_disc = 70
+
+                # Перевірка правил сейлу
+                is_eligible = True
+                fail_reasons = []
+
+                if cur_xb_sale["min_price"] > 0 and g_price < cur_xb_sale["min_price"]:
+                    is_eligible = False
+                    fail_reasons.append(f"Ціна ${g_price:.2f} < ${cur_xb_sale['min_price']}")
+
+                if cur_xb_sale["min_discount"] > 0 and sheet_disc < cur_xb_sale["min_discount"]:
+                    sheet_disc = cur_xb_sale["min_discount"] # Авто-підгон під мінімальну знижку
+
+                status_text = "🟢 Проходить вимоги" if is_eligible else f"🔴 Не підходить ({', '.join(fail_reasons)})"
+                
+                xb_tracker_rows.append({
+                    "Подати гру": is_eligible,
+                    "Гра": g_name,
+                    "Базова ціна ($)": g_price,
+                    "Знижка Xbox (%)": sheet_disc,
+                    "Ціна на сейлі ($)": round(g_price * (1 - sheet_disc / 100.0), 2),
+                    "Статус відповідності": status_text
+                })
+
+            xb_tracker_df = pd.DataFrame(xb_tracker_rows)
+
+            st.markdown("---")
+            st.markdown("#### 🛠️ Конструктор подачі заявок на Xbox")
+            st.caption(f"Оберіть галочками ігри для включення в заявку (Максимальний ліміт: **{cur_xb_sale['limit']} тайтлів**):")
+
+            edited_xb_df = st.data_editor(
+                xb_tracker_df,
+                column_config={
+                    "Подати гру": st.column_config.CheckboxColumn("Подати в Microsoft", default=True),
+                    "Знижка Xbox (%)": st.column_config.NumberColumn("Знижка (%)", min_value=cur_xb_sale["min_discount"], max_value=90, step=5),
+                    "Гра": st.column_config.TextColumn("Назва гри", disabled=True),
+                    "Базова ціна ($)": st.column_config.NumberColumn("Base Price ($)", format="$%.2f", disabled=True),
+                    "Ціна на сейлі ($)": st.column_config.NumberColumn("Sale Price ($)", format="$%.2f", disabled=True),
+                    "Статус відповідності": st.column_config.TextColumn("Вимоги сейлу", disabled=True)
+                },
+                disabled=["Гра", "Базова ціна ($)", "Ціна на сейлі ($)", "Статус відповідності"],
+                hide_index=True,
+                use_container_width=True,
+                height=340
+            )
+
+            # Перевірка ліміту вибраних ігор
+            selected_xb_games = edited_xb_df[edited_xb_df["Подати гру"] == True]
+            selected_count = len(selected_xb_games)
+
+            if selected_count > cur_xb_sale["limit"]:
+                st.error(f"⚠️ **Перевищено ліміт!** Ви обрали **{selected_count}** ігор, а ліміт Microsoft для цього сейлу — максимум **{cur_xb_sale['limit']}** тайтлів. Будь ласка, зніміть зайві галочки.")
+            else:
+                st.success(f"✅ Обрано **{selected_count}** із **{cur_xb_sale['limit']}** доступних слотів.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Експорт пакету для Xbox
+            if st.button("📦 Сформувати пакет заявки для Xbox Portal", use_container_width=True):
+                if selected_xb_games.empty:
+                    st.warning("Оберіть хоча б одну гру для формування заявки!")
+                else:
+                    submission_text_lines = [
+                        f"=== UPSCALE STUDIO // XBOX PROMOTION SUBMISSION ===",
+                        f"Event: {cur_xb_sale['name']}",
+                        f"Dates: {cur_xb_sale['start']} to {cur_xb_sale['end']}",
+                        f"Total Titles: {len(selected_xb_games)} / {cur_xb_sale['limit']}",
+                        f"--------------------------------------------------"
+                    ]
+                    for _, srow in selected_xb_games.iterrows():
+                        sale_p = round(srow["Базова ціна ($)"] * (1 - srow["Знижка Xbox (%)"] / 100.0), 2)
+                        submission_text_lines.append(f"• {srow['Гра']} | Base: ${srow['Базова ціна ($)']:.2f} | Discount: {srow['Знижка Xbox (%)']}% | Final: ${sale_p:.2f}")
+
+                    final_xb_submission_text = "\n".join(submission_text_lines)
+
+                    st.markdown("##### 📋 Текстовий звіт для форми ID@Xbox:")
+                    st.text_area("Готово до копіювання:", final_xb_submission_text, height=180)
+
+                    csv_xb_sub = selected_xb_games[["Гра", "Базова ціна ($)", "Знижка Xbox (%)", "Ціна на сейлі ($)"]].to_csv(index=False).encode('utf-8')
+                    st.download_button("📥 Завантажити CSV заявки для ID@Xbox", data=csv_xb_sub, file_name=f"Xbox_{cur_xb_sale['name'].split(' ')[0]}_Submission.csv", mime="text/csv")
 
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
@@ -861,7 +1040,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
 
 # ==============================================================================
-# 🎯 РОЗДІЛ 2: ЦІЛІ ТА KPI 2026 (НОВИЙ БЛОК)
+# 🎯 РОЗДІЛ 2: ЦІЛІ ТА KPI 2026
 # ==============================================================================
 elif app_mode == "🎯 Цілі та KPI 2026":
     st.title("🎯 Виконання річного та квартальних планів (2026)")
@@ -877,7 +1056,6 @@ elif app_mode == "🎯 Цілі та KPI 2026":
         st.info("💡 У щотижневій таблиці немає валідних дат для розрахунку 2026 року.")
         st.stop()
 
-    # Селектор періоду
     col_sel, col_info = st.columns([1.5, 2.5])
     with col_sel:
         period_choice = st.radio(
@@ -886,7 +1064,6 @@ elif app_mode == "🎯 Цілі та KPI 2026":
             horizontal=True
         )
 
-    # Фільтрація факту під обраний період
     if period_choice == "Year 2026 (Весь рік)":
         fact_period_df = q_df[q_df["Year"] == 2026]
     else:
@@ -906,7 +1083,6 @@ elif app_mode == "🎯 Цілі та KPI 2026":
     target = TARGETS_2026[period_choice]
     rev_pct = round((fact_rev / max(target["Revenue"], 1.0)) * 100, 1)
 
-    # Великий прогрес-бар
     st.markdown(f"""
     <div style="background:#171724; border:1px solid #2f2f45; border-radius:12px; padding:22px; margin-top:10px; margin-bottom:15px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -980,7 +1156,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 3: ТИЖНЕВА ДИНАМІКА (WEEKLY OPS & GROWTH TRACKER)
+# 📈 РОЗДІЛ 3: ТИЖНЕВА ДИНАМІКА
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")

@@ -83,27 +83,27 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🎯 ВІДКАЛІБРОВАНІ ЦІЛІ НА 2026 РІК
+# 🎯 ВІДКАЛІБРОВАНІ ЦІЛІ НА 2026 РІК ($500k TARGET)
 TARGETS_2026 = {
     "Year 2026 (Весь рік)": {
-        "Revenue": 200000.0, "Nintendo_Revenue": 90000.0, "PS_Revenue": 70000.0, "Xbox_Revenue": 40000.0,
-        "Deals": 16, "Calls": 80, "Contacts": 400, "Leads": 1200
+        "Revenue": 500000.0, "Nintendo_Revenue": 130000.0, "PS_Revenue": 250000.0, "Xbox_Revenue": 120000.0,
+        "Deals": 20, "Calls": 100, "Contacts": 500, "Leads": 6000
     },
     "Q1 2026": {
-        "Revenue": 35000.0, "Nintendo_Revenue": 15750.0, "PS_Revenue": 12250.0, "Xbox_Revenue": 7000.0,
-        "Deals": 3, "Calls": 15, "Contacts": 75, "Leads": 225
+        "Revenue": 90000.0, "Nintendo_Revenue": 23500.0, "PS_Revenue": 45000.0, "Xbox_Revenue": 21500.0,
+        "Deals": 4, "Calls": 20, "Contacts": 100, "Leads": 1200
     },
     "Q2 2026": {
-        "Revenue": 45000.0, "Nintendo_Revenue": 20250.0, "PS_Revenue": 15750.0, "Xbox_Revenue": 9000.0,
-        "Deals": 4, "Calls": 20, "Contacts": 100, "Leads": 300
+        "Revenue": 110000.0, "Nintendo_Revenue": 28500.0, "PS_Revenue": 55000.0, "Xbox_Revenue": 26500.0,
+        "Deals": 5, "Calls": 25, "Contacts": 125, "Leads": 1500
     },
     "Q3 2026": {
-        "Revenue": 50000.0, "Nintendo_Revenue": 22500.0, "PS_Revenue": 17500.0, "Xbox_Revenue": 10000.0,
-        "Deals": 4, "Calls": 20, "Contacts": 100, "Leads": 300
+        "Revenue": 130000.0, "Nintendo_Revenue": 34000.0, "PS_Revenue": 65000.0, "Xbox_Revenue": 31000.0,
+        "Deals": 5, "Calls": 25, "Contacts": 125, "Leads": 1500
     },
     "Q4 2026": {
-        "Revenue": 70000.0, "Nintendo_Revenue": 31500.0, "PS_Revenue": 24500.0, "Xbox_Revenue": 14000.0,
-        "Deals": 5, "Calls": 25, "Contacts": 125, "Leads": 375
+        "Revenue": 170000.0, "Nintendo_Revenue": 44000.0, "PS_Revenue": 85000.0, "Xbox_Revenue": 41000.0,
+        "Deals": 6, "Calls": 30, "Contacts": 150, "Leads": 1800
     }
 }
 
@@ -865,7 +865,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 # ==============================================================================
 elif app_mode == "🎯 Цілі та KPI 2026":
     st.title("🎯 Виконання річного та квартальних планів (2026)")
-    st.caption("Ціль на 2026 рік: **$200,000 консольної виручки** • Дані синхронізуються з Weekly Updates")
+    st.caption("Ціль на 2026 рік: **$500,000 консольної виручки** • Дані синхронізуються з Weekly Updates")
 
     if weekly_df.empty:
         st.warning("⚠️ Вкажи валідне посилання на тижневу вкладку з `#gid=...` у рядку `WEEKLY_SHEET_URL`.")

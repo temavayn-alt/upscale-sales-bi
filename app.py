@@ -879,7 +879,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             if base_m == 0:
                 if "steam" in src_platform_type or steam_rev_val > 0: base_m = (steam_rev_val * 0.10) + 500.0
                 elif "play" in src_platform_type or ("google" in src_platform_type) or (installs_val >= 10000): base_m = (math.sqrt(installs_val) * 2.0) + 800.0 if installs_val > 0 else 0.0
-                elif "crazy" in src_platform_type or ("web" in src_platform_type and installs_val > 0): base_m = (math.sqrt(installs_val) * 6.5) + 650.0 if installs_val > 0 else 0.0
+                elif "crazy" in src_platform_type or ("web" in src_platform_type and installs_val > 0): base_m = (installs_val * 0.05) + 900.0
                 elif "itch" in src_platform_type and installs_val > 0: base_m = (installs_val * 10.0) + 400.0
 
             if base_m > 0:
@@ -1321,9 +1321,9 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             elif calc_src == "Google Play":
                 gp_installs = st.number_input("Завантаження Google Play (Installs):", min_value=0, value=500000, step=50000)
                 b_metric = (math.sqrt(gp_installs) * 2.0) + 800.0 if gp_installs > 0 else 0.0
-            elif calc_src == "CrazyGames / Web":    
+            elif calc_src == "CrazyGames / Web": 
                 cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
-                b_metric = (math.sqrt(cg_r) * 6.5) + 650.0 if cg_r > 0 else 0.0
+                b_metric = (cg_r * 0.05) + 900.0
             else:
                 itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
                 b_metric = (itch_r * 10.0) + 400.0

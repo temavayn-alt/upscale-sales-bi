@@ -17,20 +17,58 @@ WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec"
 ANTHROPIC_API_KEY = ""  # Залиш порожнім або додай у Secrets
 ACTIVITY_STORAGE_FILE = "release_activity_state.json"
+LOGO_FILE = "up4.png"
 # ==============================================================================
+
+# Перевірка наявності логотипу для favicon
+page_icon_setting = LOGO_FILE if os.path.exists(LOGO_FILE) else "🎮"
 
 st.set_page_config(
     page_title="Upscale Studio | Console BI & Growth Hub",
-    page_icon="🎮",
+    page_icon=page_icon_setting,
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + елегантні вкладки
+# Професійні стилі темної теми + градієнти бренду + елегантне меню без кружечків
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     
+    /* 1. СТИЛЬНІ ПЛАШКИ-КНОПКИ В МЕНЮ САЙДБАРУ (БЕЗ РАДІОТОЧОК) */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+        background-color: #171724 !important;
+        border: 1px solid #28283c !important;
+        border-radius: 9px !important;
+        padding: 9px 14px !important;
+        margin-bottom: 6px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background-color: #222235 !important;
+        border-color: #a855f7 !important;
+        transform: translateX(2px);
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"],
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(90deg, rgba(192, 38, 211, 0.22) 0%, rgba(249, 115, 22, 0.16) 100%) !important;
+        border: 1px solid #d946ef !important;
+        box-shadow: 0 2px 10px rgba(217, 70, 239, 0.15) !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p,
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* 2. ВКЛАДКИ З ФІРМОВИМ ГРАДІЄНТОМ */
     .stTabs [data-baseweb="tab-list"] {
         gap: 16px;
         border-bottom: 1px solid #28283c;
@@ -55,9 +93,10 @@ st.markdown("""
         background: transparent !important;
         color: #ffffff !important;
         font-weight: 700 !important;
-        border-bottom: 2px solid #818cf8 !important;
+        border-bottom: 2px solid #d946ef !important;
     }
 
+    /* 3. КАРТКИ МЕТРИК ТА ІНСАЙТІВ */
     .kpi-card {
         background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
         border: 1px solid #2e2e44;
@@ -75,7 +114,7 @@ st.markdown("""
     .badge-xbox { background-color: rgba(16, 124, 16, 0.25); color: #4ade80; }
     
     .insight-card-flex {
-        display: flex; gap: 16px; background-color: #171723; border-left: 4px solid #6366f1;
+        display: flex; gap: 16px; background-color: #171723; border-left: 4px solid #d946ef;
         padding: 14px 18px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #28283c; align-items: center;
     }
     .game-poster { width: 85px; height: 105px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
@@ -139,11 +178,8 @@ XBOX_SCHEDULE = [
     }
 ]
 
-# ==============================================================================
-# 🎯 ПЕРЕКАЛІБРОВАНІ 30 ПІДЖАНРІВ
-# ==============================================================================
+# 30 ВІДКАЛІБРОВАНИХ ПІДЖАНРІВ
 GENRE_DATABASE = {
-    # 1. Симулятори та Менеджмент (8)
     "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.2, "Xbox": 1.25, "Switch": 1.35, "Decay": 1.25, "Desc": "Bad Cat, Bad Raccoon, Angry Dog, Smash Cat"},
     "Simulator: Crime / Black Market (3D)": {"PS": 4.0, "Xbox": 4.2, "Switch": 0.4, "Decay": 1.20, "Desc": "Drug Dealer Empire (Xbox феномен)"},
     "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 1.8, "Xbox": 1.1, "Switch": 1.35, "Decay": 1.25, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo, Funny Folks Cafe"},
@@ -152,33 +188,23 @@ GENRE_DATABASE = {
     "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.4, "Xbox": 1.55, "Switch": 2.10, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben"},
     "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 2.6, "Decay": 1.35, "Desc": "Монополія аудиторії Nintendo"},
     "Simulator: Casual Flight / Paper Plane": {"PS": 0.3, "Xbox": 0.20, "Switch": 0.25, "Decay": 1.15, "Desc": "🔴 Paperly, Fly for Fly (Зона низької конверсії)"},
-
-    # 2. Хоррори та Виживання (5)
     "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.6, "Xbox": 2.6, "Switch": 0.35, "Decay": 1.20, "Desc": "Skinwalker, TROX, Is Today Another Day (Xbox домінує)"},
     "Horror: 3D First-Person Atmospheric": {"PS": 1.4, "Xbox": 1.1, "Switch": 0.32, "Decay": 1.15, "Desc": "Cornfield, Death Attraction, Dr. Psycho, Captive, Seishin"},
     "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (PS попит)"},
     "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 1.8, "Xbox": 3.2, "Switch": 1.8, "Decay": 1.30, "Desc": "From the Bunker, Survival After War (Xbox + Switch)"},
     "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 1.8, "Switch": 1.4, "Decay": 1.25, "Desc": "Call of Island, WinterCraft"},
-
-    # 3. Платформери та Фізика (4)
     "Platformer: 3D Physics / Character Adventure": {"PS": 1.8, "Xbox": 1.6, "Switch": 1.5, "Decay": 1.20, "Desc": "Super Adventure Hand"},
     "Platformer: 3D Obby / Roblox-style": {"PS": 1.6, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball"},
     "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 2.8, "Xbox": 1.1, "Switch": 1.4, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
     "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.6, "Xbox": 1.0, "Switch": 1.3, "Decay": 1.15, "Desc": "Super Rock Climber"},
-
-    # 4. Пазли та Козі (4)
     "Cozy: Organization / Packing / Decor": {"PS": 0.7, "Xbox": 0.4, "Switch": 2.6, "Decay": 1.40, "Desc": "Packit List, Unpacking-вайб"},
     "Puzzle: 2D Mobile-style / Jigsaw / Color": {"PS": 0.5, "Xbox": 0.6, "Switch": 1.4, "Decay": 1.30, "Desc": "Find Sort Match, Trainlax, Pixel House"},
     "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.2, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge"},
     "Puzzle: Hidden Object / Detective Quest": {"PS": 1.4, "Xbox": 0.95, "Switch": 1.70, "Decay": 1.35, "Desc": "Conquistadorio, Minima, Dollmaker"},
-
-    # 5. Екшн, Шутери та Перегони (4)
     "Racing: 3D Arcade / Traffic Driving": {"PS": 2.2, "Xbox": 0.6, "Switch": 1.30, "Decay": 1.20, "Desc": "Hyper Cars Ramp Crash, Gran Carismo"},
     "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.6, "Xbox": 1.5, "Switch": 1.00, "Decay": 1.25, "Desc": "Bunker 22, Zombiescraper"},
     "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.1, "Xbox": 0.9, "Switch": 1.2, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
     "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.50, "Decay": 1.15, "Desc": "Street Combat Fighting"},
-
-    # 6. RPG, Роглайки та Стратегії (5)
     "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.3, "Xbox": 1.75, "Switch": 2.35, "Decay": 1.25, "Desc": "Nom Nom Apocalypse"},
     "Card Game / Deckbuilder / Narrative": {"PS": 0.9, "Xbox": 1.35, "Switch": 0.70, "Decay": 1.20, "Desc": "Rabbit Samurai"},
     "Metroidvania: 2D Pixel / Action Platformer": {"PS": 0.8, "Xbox": 0.47, "Switch": 0.15, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild"},
@@ -347,13 +373,25 @@ def save_activities_to_disk(data_dict):
         st.error(f"Помилка збереження: {e}")
 
 # ==============================================================================
-# 🧭 САЙДБАР
+# 🧭 САЙДБАР (БРЕНДОВАНА ШАПКА + NAV PILLS + КНОПКА ВНИЗУ)
 # ==============================================================================
 with st.sidebar:
-    st.header("🎮 Upscale Studio BI")
+    # 1. БРЕНДОВАНА ШАПКА З ЛОГОТИПОМ
+    col_logo, col_title = st.columns([1, 2.8])
+    with col_logo:
+        if os.path.exists(LOGO_FILE):
+            st.image(LOGO_FILE, width=64)
+        else:
+            st.markdown("<div style='font-size:38px; text-align:center;'>🎮</div>", unsafe_allow_html=True)
+    with col_title:
+        st.markdown("<h3 style='margin:0; padding-top:2px; font-weight:800; color:#fff; letter-spacing:0.5px;'>Upscale</h3><p style='margin:0; font-size:11px; font-weight:700; color:#d946ef; text-transform:uppercase; letter-spacing:0.8px;'>Publishing BI Hub</p>", unsafe_allow_html=True)
     
+    st.markdown("<div style='border-bottom: 1px solid #28283c; margin: 12px 0 16px 0;'></div>", unsafe_allow_html=True)
+
+    # 2. НАВІГАЦІЯ (СТИЛЬНІ ПЛАШКИ БЕЗ ТОЧОК)
+    st.caption("📍 НАВІГАЦІЯ ХАБУ:")
     app_mode = st.radio(
-        "📍 Оберіть розділ хабу:",
+        "Навігація:",
         [
             "🎮 Наші ігри", 
             "🚀 Release Pipeline",
@@ -362,46 +400,45 @@ with st.sidebar:
             "📈 Тижнева динаміка (WoW)", 
             "🧮 Калькулятор прогнозів"
         ],
-        index=0
+        index=0,
+        label_visibility="collapsed"
     )
-    
-    st.markdown("---")
-    if st.button("🔄 Оновити дані з Google Sheets", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
 
-    st.markdown("---")
-    st.subheader("🔍 Фільтри")
-    search = st.text_input("Пошук гри:", "")
+    st.markdown("<div style='border-bottom: 1px solid #28283c; margin: 16px 0 14px 0;'></div>", unsafe_allow_html=True)
+
+    # 3. ФІЛЬТРИ
+    st.caption("🔍 ФІЛЬТРАЦІЯ:")
+    search = st.text_input("Пошук гри:", "", label_visibility="collapsed", placeholder="Пошук гри...")
     
     filtered_df = raw_df.copy()
     if genre_col:
         available_genres = sorted([str(g).strip() for g in raw_df[genre_col].dropna().unique() if str(g).strip().lower() != 'nan'])
         if available_genres:
-            genres = st.multiselect("Жанри:", options=available_genres, default=available_genres)
+            genres = st.multiselect("Жанри:", options=available_genres, default=available_genres, placeholder="Оберіть жанри")
             if genres:
                 filtered_df = filtered_df[filtered_df[genre_col].astype(str).str.strip().isin(genres)]
 
     if search:
         filtered_df = filtered_df[filtered_df["Game_Name_Clean"].astype(str).str.contains(search, case=False, na=False)]
 
-    st.markdown("---")
-    st.subheader("🤖 AI-Аналітик (Claude Haiku)")
-    claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
-    
-    if not claude_key:
-        claude_key = st.text_input("Введи Anthropic API Key:", type="password", placeholder="sk-ant-...")
+    st.markdown("<div style='border-bottom: 1px solid #28283c; margin: 16px 0 14px 0;'></div>", unsafe_allow_html=True)
 
-    ai_query = st.text_area("Запитай будь-що по всій базі:")
+    # 4. AI ЧАТ CLAUDE HAIKU
+    st.caption("🤖 AI-АНАЛІТИК:")
+    claude_key = ANTHROPIC_API_KEY or st.secrets.get("ANTHROPIC_API_KEY", "")
+    if not claude_key:
+        claude_key = st.text_input("Anthropic Key:", type="password", placeholder="sk-ant-...")
+
+    ai_query = st.text_area("Запитай базу даних:", placeholder="Напр.: Скільки принесли симулятори?")
     
-    if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
+    if st.button("⚡ Запитати Claude", use_container_width=True):
         clean_key = str(claude_key).strip()
         if not clean_key or not clean_key.startswith("sk-ant"):
-            st.error("❌ Введи валідний ключ Anthropic (починається на 'sk-ant-...')!")
+            st.error("❌ Введи валідний ключ Anthropic (sk-ant-...)!")
         elif not ai_query.strip():
             st.warning("Введи запитання.")
         else:
-            with st.spinner("Claude аналізує базу даних..."):
+            with st.spinner("Claude аналізує базу..."):
                 try:
                     client = Anthropic(api_key=clean_key)
                     summary_lines = ["Game|Genre|Price|DevCost|DevSplit|Recoup|PS_All|Switch_All|Xbox_All|Total_All"]
@@ -446,18 +483,10 @@ with st.sidebar:
                     """
 
                     try:
-                        message = client.messages.create(
-                            model="claude-haiku-4-5",
-                            max_tokens=900,
-                            messages=[{"role": "user", "content": prompt}]
-                        )
+                        message = client.messages.create(model="claude-haiku-4-5", max_tokens=900, messages=[{"role": "user", "content": prompt}])
                         raw_text = message.content[0].text
                     except:
-                        message = client.messages.create(
-                            model="claude-3-5-haiku-20241022",
-                            max_tokens=900,
-                            messages=[{"role": "user", "content": prompt}]
-                        )
+                        message = client.messages.create(model="claude-3-5-haiku-20241022", max_tokens=900, messages=[{"role": "user", "content": prompt}])
                         raw_text = message.content[0].text
 
                     clean_output = re.sub(r'(?<!\\)\$', r'\\$', raw_text)
@@ -465,6 +494,12 @@ with st.sidebar:
                     st.markdown(clean_output)
                 except Exception as e:
                     st.error(f"❌ Помилка Anthropic API: {e}")
+
+    # 5. КНОПКА ОНОВЛЕННЯ ДАНИХ (ЗАКРІПЛЕНА ВНИЗУ)
+    st.markdown("<div style='border-bottom: 1px solid #28283c; margin: 16px 0 14px 0;'></div>", unsafe_allow_html=True)
+    if st.button("🔄 Оновити дані з Google Sheets", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
 # ЧІТКИЙ РОЗРАХУНОК ALL-TIME СУМ
 def get_exact_all_time(df_target, plat):
@@ -496,7 +531,7 @@ else:
     total_gross = switch_rev + ps_rev + xbox_rev
 
 # ==============================================================================
-# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (6 ВКЛАДОК)
+# 🎮 РОЗДІЛ 1: НАШІ ІГРИ (6 ПОВНИХ ВКЛАДОК)
 # ==============================================================================
 if app_mode == "🎮 Наші ігри":
     st.title("📊 Портфоліо Upscale Studio")
@@ -546,7 +581,7 @@ if app_mode == "🎮 Наші ігри":
         with c_right:
             st.subheader("Топ-15 тайтлів за виторгом ($)")
             top_df = filtered_df.sort_values(by=actual_total_col, ascending=True).tail(15)
-            fig_bar = px.bar(top_df, x=actual_total_col, y="Game_Name_Clean", orientation="h", text=actual_total_col, color_discrete_sequence=["#6366f1"])
+            fig_bar = px.bar(top_df, x=actual_total_col, y="Game_Name_Clean", orientation="h", text=actual_total_col, color_discrete_sequence=["#d946ef"])
             fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside', textfont=dict(color="#ffffff"))
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis=dict(gridcolor="#28283c", title="Виторг ($)"), yaxis=dict(gridcolor="#28283c", title=""), margin=dict(t=15, b=15, l=15, r=15))
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -672,7 +707,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
         else:
             xb_cal_df = pd.DataFrame([{"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Тип": s["type"]} for s in XBOX_SCHEDULE])
-            fig_xb_tl = px.timeline(xb_cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Тип", color_discrete_map={"ID Sale (Глибокі знижки)": "#10b981", "Tentpole Sale": "#6366f1"})
+            fig_xb_tl = px.timeline(xb_cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Тип", color_discrete_map={"ID Sale (Глибокі знижки)": "#10b981", "Tentpole Sale": "#d946ef"})
             fig_xb_tl.update_yaxes(autorange="reversed")
             fig_xb_tl.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=230)
             st.plotly_chart(fig_xb_tl, use_container_width=True)
@@ -842,7 +877,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             chart_plan_df = valid_comp.head(15)
             fig_plan_fact = go.Figure()
             fig_plan_fact.add_trace(go.Bar(x=chart_plan_df["Гра"], y=chart_plan_df["Факт M1 ($)"], name="ФАКТ M1 ($)", marker_color="#10b981"))
-            fig_plan_fact.add_trace(go.Bar(x=chart_plan_df["Гра"], y=chart_plan_df["Прогноз M1 ($)"], name="ПРОГНОЗ M1 ($)", marker_color="#6366f1"))
+            fig_plan_fact.add_trace(go.Bar(x=chart_plan_df["Гра"], y=chart_plan_df["Прогноз M1 ($)"], name="ПРОГНОЗ M1 ($)", marker_color="#d946ef"))
             fig_plan_fact.update_layout(
                 barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color="#e2e8f0"), height=360, margin=dict(t=20, b=20, l=10, r=10),
@@ -922,7 +957,6 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 .grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }}
 .title {{ font-size: 24px; font-weight: bold; color: #fff; }}
 .val {{ font-size: 26px; font-weight: 800; margin: 6px 0 0 0; }}
-.breakouts {{ background-color: #1e293b; border-left: 4px solid #6366f1; padding: 16px; border-radius: 6px; }}
 </style></head>
 <body>
 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px;">
@@ -946,7 +980,7 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 2: RELEASE PIPELINE (НОВИЙ МОДУЛЬ)
+# 🚀 РОЗДІЛ 2: RELEASE PIPELINE (ПОВНИЙ МОДУЛЬ)
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Release Pipeline & Porting Roadmap")
@@ -1030,7 +1064,7 @@ elif app_mode == "🚀 Release Pipeline":
 
 
 # ==============================================================================
-# 📋 РОЗДІЛ 3: RELEASE ACTIVITY (МАРКЕТИНГ-ЧЕКЛИСТ З NOTION)
+# 📋 РОЗДІЛ 3: RELEASE ACTIVITY (ПОВНИЙ МАРКЕТИНГ-ЧЕКЛИСТ З NOTION)
 # ==============================================================================
 elif app_mode == "📋 Release Activity":
     st.title("📋 Release Marketing & Launch Activity Tracker")
@@ -1109,7 +1143,7 @@ elif app_mode == "📋 Release Activity":
 
 
 # ==============================================================================
-# 🎯 РОЗДІЛ 4: ЦІЛІ ТА KPI 2026
+# 🎯 РОЗДІЛ 4: ЦІЛІ ТА KPI 2026 (ПОВНИЙ МОДУЛЬ)
 # ==============================================================================
 elif app_mode == "🎯 Цілі та KPI 2026":
     st.title("🎯 Виконання річного та квартальних планів (2026)")
@@ -1189,7 +1223,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
         })
         fig_plan = go.Figure()
         fig_plan.add_trace(go.Bar(x=chart_plan_df["Платформа"], y=chart_plan_df["Факт ($)"], name="ФАКТ", marker_color="#10b981"))
-        fig_plan.add_trace(go.Bar(x=chart_plan_df["Платформа"], y=chart_plan_df["План ($)"], name="ПЛАН", marker_color="#6366f1"))
+        fig_plan.add_trace(go.Bar(x=chart_plan_df["Платформа"], y=chart_plan_df["План ($)"], name="ПЛАН", marker_color="#d946ef"))
         fig_plan.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=360)
         st.plotly_chart(fig_plan, use_container_width=True)
 
@@ -1213,7 +1247,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 5: ТИЖНЕВА ДИНАМІКА (WoW)
+# 📈 РОЗДІЛ 5: ТИЖНЕВА ДИНАМІКА (4 ПОВНІ ВКЛАДКИ)
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
@@ -1285,7 +1319,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.subheader("🎯 BizDev Воронка: темпи залучення нових тайтлів")
         bd_cols = [c for c in ["Leads", "Contacts", "Calls", "Deals"] if c in weekly_df.columns]
         if bd_cols:
-            fig_bd = px.bar(weekly_df, x="From", y=bd_cols, barmode="group", color_discrete_sequence=["#6366f1", "#3b82f6", "#f59e0b", "#10b981"])
+            fig_bd = px.bar(weekly_df, x="From", y=bd_cols, barmode="group", color_discrete_sequence=["#d946ef", "#3b82f6", "#f59e0b", "#10b981"])
             fig_bd.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Кількість")
             st.plotly_chart(fig_bd, use_container_width=True)
             
@@ -1416,7 +1450,7 @@ elif app_mode == "🧮 Калькулятор прогнозів":
                         if res.status_code == 200:
                             st.toast("🚀 Успішно записано в Google Таблицю на вкладку Leads!")
                     except Exception as e:
-                        st.warning(f"Збережено локально. Помилка запису в Webhook: {e}")
+                        st.warning(f"Збережено локально. Помилка Webhook: {e}")
                 else:
                     st.toast(f"✅ Лід '{calc_name}' збережено!")
 

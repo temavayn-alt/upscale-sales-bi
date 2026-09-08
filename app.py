@@ -384,9 +384,11 @@ with st.sidebar:
         else:
             st.markdown("<div style='font-size:38px; text-align:center;'>🎮</div>", unsafe_allow_html=True)
     with col_title:
-        st.markdown("<h3 style='margin:0; padding-top:2px; font-weight:800; color:#fff; letter-spacing:0.5px;'>Upscale</h3><p style='margin:0; font-size:11px; font-weight:700; color:#d946ef; text-transform:uppercase; letter-spacing:0.8px;'>Publishing BI Hub</p>", unsafe_allow_html=True)
-    
-    st.markdown("<div style='border-bottom: 1px solid #28283c; margin: 12px 0 16px 0;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<h3 style='margin:0; padding-top:2px; font-weight:800; color:#fff; letter-spacing:0.5px; font-size:20px; white-space:nowrap;'>Upscale Studio</h3>"
+            "<p style='margin:0; font-size:11px; font-weight:700; color:#d946ef; text-transform:uppercase; letter-spacing:0.8px;'>Publishing BI Hub</p>", 
+            unsafe_allow_html=True
+        )
 
     # 2. НАВІГАЦІЯ (СТИЛЬНІ ПЛАШКИ БЕЗ ТОЧОК)
     st.caption("📍 НАВІГАЦІЯ ХАБУ:")

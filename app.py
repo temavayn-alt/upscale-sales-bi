@@ -1321,9 +1321,9 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             elif calc_src == "Google Play":
                 gp_installs = st.number_input("Завантаження Google Play (Installs):", min_value=0, value=500000, step=50000)
                 b_metric = (math.sqrt(gp_installs) * 2.0) + 800.0 if gp_installs > 0 else 0.0
-            elif calc_src == "CrazyGames / Web":
-    cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
-    b_metric = (math.sqrt(cg_r) * 6.5) + 650.0 if cg_r > 0 else 0.0
+            elif calc_src == "CrazyGames / Web":    
+                cg_r = st.number_input("Кількість відгуків / оцінок:", min_value=0, value=3500, step=500)
+                b_metric = (math.sqrt(cg_r) * 6.5) + 650.0 if cg_r > 0 else 0.0
             else:
                 itch_r = st.number_input("Оцінки itch.io:", min_value=0, value=40, step=5)
                 b_metric = (itch_r * 10.0) + 400.0

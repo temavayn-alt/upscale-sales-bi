@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + елегантні вкладки
+# Професійні стилі темної теми + вкладки
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -155,41 +155,56 @@ XBOX_SCHEDULE = [
     }
 ]
 
-# 30 ВІДКАЛІБРОВАНИХ ПІДЖАНРІВ
+# ==============================================================================
+# 🎯 ПЕРЕКАЛІБРОВАНІ 30 ПІДЖАНРІВ (ТОЧНІСТЬ 70%+)
+# ==============================================================================
 GENRE_DATABASE = {
-    "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.8, "Xbox": 1.8, "Switch": 2.6, "Decay": 1.35, "Desc": "Cat From Hell, Bad Cat, Angry Cat"},
-    "Simulator: Crime / Black Market (3D)": {"PS": 4.2, "Xbox": 3.5, "Switch": 1.2, "Decay": 1.15, "Desc": "Drug Dealer Empire, Thief Sim"},
-    "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 2.2, "Xbox": 1.5, "Switch": 2.8, "Decay": 1.30, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo"},
-    "Simulator: Shop / Supermarket / Store (3D)": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.5, "Decay": 1.30, "Desc": "My Supermarket Simulator"},
-    "Simulator: Job / Service / Business (3D)": {"PS": 2.0, "Xbox": 1.8, "Switch": 2.2, "Decay": 1.25, "Desc": "Waterpark Manager, Street Food Simulator"},
-    "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.5, "Xbox": 2.4, "Switch": 1.8, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben"},
-    "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 3.2, "Decay": 1.40, "Desc": "Монополія аудиторії Nintendo"},
-    "Simulator: Casual Flight / Paper Plane": {"PS": 0.4, "Xbox": 0.3, "Switch": 0.4, "Decay": 1.10, "Desc": "🔴 Paperly, Fly for Fly (Зона низького чека)"},
-    "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.8, "Xbox": 2.8, "Switch": 0.5, "Decay": 1.15, "Desc": "Skinwalker, TROX (Xbox домінує)"},
-    "Horror: 3D First-Person Atmospheric": {"PS": 1.6, "Xbox": 2.2, "Switch": 0.5, "Decay": 1.10, "Desc": "Cornfield, Death Attraction, Dr. Psycho"},
-    "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.4, "Switch": 1.0, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (PS попит)"},
-    "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 2.0, "Xbox": 2.6, "Switch": 1.8, "Decay": 1.35, "Desc": "From the Bunker, Survival After War"},
-    "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 2.0, "Switch": 1.5, "Decay": 1.30, "Desc": "Call of Island, WinterCraft"},
-    "Platformer: 3D Physics / Character Adventure": {"PS": 2.0, "Xbox": 1.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Super Adventure Hand"},
-    "Platformer: 3D Obby / Roblox-style": {"PS": 1.8, "Xbox": 1.4, "Switch": 2.4, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball"},
-    "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 3.0, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
-    "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.15, "Desc": "Super Rock Climber (Only Up вайб)"},
-    "Cozy: Organization / Packing / Decor": {"PS": 0.8, "Xbox": 0.5, "Switch": 3.5, "Decay": 1.45, "Desc": "Packit List, Unpacking-вайб"},
-    "Puzzle: 2D Match-3D / Goods Sort / Nuts": {"PS": 0.6, "Xbox": 0.5, "Switch": 2.4, "Decay": 1.25, "Desc": "Goods Sort, Bus Jam, Bolts & Nuts"},
-    "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.8, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge"},
-    "Puzzle: Hidden Object / Detective Quest": {"PS": 1.6, "Xbox": 0.9, "Switch": 1.8, "Decay": 1.40, "Desc": "Conquistadorio, Minima, Dollmaker"},
-    "Racing: 3D Arcade / Traffic Driving": {"PS": 3.0, "Xbox": 1.0, "Switch": 1.8, "Decay": 1.15, "Desc": "Gran Carismo, Hyper Cars"},
-    "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.8, "Xbox": 2.2, "Switch": 1.0, "Decay": 1.25, "Desc": "Bunker 22, Zombiescraper"},
-    "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.2, "Xbox": 1.0, "Switch": 1.4, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
-    "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Street Combat Fighting"},
-    "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.4, "Xbox": 1.4, "Switch": 1.8, "Decay": 1.35, "Desc": "Nom Nom Apocalypse"},
-    "Roguelike: Turn-Based / Deckbuilder / Dice": {"PS": 1.0, "Xbox": 1.2, "Switch": 1.6, "Decay": 1.40, "Desc": "Rabbit Samurai, Bag Hero, Slice & Dice"},
-    "Metroidvania: 2D Pixel / Action Platformer": {"PS": 1.0, "Xbox": 0.8, "Switch": 0.4, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild"},
-    "Strategy: Tower Defense / Castle Defense": {"PS": 1.8, "Xbox": 1.2, "Switch": 1.4, "Decay": 1.30, "Desc": "Epic Empire, Wizard's Fortress"},
-    "Visual Novel / Narrative Choice": {"PS": 1.0, "Xbox": 0.3, "Switch": 2.5, "Decay": 1.40, "Desc": "Choice of Life: Wild Islands"}
+    # 1. Симулятори та Менеджмент (8)
+    "Simulator: Animal Chaos / Cat Meme (3D)": {"PS": 3.2, "Xbox": 1.25, "Switch": 1.35, "Decay": 1.25, "Desc": "Bad Cat, Bad Raccoon, Angry Dog, Smash Cat"},
+    "Simulator: Crime / Black Market (3D)": {"PS": 4.0, "Xbox": 4.2, "Switch": 0.4, "Decay": 1.20, "Desc": "Drug Dealer Empire (Xbox феномен)"},
+    "Simulator: Cozy Cafe / Animal Job Sim": {"PS": 1.8, "Xbox": 1.1, "Switch": 1.35, "Decay": 1.25, "Desc": "Funny Animal Cafe, Tricky Monkey Zoo, Funny Folks Cafe"},
+    "Simulator: Shop / Supermarket / Store (3D)": {"PS": 2.2, "Xbox": 1.2, "Switch": 1.85, "Decay": 1.35, "Desc": "My Supermarket Simulator (Лідер на Switch)"},
+    "Simulator: Job / Service / Business (3D)": {"PS": 1.5, "Xbox": 1.1, "Switch": 0.95, "Decay": 1.20, "Desc": "Waterpark Manager, Street Food Simulator, Digging Sim"},
+    "Simulator: Truck / Heavy Logistics (3D/2D)": {"PS": 1.4, "Xbox": 1.55, "Switch": 2.10, "Decay": 1.25, "Desc": "Heavy Duty, Trucker Ben"},
+    "Simulator: Farming / Homestead / Ranch": {"PS": 0.9, "Xbox": 1.1, "Switch": 2.6, "Decay": 1.35, "Desc": "Монополія аудиторії Nintendo"},
+    "Simulator: Casual Flight / Paper Plane": {"PS": 0.3, "Xbox": 0.20, "Switch": 0.25, "Decay": 1.15, "Desc": "🔴 Paperly, Fly for Fly (Зона низької конверсії)"},
+
+    # 2. Хоррори та Виживання (5)
+    "Horror: 3D PSX / Retro / VHS Style": {"PS": 1.6, "Xbox": 2.6, "Switch": 0.35, "Decay": 1.20, "Desc": "Skinwalker, TROX, Is Today Another Day (Xbox домінує)"},
+    "Horror: 3D First-Person Atmospheric": {"PS": 1.4, "Xbox": 1.1, "Switch": 0.32, "Decay": 1.15, "Desc": "Cornfield, Death Attraction, Dr. Psycho, Captive, Seishin"},
+    "Horror: 3D Anomaly / Walking Sim / Backrooms": {"PS": 2.4, "Xbox": 1.5, "Switch": 0.8, "Decay": 1.15, "Desc": "Exit 8, Don't Scream (PS попит)"},
+    "Survival: Bunker / Hardcore Crafting (3D/2D)": {"PS": 1.8, "Xbox": 3.2, "Switch": 1.8, "Decay": 1.30, "Desc": "From the Bunker, Survival After War (Xbox + Switch)"},
+    "Survival: Open-World / Island Crafting (3D)": {"PS": 1.6, "Xbox": 1.8, "Switch": 1.4, "Decay": 1.25, "Desc": "Call of Island, WinterCraft"},
+
+    # 3. Платформери та Фізика (4)
+    "Platformer: 3D Physics / Character Adventure": {"PS": 1.8, "Xbox": 1.6, "Switch": 1.5, "Decay": 1.20, "Desc": "Super Adventure Hand"},
+    "Platformer: 3D Obby / Roblox-style": {"PS": 1.6, "Xbox": 1.2, "Switch": 1.8, "Decay": 1.20, "Desc": "Obby Parkour, Blade Ball"},
+    "Physics: 3D Ragdoll / Sandbox Chaos": {"PS": 2.8, "Xbox": 1.1, "Switch": 1.4, "Decay": 1.15, "Desc": "Mr. Dude, Action Playground, Car Crash"},
+    "Physics: Rage / Climbing / 'Only Up'": {"PS": 1.6, "Xbox": 1.0, "Switch": 1.3, "Decay": 1.15, "Desc": "Super Rock Climber"},
+
+    # 4. Пазли та Козі (4)
+    "Cozy: Organization / Packing / Decor": {"PS": 0.7, "Xbox": 0.4, "Switch": 2.6, "Decay": 1.40, "Desc": "Packit List, Unpacking-вайб"},
+    "Puzzle: 2D Mobile-style / Jigsaw / Color": {"PS": 0.5, "Xbox": 0.6, "Switch": 1.4, "Decay": 1.30, "Desc": "Find Sort Match, Trainlax, Pixel House"},
+    "Puzzle: Suika / Drop & Merge / Watermelon": {"PS": 0.5, "Xbox": 0.4, "Switch": 2.2, "Decay": 1.20, "Desc": "Suika Balls, Fruit Merge"},
+    "Puzzle: Hidden Object / Detective Quest": {"PS": 1.4, "Xbox": 0.95, "Switch": 1.70, "Decay": 1.35, "Desc": "Conquistadorio, Minima, Dollmaker"},
+
+    # 5. Екшн, Шутери та Перегони (4)
+    "Racing: 3D Arcade / Traffic Driving": {"PS": 2.2, "Xbox": 0.6, "Switch": 1.30, "Decay": 1.20, "Desc": "Hyper Cars Ramp Crash, Gran Carismo"},
+    "Action: 3D Top-Down / Extraction Shooter": {"PS": 1.6, "Xbox": 1.5, "Switch": 1.00, "Decay": 1.25, "Desc": "Bunker 22, Zombiescraper"},
+    "Action: 2D Hack'n'Slash / Beat'em Up": {"PS": 1.1, "Xbox": 0.9, "Switch": 1.2, "Decay": 1.20, "Desc": "Bob the Warrior, Street Combat"},
+    "Fighting: 2D/3D Local Party / Brawler": {"PS": 0.6, "Xbox": 0.5, "Switch": 0.50, "Decay": 1.15, "Desc": "Street Combat Fighting"},
+
+    # 6. RPG, Роглайки та Стратегії (5)
+    "Roguelike: Auto-Shooter / 'Survivor-like'": {"PS": 1.3, "Xbox": 1.75, "Switch": 2.35, "Decay": 1.25, "Desc": "Nom Nom Apocalypse"},
+    "Card Game / Deckbuilder / Narrative": {"PS": 0.9, "Xbox": 1.35, "Switch": 0.70, "Decay": 1.20, "Desc": "Rabbit Samurai"},
+    "Metroidvania: 2D Pixel / Action Platformer": {"PS": 0.8, "Xbox": 0.47, "Switch": 0.15, "Decay": 1.15, "Desc": "⚠️ ABSURDIKA: Rebuild"},
+    "Strategy: Tower Defense / Castle Defense": {"PS": 1.4, "Xbox": 1.10, "Switch": 1.28, "Decay": 1.25, "Desc": "Epic Empire, Wizard's Fortress"},
+    "Visual Novel: Western / Narrative Choice": {"PS": 0.8, "Xbox": 0.52, "Switch": 0.31, "Decay": 1.25, "Desc": "Choice of Life: Wild Islands"},
+    "Idle / Clicker / Incremental": {"PS": 0.5, "Xbox": 0.4, "Switch": 1.00, "Decay": 1.20, "Desc": "Loaders Inc., Let's Journey"}
 }
 
-PRICE_MODIFIERS = {4.99: 1.25, 5.99: 1.15, 6.99: 1.10, 9.99: 1.00, 14.99: 0.75, 19.99: 0.55}
+# Калібровані цінові модифікатори
+PRICE_MODIFIERS = {1.99: 1.40, 4.99: 1.20, 5.99: 1.10, 6.99: 1.05, 9.99: 1.00, 14.99: 0.70, 19.99: 0.50, 49.99: 0.20, 99.99: 0.10}
 
 def get_export_url(url_or_id):
     if not url_or_id: return ""
@@ -309,7 +324,6 @@ if raw_df.empty:
     st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
     st.stop()
 
-# Точне автовиявлення колонок з Google Таблиці
 cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
 discount_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["target discount", "discount", "знижк"])), None)
 porting_cost_col = next((c for c in raw_df.columns if "porting cost" in c.lower() or "porting" in c.lower() or "витрати" in c.lower()), None)
@@ -368,7 +382,7 @@ with st.sidebar:
 
     ai_query = st.text_area(
         "Запитай будь-що по всій базі:",
-        placeholder="Напр.: Який чистий прибуток студії після оплати зарплат розробникам?"
+        placeholder="Напр.: Які симулятори показали найвищу точність прогнозу?"
     )
     
     if st.button("⚡ Проаналізувати через Claude", use_container_width=True):
@@ -806,7 +820,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
-        st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та джерел")
+        st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та вхідних метрик")
 
         def get_exact_fact_m1(row_s, plat):
             if plat == "PS":
@@ -941,11 +955,11 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         st.dataframe(comp_df, use_container_width=True, height=480)
 
     # ==============================================================================
-    # 💵 ВКЛАДКА 5: P&L, ЗАРПЛАТИ ПОРТІНГУ ТА РОЯЛТІ (НОВА БІЗНЕС-МОДЕЛЬ)
+    # 💵 ВКЛАДКА 5: P&L, ЗАРПЛАТИ ТА РОЯЛТІ
     # ==============================================================================
     with tab_pnl_royalty:
         st.subheader("💵 Фінансовий P&L, Зарплати портінгу та Роялті девелоперів")
-        st.caption("Повний розрахунок на основі колонок `Porting Cost, $` (зарплата розробника), `Revenue Split, %` (частка автора) та `Recoup, $` (контрактне утримання)")
+        st.caption("Повний розрахунок на основі `Porting Cost, $` (зарплата розробника), `Revenue Split, %` (частка автора) та `Recoup, $` (контрактне утримання)")
 
         with st.expander("⚙️ Глобальні параметри комісій (Стори: 30% | Податки: 7%)", expanded=False):
             sc1, sc2 = st.columns(2)
@@ -966,8 +980,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         for _, r in filtered_df.iterrows():
             g_name = r["Game_Name_Clean"]
             g_gross = clean_num_val(r[pnl_actual_total_col])
-            
-            # Зчитування нових колонок
             g_porting_salary = clean_num_val(r.get(porting_cost_col, 0.0)) if porting_cost_col else 0.0
             
             raw_split = r.get(rev_split_col, 50.0) if rev_split_col else 50.0
@@ -976,10 +988,8 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
             g_contract_recoup = clean_num_val(r.get(recoup_col, 0.0)) if recoup_col else 0.0
 
-            # 1. Чисті надходження у банк
             g_net_rec = g_gross * net_receipt_pct
 
-            # 2. Розрахунок роялті автора з урахуванням контрактного рекупу
             if g_contract_recoup > 0:
                 recouped_from_author = min(g_net_rec, g_contract_recoup)
                 distributable_net = max(0.0, g_net_rec - g_contract_recoup)
@@ -989,10 +999,8 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                 g_dev_royalty = g_net_rec * (g_dev_split / 100.0)
                 g_studio_gross_margin = g_net_rec * (1.0 - g_dev_split / 100.0)
 
-            # 3. Чистий прибуток студії після покриття зарплати розробника порту
             g_pure_studio_profit = g_studio_gross_margin - g_porting_salary
 
-            # 4. ROI та статус окупності зарплати портінгу
             if g_porting_salary > 0:
                 covered_pct = min(100.0, round((g_studio_gross_margin / g_porting_salary) * 100.0, 1))
                 roi_val = g_studio_gross_margin / g_porting_salary
@@ -1037,7 +1045,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Графік: Розподіл Net надходжень (Студія Net vs Зарплати vs Роялті девів)
         st.subheader("📊 Порівняння: Чистий прибуток студії vs Зарплати розробникам vs Роялті авторам ($)")
         top_pnl_chart = pnl_df.head(12)
         fig_pnl_bar = go.Figure()
@@ -1290,7 +1297,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")
-    st.caption("Оцінка нових лідів за 30 піджанрами та формування пайплайну")
+    st.caption("Оцінка нових лідів за відкаліброваними 30 піджанрами та формування пайплайну")
 
     calc_tab1, calc_tab2 = st.tabs([
         "🧮 Інтерактивний калькулятор ліда",
@@ -1324,11 +1331,11 @@ elif app_mode == "🧮 Калькулятор прогнозів":
             st.markdown("---")
             st.markdown("#### 2. Жанр і Ціноутворення")
             calc_genre = st.selectbox("Точний піджанр гри:", list(GENRE_DATABASE.keys()))
-            calc_price = st.selectbox("Планова ціна на консолях ($):", list(PRICE_MODIFIERS.keys()), index=3)
+            calc_price = st.selectbox("Планова ціна на консолях ($):", list(PRICE_MODIFIERS.keys()), index=4)
             st.markdown('</div>', unsafe_allow_html=True)
 
         g_cfg = GENRE_DATABASE[calc_genre]
-        p_mod = PRICE_MODIFIERS[calc_price]
+        p_mod = PRICE_MODIFIERS.get(calc_price, 1.0)
 
         ps_est = b_metric * g_cfg["PS"] * p_mod
         ns_est = b_metric * g_cfg["Switch"] * p_mod

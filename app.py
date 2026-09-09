@@ -389,6 +389,8 @@ with st.sidebar:
             "<p style='margin:0; font-size:11px; font-weight:700; color:#d946ef; text-transform:uppercase; letter-spacing:0.8px;'>Publishing BI Hub</p>", 
             unsafe_allow_html=True
         )
+    
+    st.markdown("<div style='border-bottom: 1px solid #28283c; margin: 12px 0 16px 0;'></div>", unsafe_allow_html=True)
 
     # 2. НАВІГАЦІЯ (СТИЛЬНІ ПЛАШКИ БЕЗ ТОЧОК)
     st.caption("📍 НАВІГАЦІЯ ХАБУ:")
@@ -629,11 +631,15 @@ if app_mode == "🎮 Наші ігри":
             </div>
             """, unsafe_allow_html=True)
 
+    # ==============================================================================
+    # 📅 ВКЛАДКА 3: РОЗПРОДАЖІ NINTENDO ТА XBOX (З ТАЙМЕРОМ ДЕДЛАЙНІВ)
+    # ==============================================================================
     with tab_sales_tracker:
         st.subheader("📅 Центр управління консольними розпродажами")
         sale_platform_choice = st.radio("Оберіть консольну платформу:", ["🔴 Nintendo eShop", "🟢 Xbox Store"], horizontal=True)
 
         if sale_platform_choice == "🔴 Nintendo eShop":
+            st.markdown("#### 🗓️ Графік розпродажів Nintendo eShop на часовій осі")
             cal_df = pd.DataFrame([
                 {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]}
                 for s in NINTENDO_SCHEDULE
@@ -708,15 +714,35 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                         st.text_area("Назви ігор:", "\n".join(names_list), height=160)
 
         else:
+            # 🟢 XBOX РОЗПРОДАЖІ ТА ТАЙМЕР ДЕДЛАЙНІВ
             xb_cal_df = pd.DataFrame([{"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Тип": s["type"]} for s in XBOX_SCHEDULE])
             fig_xb_tl = px.timeline(xb_cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Тип", color_discrete_map={"ID Sale (Глибокі знижки)": "#10b981", "Tentpole Sale": "#d946ef"})
             fig_xb_tl.update_yaxes(autorange="reversed")
             fig_xb_tl.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=230)
             st.plotly_chart(fig_xb_tl, use_container_width=True)
 
-            xb_choice = st.selectbox("Оберіть сейл Xbox:", [s['name'] for s in XBOX_SCHEDULE], index=0)
+            xb_choice = st.selectbox("Оберіть сейл Xbox для перевірки дедлайну та подачі:", [s['name'] for s in XBOX_SCHEDULE], index=0)
             cur_xb_sale = next(s for s in XBOX_SCHEDULE if s["name"] == xb_choice)
-            st.info(f"💡 **Вимоги Microsoft:** {cur_xb_sale['note']} | Дедлайн: **{cur_xb_sale['deadline']}**")
+
+            # Розрахунок дедлайну в реальному часі
+            deadline_dt = datetime.strptime(cur_xb_sale["deadline"], "%Y-%m-%d")
+            today_dt = datetime.now()
+            days_to_deadline = (deadline_dt - today_dt).days
+
+            if days_to_deadline > 0:
+                deadline_badge = f"⏳ Залишилось {days_to_deadline} дн."
+            elif days_to_deadline == 0:
+                deadline_badge = "🚨 Дедлайн СЬОГОДНІ!"
+            else:
+                deadline_badge = "🔴 Дедлайн минув"
+
+            xc1, xc2, xc3, xc4 = st.columns(4)
+            xc1.metric("🎯 Цільовий розпродаж", cur_xb_sale["name"].split(" (")[0])
+            xc2.metric("⏰ Дедлайн подачі", cur_xb_sale["deadline"], deadline_badge)
+            xc3.metric("🔒 Ліміт тайтлів", f"до {cur_xb_sale['limit']} ігор", "Квота на видавця")
+            xc4.metric("📩 Approval Feedback", cur_xb_sale["feedback"])
+
+            st.info(f"💡 **Вимоги Microsoft:** {cur_xb_sale['note']}")
 
             xb_tracker_rows = []
             for _, r in filtered_df.iterrows():
@@ -755,6 +781,34 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                 use_container_width=True,
                 height=340
             )
+
+            selected_xb_games = edited_xb_df[edited_xb_df["Подати гру"] == True]
+            selected_count = len(selected_xb_games)
+
+            if selected_count > cur_xb_sale["limit"]:
+                st.error(f"⚠️ **Перевищено ліміт!** Обрано **{selected_count}** ігор із дозволених **{cur_xb_sale['limit']}**.")
+            else:
+                st.success(f"✅ Обрано **{selected_count}** із **{cur_xb_sale['limit']}** доступних слотів.")
+
+            if st.button("📦 Сформувати пакет заявки для Xbox Portal", use_container_width=True):
+                if selected_xb_games.empty:
+                    st.warning("Оберіть хоча б одну гру для формування заявки!")
+                else:
+                    submission_text_lines = [
+                        f"=== UPSCALE STUDIO // XBOX PROMOTION SUBMISSION ===",
+                        f"Event: {cur_xb_sale['name']}",
+                        f"Dates: {cur_xb_sale['start']} to {cur_xb_sale['end']}",
+                        f"Total Titles: {len(selected_xb_games)} / {cur_xb_sale['limit']}",
+                        f"--------------------------------------------------"
+                    ]
+                    for _, srow in selected_xb_games.iterrows():
+                        sale_p = round(srow["Базова ціна ($)"] * (1 - srow["Знижка Xbox (%)"] / 100.0), 2)
+                        submission_text_lines.append(f"• {srow['Гра']} | Base: ${srow['Базова ціна ($)']:.2f} | Discount: {srow['Знижка Xbox (%)']}% | Final: ${sale_p:.2f}")
+
+                    st.markdown("##### 📋 Текстовий звіт для форми ID@Xbox:")
+                    st.text_area("Готово до копіювання:", "\n".join(submission_text_lines), height=180)
+                    csv_xb_sub = selected_xb_games[["Гра", "Базова ціна ($)", "Знижка Xbox (%)", "Ціна на сейлі ($)"]].to_csv(index=False).encode('utf-8')
+                    st.download_button("📥 Завантажити CSV заявки для ID@Xbox", data=csv_xb_sub, file_name=f"Xbox_{cur_xb_sale['name'].split(' ')[0]}_Submission.csv", mime="text/csv")
 
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
@@ -889,9 +943,20 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
 
         st.dataframe(comp_df, use_container_width=True, height=450)
 
+    # ==============================================================================
+    # 💵 ВКЛАДКА 5: P&L ТА РОЯЛТІ (З ПОВЗУНКАМИ СИМУЛЯЦІЇ КОМІСІЙ ТА ПОДАТКІВ)
+    # ==============================================================================
     with tab_pnl_royalty:
         st.subheader("💵 Фінансовий P&L, Зарплати портінгу та Роялті девелоперів")
-        net_receipt_pct = 0.63
+        st.caption("Повний розрахунок на основі `Porting Cost, $` (зарплата розробника), `Revenue Split, %` (частка автора) та `Recoup, $` (контрактне утримання)")
+
+        # ⚙️ ПОВЕРНУТО ПОВЗУНКИ СИМУЛЯЦІЇ КОМІСІЙ ТА ПОДАТКІВ
+        with st.expander("⚙️ Параметри комісій та податків (Симуляція)", expanded=False):
+            sc1, sc2 = st.columns(2)
+            sim_store_cut = sc1.slider("Комісія сторів (Sony/Nintendo/Xbox %):", 15, 35, 30, step=1)
+            sim_tax_cut = sc2.slider("Податки та резерви (Withholding / VAT %):", 0, 15, 7, step=1)
+
+        net_receipt_pct = (100 - sim_store_cut - sim_tax_cut) / 100.0
 
         pnl_rows = []
         tot_internal_cost = 0.0
@@ -932,7 +997,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             })
 
         pn1, pn2, pn3 = st.columns(3)
-        pn1.metric("Net у банку (63%)", f"${tot_net_bank:,.2f}")
+        pn1.metric(f"Net у банку ({net_receipt_pct*100:.0f}%)", f"${tot_net_bank:,.2f}")
         pn2.metric("Виплати роялті авторам", f"${tot_dev_royalty:,.2f}")
         pn3.metric("🔥 Чистий прибуток Upscale Studio", f"${tot_studio_pure:,.2f}", f"Зарплати: ${tot_internal_cost:,.0f}")
         st.dataframe(pd.DataFrame(pnl_rows).sort_values(by="Gross ($)", ascending=False), use_container_width=True, height=400)
@@ -982,7 +1047,7 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 2: RELEASE PIPELINE (ПОВНИЙ МОДУЛЬ)
+# 🚀 РОЗДІЛ 2: RELEASE PIPELINE
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Release Pipeline & Porting Roadmap")
@@ -1066,7 +1131,7 @@ elif app_mode == "🚀 Release Pipeline":
 
 
 # ==============================================================================
-# 📋 РОЗДІЛ 3: RELEASE ACTIVITY (ПОВНИЙ МАРКЕТИНГ-ЧЕКЛИСТ З NOTION)
+# 📋 РОЗДІЛ 3: RELEASE ACTIVITY
 # ==============================================================================
 elif app_mode == "📋 Release Activity":
     st.title("📋 Release Marketing & Launch Activity Tracker")
@@ -1145,7 +1210,7 @@ elif app_mode == "📋 Release Activity":
 
 
 # ==============================================================================
-# 🎯 РОЗДІЛ 4: ЦІЛІ ТА KPI 2026 (ПОВНИЙ МОДУЛЬ)
+# 🎯 РОЗДІЛ 4: ЦІЛІ ТА KPI 2026
 # ==============================================================================
 elif app_mode == "🎯 Цілі та KPI 2026":
     st.title("🎯 Виконання річного та квартальних планів (2026)")

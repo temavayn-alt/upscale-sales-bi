@@ -123,6 +123,7 @@ st.markdown("""
     .sandbox-box { background: #171724; border: 1px solid #2f2f45; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
     .report-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; color: #f8fafc; }
     .blocker-box { background: #201319; border-left: 4px solid #ef4444; border: 1px solid #3f1a24; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+    .alert-card-red { background: linear-gradient(135deg, #2d141e 0%, #1c0d13 100%); border: 1px solid #7f1d1d; border-left: 5px solid #ef4444; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -351,28 +352,32 @@ if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
 # ==============================================================================
-# 💾 БАЗА ДАНИХ ТА ЗБЕРЕЖЕННЯ ДЛЯ RELEASE PIPELINE (MASTER STATE)
+# 💾 ВСІ 23 ПРОЕКТИ ПАЙПЛАЙНУ ТА СТРОКИ СЕРТИФІКАЦІЇ
 # ==============================================================================
 SEEDED_PIPELINE_PROJECTS = [
-    {"Гра": "Cat Simulator", "Розробник": "Ігор", "Художник": "", "Нюанси": "Lotcheck пройдено з 3-го разу", "Дата старту": "2026-08-06", "Планова дата": "2026-08-12", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-08-12", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "2026-08-13", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-08", "Спроби Lotcheck": "3 (було 2 issues)", "Xbox": False, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Dead Seek", "Розробник": "Сергій", "Художник": "", "Нюанси": "Рескін тільки для Switch", "Дата старту": "", "Планова дата": "2026-10-02", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-10-02", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "", "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Hidden Objects", "Розробник": "Ігор", "Художник": "", "Нюанси": "Слабкий проект, чекаємо виправлень від дева", "Дата старту": "", "Планова дата": "2026-10-02", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-10-02", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "", "Спроби Lotcheck": "1", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": True, "PlayStation": True, "PS Продукт": False},
-    {"Гра": "Mother Simulation", "Розробник": "Сергій", "Художник": "", "Нюанси": "Відправлено на лотчек 08.09", "Дата старту": "", "Планова дата": "2026-09-25", "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "2026-09-08", "Статус Lotcheck": "Submitted for lotcheck", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Escape Immersion", "Розробник": "Сергій", "Художник": "", "Нюанси": "Спочатку Нінтендо, потім Xbox/PS", "Дата старту": "", "Планова дата": "2026-09-28", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "In testing", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": True, "PS Продукт": False},
-    {"Гра": "11 o'clock", "Розробник": "Іван", "Художник": "", "Нюанси": "Білди скинуто, чекаємо перевірки Антона", "Дата старту": "", "Планова дата": "2026-09-25", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In testing", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Tsunami Escape", "Розробник": "Іван", "Художник": "", "Нюанси": "Порт займе близько 2 тижнів", "Дата старту": "2026-09-03", "Планова дата": "2026-09-21", "Трейлер": True, "Картинки": False, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Five Nights at Pizzeria 2", "Розробник": "Сергій", "Художник": "", "Нюанси": "В процесі активного портінгу", "Дата старту": "2026-09-03", "Планова дата": "2026-09-18", "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Race Condition", "Розробник": "Іван", "Художник": "", "Нюанси": "Чекаємо налаштування кросплатформеного онлайну", "Дата старту": "", "Планова дата": "2026-10-15", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In testing", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": True, "PS Продукт": False},
-    {"Гра": "SCP: Infinite Store", "Розробник": "Ігор", "Художник": "", "Нюанси": "Флагман. Подати Xbox документацію", "Дата старту": "", "Планова дата": "2026-10-30", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": True, "PlayStation": True, "PS Продукт": False},
-    {"Гра": "Мелтопия", "Розробник": "Влад", "Художник": "Анна", "Нюанси": "Флагман 2.5GB. Чекаємо апдейту матеріалів від дева", "Дата старту": "", "Планова дата": "2026-11-10", "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": True, "PS Продукт": False},
-    {"Гра": "Gnome from Hell", "Розробник": "Діма", "Художник": "", "Нюанси": "Рескін тільки для Switch", "Дата старту": "", "Планова дата": "2026-09-30", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Monkey Shop", "Розробник": "Максим", "Художник": "", "Нюанси": "Заблоковано! Місяць шлють багований білд", "Дата старту": "", "Планова дата": "2026-10-05", "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "Blocked", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Bad Dog", "Розробник": "Максим", "Художник": "Анна", "Нюанси": "Чекаємо перевірки Антоном PC-білда + нова капсула", "Дата старту": "", "Планова дата": "2026-10-10", "Трейлер": False, "Картинки": False, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Angry Panda", "Розробник": "Максим", "Художник": "Анна Коваленко", "Нюанси": "Переробка капсули Angry Cat на панду", "Дата старту": "", "Планова дата": "2026-10-15", "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "My Mart", "Розробник": "Іван", "Художник": "", "Нюанси": "Все готово, чекаємо статус Approved по США", "Дата старту": "", "Планова дата": "2026-09-11", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-11", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-05", "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Naughty Baby", "Розробник": "Сергій", "Художник": "", "Нюанси": "Реліз призначено на 11.09", "Дата старту": "", "Планова дата": "2026-09-11", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-11", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-04", "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "My Clothing Store Simulator", "Розробник": "Ігор", "Художник": "", "Нюанси": "Залишилось відео приєднати", "Дата старту": "", "Планова дата": "2026-09-18", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-18", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-06", "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
-    {"Гра": "Scary Ring", "Розробник": "Сергій", "Художник": "", "Нюанси": "Все готово, чекаємо Approved", "Дата старту": "", "Планова дата": "2026-09-18", "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-18", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-07", "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False}
+    {"Гра": "Cat Simulator", "Розробник": "Ігор", "Художник": "", "Нюанси": "Lotcheck пройдено з 3-го разу", "Дата старту": "2026-08-06", "Планова дата": "2026-08-12", "Плановий строк": 6, "Факт до сабміту": 33, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-08-12", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "2026-08-13", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-08", "Днів у Lotcheck": 26, "Спроби Lotcheck": "3 (було 2 issues)", "Xbox": False, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Dead Seek", "Розробник": "Сергій", "Художник": "", "Нюанси": "Рескін тільки для Switch", "Дата старту": "", "Планова дата": "2026-10-02", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-10-02", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Hidden Objects", "Розробник": "Ігор", "Художник": "", "Нюанси": "Слабкий проект, чекаємо виправлень від дева", "Дата старту": "", "Планова дата": "2026-10-02", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-10-02", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": True, "PlayStation": True, "PS Продукт": False},
+    {"Гра": "Mother Simulation", "Розробник": "Сергій", "Художник": "", "Нюанси": "Відправлено на лотчек 08.09", "Дата старту": "", "Планова дата": "2026-09-25", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "2026-09-08", "Статус Lotcheck": "Submitted for lotcheck", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Escape Immersion", "Розробник": "Сергій", "Художник": "", "Нюанси": "В першу чергу Нінтендо. Xbox після апруву", "Дата старту": "", "Планова дата": "2026-09-28", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "In testing", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": True, "PS Продукт": False},
+    {"Гра": "11 o'clock", "Розробник": "Іван", "Художник": "", "Нюанси": "Білди скинуто, чекаємо перевірки Антона", "Дата старту": "", "Планова дата": "2026-09-25", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In testing", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Tsunami Escape", "Розробник": "Іван", "Художник": "", "Нюанси": "Порт займе близько 2 тижнів", "Дата старту": "2026-09-03", "Планова дата": "2026-09-21", "Плановий строк": 18, "Факт до сабміту": 0, "Трейлер": True, "Картинки": False, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Five Nights at Pizzeria 2", "Розробник": "Сергій", "Художник": "", "Нюанси": "В процесі активного портінгу", "Дата старту": "2026-09-03", "Планова дата": "2026-09-18", "Плановий строк": 15, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Race Condition", "Розробник": "Іван", "Художник": "", "Нюанси": "Чекаємо налаштування кросплатформеного онлайну", "Дата старту": "", "Планова дата": "2026-10-15", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In testing", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": True, "PS Продукт": False},
+    {"Гра": "SCP: Infinite Store", "Розробник": "Ігор", "Художник": "", "Нюанси": "Флагман. Подати Xbox документацію", "Дата старту": "", "Планова дата": "2026-10-30", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": True, "PlayStation": True, "PS Продукт": False},
+    {"Гра": "Мелтопия", "Розробник": "Влад", "Художник": "Анна", "Нюанси": "Флагман 2.5GB. Чекаємо апдейту матеріалів від дева", "Дата старту": "", "Планова дата": "2026-11-10", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": True, "Xbox Концепт": True, "Xbox TLA": False, "PlayStation": True, "PS Продукт": False},
+    {"Гра": "Gnome from Hell", "Розробник": "Діма", "Художник": "", "Нюанси": "Рескін тільки для Switch", "Дата старту": "", "Планова дата": "2026-09-30", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Monkey Shop", "Розробник": "Максим", "Художник": "", "Нюанси": "Заблоковано! Місяць шлють багований білд", "Дата старту": "", "Планова дата": "2026-10-05", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "Blocked", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Bad Dog", "Розробник": "Максим", "Художник": "Анна", "Нюанси": "Чекаємо перевірки Антоном PC-білда + нова капсула", "Дата старту": "", "Планова дата": "2026-10-10", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": True, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Angry Panda", "Розробник": "Максим", "Художник": "Анна Коваленко", "Нюанси": "Переробка капсули Angry Cat на панду", "Дата старту": "", "Планова дата": "2026-10-15", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Anime Puzzle Story", "Розробник": "Максим", "Художник": "", "Нюанси": "Можливо не будемо доробляти (пріоритет рескіни)", "Дата старту": "", "Планова дата": "", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "Blocked", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Dog From Hell", "Розробник": "Максим", "Художник": "Анна", "Нюанси": "Nintendo Switch сертифікацію пройдено", "Дата старту": "", "Планова дата": "", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "My Mart", "Розробник": "Іван", "Художник": "", "Нюанси": "Все готово, чекаємо статус Approved по США", "Дата старту": "", "Планова дата": "2026-09-11", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-11", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-05", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Naughty Baby", "Розробник": "Сергій", "Художник": "", "Нюанси": "Реліз призначено на 11.09", "Дата старту": "", "Планова дата": "2026-09-11", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-11", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-04", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "My Clothing Store Simulator", "Розробник": "Ігор", "Художник": "", "Нюанси": "Залишилось відео приєднати", "Дата старту": "", "Планова дата": "2026-09-18", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-18", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-06", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Scary Ring", "Розробник": "Сергій", "Художник": "", "Нюанси": "Все готово, чекаємо Approved", "Дата старту": "", "Планова дата": "2026-09-18", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": True, "Картинки": True, "Тексти": True, "Дата обрана": "2026-09-18", "Switch": True, "Switch Продукт": True, "Switch Матеріали": True, "Switch Білд": True, "Switch Білд Дата": "", "Статус Lotcheck": "Passed Lotcheck", "Прийнято Lotcheck": "2026-09-07", "Днів у Lotcheck": 0, "Спроби Lotcheck": "1", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Nom Nom Apocalypse", "Розробник": "Діма", "Художник": "", "Нюанси": "Кирило хоче взагалі цей контракт розірвати", "Дата старту": "", "Планова дата": "", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "Blocked", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False},
+    {"Гра": "Lethal love", "Розробник": "Ігор", "Художник": "", "Нюанси": "Після Xbox та PS інших проектів", "Дата старту": "", "Планова дата": "", "Плановий строк": 0, "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "", "Switch": True, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": "In Development", "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "", "Xbox": False, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": False, "PS Продукт": False}
 ]
 
 def load_pipeline_master_data():
@@ -675,14 +680,8 @@ if app_mode == "🎮 Наші ігри":
         sale_platform_choice = st.radio("Оберіть консольну платформу:", ["🔴 Nintendo eShop", "🟢 Xbox Store"], horizontal=True)
 
         if sale_platform_choice == "🔴 Nintendo eShop":
-            cal_df = pd.DataFrame([
-                {"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]}
-                for s in NINTENDO_SCHEDULE
-            ])
-            fig_timeline = px.timeline(
-                cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Статус",
-                color_discrete_map={"🔥 Найближчий": "#f59e0b", "🎃 Сезонний": "#ec4899", "🎄 Головний (EU)": "#10b981", "🎄 Головний (US)": "#3b82f6"}
-            )
+            cal_df = pd.DataFrame([{"Сейл": s["name"], "Початок": s["start"], "Кінець": s["end"], "Статус": s["status"], "Регіон": s["region"]} for s in NINTENDO_SCHEDULE])
+            fig_timeline = px.timeline(cal_df, x_start="Початок", x_end="Кінець", y="Сейл", color="Статус")
             fig_timeline.update_yaxes(autorange="reversed")
             fig_timeline.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=250)
             st.plotly_chart(fig_timeline, use_container_width=True)
@@ -808,34 +807,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                 use_container_width=True,
                 height=340
             )
-
-            selected_xb_games = edited_xb_df[edited_xb_df["Подати гру"] == True]
-            selected_count = len(selected_xb_games)
-
-            if selected_count > cur_xb_sale["limit"]:
-                st.error(f"⚠️ **Перевищено ліміт!** Обрано **{selected_count}** ігор із дозволених **{cur_xb_sale['limit']}**.")
-            else:
-                st.success(f"✅ Обрано **{selected_count}** із **{cur_xb_sale['limit']}** доступних слотів.")
-
-            if st.button("📦 Сформувати пакет заявки для Xbox Portal", use_container_width=True):
-                if selected_xb_games.empty:
-                    st.warning("Оберіть хоча б одну гру для формування заявки!")
-                else:
-                    submission_text_lines = [
-                        f"=== UPSCALE STUDIO // XBOX PROMOTION SUBMISSION ===",
-                        f"Event: {cur_xb_sale['name']}",
-                        f"Dates: {cur_xb_sale['start']} to {cur_xb_sale['end']}",
-                        f"Total Titles: {len(selected_xb_games)} / {cur_xb_sale['limit']}",
-                        f"--------------------------------------------------"
-                    ]
-                    for _, srow in selected_xb_games.iterrows():
-                        sale_p = round(srow["Базова ціна ($)"] * (1 - srow["Знижка Xbox (%)"] / 100.0), 2)
-                        submission_text_lines.append(f"• {srow['Гра']} | Base: ${srow['Базова ціна ($)']:.2f} | Discount: {srow['Знижка Xbox (%)']}% | Final: ${sale_p:.2f}")
-
-                    st.markdown("##### 📋 Текстовий звіт для форми ID@Xbox:")
-                    st.text_area("Готово до копіювання:", "\n".join(submission_text_lines), height=180)
-                    csv_xb_sub = selected_xb_games[["Гра", "Базова ціна ($)", "Знижка Xbox (%)", "Ціна на сейлі ($)"]].to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Завантажити CSV заявки для ID@Xbox", data=csv_xb_sub, file_name=f"Xbox_{cur_xb_sale['name'].split(' ')[0]}_Submission.csv", mime="text/csv")
 
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
@@ -1033,46 +1004,13 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         csv_data = filtered_df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Експортувати дані (.CSV)", data=csv_data, file_name="console_sales_portfolio.csv", mime="text/csv")
 
-        st.markdown("---")
-        st.subheader("📄 One-Pager Executive Звіт")
-        
-        report_html_content = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Upscale Studio Executive Report</title>
-<style>
-body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, sans-serif; padding: 30px; }}
-.card {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; text-align: center; }}
-.grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }}
-.title {{ font-size: 24px; font-weight: bold; color: #fff; }}
-.val {{ font-size: 26px; font-weight: 800; margin: 6px 0 0 0; }}
-</style></head>
-<body>
-<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px;">
-<div><div class="title">UPSCALE STUDIO</div><div>Console Operations Executive Report</div></div>
-<div><b>Date:</b> {datetime.now().strftime('%B %Y')}</div>
-</div>
-<div class="grid">
-<div class="card"><div>TOTAL CONSOLE GROSS</div><div class="val" style="color:#38bdf8;">${total_gross:,.0f}</div></div>
-<div class="card"><div>PLAYSTATION</div><div class="val" style="color:#60a5fa;">${ps_rev:,.0f}</div></div>
-<div class="card"><div>NINTENDO SWITCH</div><div class="val" style="color:#f87171;">${switch_rev:,.0f}</div></div>
-<div class="card"><div>XBOX</div><div class="val" style="color:#4ade80;">${xbox_rev:,.0f}</div></div>
-</div>
-</body></html>"""
-
-        st.download_button(
-            label="📥 Завантажити One-Pager звіт (.HTML / PDF)",
-            data=report_html_content,
-            file_name=f"Upscale_Studio_Executive_Report_{datetime.now().strftime('%Y_%m')}.html",
-            mime="text/html"
-        )
-
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 2: RELEASE PIPELINE (ПОВНИЙ МОДУЛЬ)
+# 🚀 РОЗДІЛ 2: RELEASE PIPELINE (ПОВНІ 23 ПРОЕКТИ ТА КОНТРОЛЬ ЗРИВУ ТЕРМІНІВ)
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
-    st.caption("Повний цикл виробництва консольних портів • Інтеграція з внутрішніми задачами розробників, QA та арт-відділу")
+    st.caption("Повний цикл виробництва консольних портів • Всі 23 проекти • Контроль зриву дедлайнів сертифікації")
 
     pipeline_df = load_pipeline_master_data()
 
@@ -1087,6 +1025,7 @@ elif app_mode == "🚀 Release Pipeline":
             with f_col2:
                 new_start_date = st.date_input("Дата старту робіт:", datetime.now())
                 new_finish_date = st.date_input("Планова дата фінішу:", datetime.now() + timedelta(days=21))
+                new_plan_days = st.number_input("Плановий строк (днів):", min_value=0, value=14, step=1)
                 new_lotcheck_status = st.selectbox("Статус Lotcheck:", ["In Development", "In testing", "Submitted for lotcheck", "Passed Lotcheck", "Blocked"])
             with f_col3:
                 st.write("**Платформи виходу:**")
@@ -1100,42 +1039,57 @@ elif app_mode == "🚀 Release Pipeline":
                     st.warning("Введіть назву гри!")
                 else:
                     new_project_row = {
-                        "Гра": new_title.strip(),
-                        "Розробник": new_dev,
-                        "Художник": new_artist,
-                        "Нюанси": new_notes.strip(),
-                        "Дата старту": new_start_date.strftime("%Y-%m-%d"),
-                        "Планова дата": new_finish_date.strftime("%Y-%m-%d"),
-                        "Трейлер": False, "Картинки": False, "Тексти": False, "Дата обрана": "",
-                        "Switch": new_sw, "Switch Продукт": False, "Switch Матеріали": False, "Switch Білд": False,
-                        "Switch Білд Дата": "", "Статус Lotcheck": new_lotcheck_status, "Прийнято Lotcheck": "",
-                        "Спроби Lotcheck": "", "Xbox": new_xb, "Xbox Концепт": False, "Xbox TLA": False,
-                        "PlayStation": new_ps, "PS Продукт": False
+                        "Гра": new_title.strip(), "Розробник": new_dev, "Художник": new_artist,
+                        "Нюанси": new_notes.strip(), "Дата старту": new_start_date.strftime("%Y-%m-%d"),
+                        "Планова дата": new_finish_date.strftime("%Y-%m-%d"), "Плановий строк": int(new_plan_days),
+                        "Факт до сабміту": 0, "Трейлер": False, "Картинки": False, "Тексти": False,
+                        "Дата обрана": "", "Switch": new_sw, "Switch Продукт": False, "Switch Матеріали": False,
+                        "Switch Білд": False, "Switch Білд Дата": "", "Статус Lotcheck": new_lotcheck_status,
+                        "Прийнято Lotcheck": "", "Днів у Lotcheck": 0, "Спроби Lotcheck": "",
+                        "Xbox": new_xb, "Xbox Концепт": False, "Xbox TLA": False, "PlayStation": new_ps, "PS Продукт": False
                     }
                     updated_pipe_df = pd.concat([pd.DataFrame([new_project_row]), pipeline_df], ignore_index=True)
                     save_pipeline_master_data(updated_pipe_df)
-                    st.success(f"🎉 Проект '{new_title}' успішно додано до пайплайну!")
+                    st.success(f"🎉 Проект '{new_title}' додано до пайплайну!")
                     st.rerun()
 
     pipe_tab1, pipe_tab2, pipe_tab3 = st.tabs([
         "📑 Головний трекер (Master View)", 
-        "🎮 Консольні кабінети (Lotcheck / Xbox / PS)", 
+        "🎮 Консольні кабінети (Lotcheck & Контроль строків)", 
         "🚨 Блокери, QA та Команда"
     ])
 
+    # 1. ГОЛОВНИЙ ТРЕКЕР
     with pipe_tab1:
-        st.markdown("### 📊 Оперативний статус виробництва")
+        st.markdown("### 📊 Оперативний статус виробництва (Всі 23 проекти)")
         
+        # Обчислення зривів строків
+        pipeline_df["Плановий строк"] = pd.to_numeric(pipeline_df.get("Плановий строк", 0), errors="coerce").fillna(0).astype(int)
+        pipeline_df["Факт до сабміту"] = pd.to_numeric(pipeline_df.get("Факт до сабміту", 0), errors="coerce").fillna(0).astype(int)
+        
+        overrun_projects = pipeline_df[(pipeline_df["Факт до сабміту"] > pipeline_df["Плановий строк"]) & (pipeline_df["Плановий строк"] > 0)]
+        overrun_count = len(overrun_projects)
         in_dev_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Development|testing", case=False)])
         in_cert_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Submitted", case=False)])
         passed_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Passed", case=False)])
-        blocked_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Blocked", case=False)])
 
         p_k1, p_k2, p_k3, p_k4 = st.columns(4)
-        p_k1.markdown(f'<div class="kpi-card"><div class="kpi-label">🛠️ В розробці / QA</div><div class="kpi-value">{in_dev_count}</div><span class="kpi-badge badge-total">Активні порти</span></div>', unsafe_allow_html=True)
+        p_k1.markdown(f'<div class="kpi-card"><div class="kpi-label">🛠️ В розробці / QA</div><div class="kpi-value">{in_dev_count}</div><span class="kpi-badge badge-total">Всього: {len(pipeline_df)} проектів</span></div>', unsafe_allow_html=True)
         p_k2.markdown(f'<div class="kpi-card"><div class="kpi-label">⏳ На сертифікації (Lotcheck)</div><div class="kpi-value" style="color:#38bdf8 !important;">{in_cert_count}</div><span class="kpi-badge badge-ps">Чекають відповіді</span></div>', unsafe_allow_html=True)
         p_k3.markdown(f'<div class="kpi-card"><div class="kpi-label">🟢 Сертифіковано (Passed)</div><div class="kpi-value" style="color:#4ade80 !important;">{passed_count}</div><span class="kpi-badge badge-xbox">Готові до релізу</span></div>', unsafe_allow_html=True)
-        p_k4.markdown(f'<div class="kpi-card"><div class="kpi-label">🚨 Блокери / Увага</div><div class="kpi-value" style="color:#ef4444 !important;">{blocked_count}</div><span class="kpi-badge badge-switch">Потребують дій</span></div>', unsafe_allow_html=True)
+        p_k4.markdown(f'<div class="kpi-card"><div class="kpi-label">🚨 ЗРИВ СТРОКІВ (Факт > План)</div><div class="kpi-value" style="color:#ef4444 !important;">{overrun_count}</div><span class="kpi-badge badge-switch">Потребують уваги</span></div>', unsafe_allow_html=True)
+
+        if overrun_count > 0:
+            st.markdown("#### 🚨 Проекти з критичним зривом термінів до сертифікації:")
+            for _, o_row in overrun_projects.iterrows():
+                delay_days = int(o_row['Факт до сабміту'] - o_row['Плановий строк'])
+                st.markdown(f"""
+                <div class="alert-card-red">
+                    <b style="color:#fff; font-size:15px;">🎮 {o_row['Гра']} (Розробник: {o_row['Розробник']})</b> ➔ 
+                    <span style="color:#f87171; font-weight:bold;">План: {o_row['Плановий строк']} дн. | Факт до сабміту: {o_row['Факт до сабміту']} дн. (🔴 +{delay_days} днів затримки!)</span>
+                    <p style="margin:4px 0 0 0; font-size:12px; color:#cbd5e1;">Нюанси: {o_row['Нюанси']}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -1155,7 +1109,9 @@ elif app_mode == "🚀 Release Pipeline":
             "Гра": st.column_config.TextColumn("Гра", width="medium"),
             "Розробник": st.column_config.SelectboxColumn("Розробник", options=["Ігор", "Сергій", "Іван", "Максим", "Влад", "Діма", "Інший"], width="small"),
             "Художник": st.column_config.TextColumn("Художник", width="small"),
-            "Планова дата": st.column_config.TextColumn("Дедлайн / Дата", width="small"),
+            "Планова дата": st.column_config.TextColumn("Дедлайн", width="small"),
+            "Плановий строк": st.column_config.NumberColumn("План (дн)", width="small"),
+            "Факт до сабміту": st.column_config.NumberColumn("Факт (дн)", width="small"),
             "Трейлер": st.column_config.CheckboxColumn("🎬 Трейлер", default=False),
             "Картинки": st.column_config.CheckboxColumn("🎨 Капсули", default=False),
             "Тексти": st.column_config.CheckboxColumn("📝 Тексти", default=False),
@@ -1166,39 +1122,54 @@ elif app_mode == "🚀 Release Pipeline":
             "Нюанси": st.column_config.TextColumn("Нюанси / Примітки", width="large")
         }
 
-        display_master_df = view_df[["Гра", "Розробник", "Художник", "Планова дата", "Трейлер", "Картинки", "Тексти", "Статус Lotcheck", "Switch", "Xbox", "PlayStation", "Нюанси"]].copy()
+        display_master_df = view_df[["Гра", "Розробник", "Художник", "Планова дата", "Плановий строк", "Факт до сабміту", "Трейлер", "Картинки", "Тексти", "Статус Lotcheck", "Switch", "Xbox", "PlayStation", "Нюанси"]].copy()
         edited_master_df = st.data_editor(
             display_master_df,
             column_config=master_cols_config,
             hide_index=True,
             use_container_width=True,
-            height=460
+            height=480
         )
 
         if st.button("💾 Зберегти зміни головного пайплайну", use_container_width=True):
             for _, erow in edited_master_df.iterrows():
                 match_idx = pipeline_df[pipeline_df["Гра"] == erow["Гра"]].index
                 if not match_idx.empty:
-                    for col_k in ["Розробник", "Художник", "Планова дата", "Трейлер", "Картинки", "Тексти", "Статус Lotcheck", "Switch", "Xbox", "PlayStation", "Нюанси"]:
+                    for col_k in ["Розробник", "Художник", "Планова дата", "Плановий строк", "Факт до сабміту", "Трейлер", "Картинки", "Тексти", "Статус Lotcheck", "Switch", "Xbox", "PlayStation", "Нюанси"]:
                         pipeline_df.loc[match_idx[0], col_k] = erow[col_k]
             save_pipeline_master_data(pipeline_df)
             st.success("🎉 Усі зміни збережено у файл `pipeline_master_state.json`!")
 
+    # 2. КОНСОЛЬНІ КАБІНЕТИ ТА ДЕТАЛЬНИЙ КОНТРОЛЬ ЛОТЧЕКУ
     with pipe_tab2:
-        st.markdown("### 🎮 Детальний контроль консольних кабінетів")
-        cab_choice = st.radio("Оберіть консольну платформу:", ["🔴 Nintendo Switch (Lotcheck Deep-Dive)", "🟢 Xbox (ID@Xbox воронка)", "🔵 PlayStation (Safe Publisher Setup)"], horizontal=True)
+        st.markdown("### 🎮 Детальний контроль консольних кабінетів та строків сертифікації")
+        cab_choice = st.radio("Оберіть консольну платформу:", ["🔴 Nintendo Switch (Lotcheck Deep-Dive & Строки)", "🟢 Xbox (ID@Xbox воронка)", "🔵 PlayStation (Safe Publisher Setup)"], horizontal=True)
 
         if "Nintendo" in cab_choice:
-            st.markdown("#### 🔴 Nintendo Switch: Статус підготовки білдів та сертифікації")
-            sw_cols = ["Гра", "Розробник", "Switch Продукт", "Switch Матеріали", "Switch Білд", "Switch Білд Дата", "Статус Lotcheck", "Прийнято Lotcheck", "Спроби Lotcheck"]
+            st.markdown("#### 🔴 Nintendo Switch: Статус сертифікації та контроль витраченого часу")
+            
+            # Візуальний графік відхилення Plan vs Fact
+            chart_timing_df = pipeline_df[pipeline_df["Плановий строк"] > 0].copy()
+            if not chart_timing_df.empty:
+                fig_timing = go.Figure()
+                fig_timing.add_trace(go.Bar(x=chart_timing_df["Гра"], y=chart_timing_df["Плановий строк"], name="Плановий строк (днів)", marker_color="#3b82f6"))
+                fig_timing.add_trace(go.Bar(x=chart_timing_df["Гра"], y=chart_timing_df["Факт до сабміту"], name="Фактичний строк (днів)", marker_color="#ef4444"))
+                fig_timing.update_layout(
+                    barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color="#e2e8f0"), height=300, margin=dict(t=20, b=20, l=10, r=10),
+                    title="Порівняння: Плановий строк розробки проти Фактичного до сертифікації (дні)"
+                )
+                st.plotly_chart(fig_timing, use_container_width=True)
+
+            sw_cols = ["Гра", "Розробник", "Плановий строк", "Факт до сабміту", "Switch Білд Дата", "Статус Lotcheck", "Прийнято Lotcheck", "Днів у Lotcheck", "Спроби Lotcheck"]
             sw_df = pipeline_df[pipeline_df["Switch"] == True][sw_cols].copy()
             
             edited_sw_df = st.data_editor(
                 sw_df,
                 column_config={
-                    "Switch Продукт": st.column_config.CheckboxColumn("Продукт створено"),
-                    "Switch Матеріали": st.column_config.CheckboxColumn("Матеріали передано"),
-                    "Switch Білд": st.column_config.CheckboxColumn("Білд завантажено"),
+                    "Плановий строк": st.column_config.NumberColumn("План (дн)"),
+                    "Факт до сабміту": st.column_config.NumberColumn("Факт (дн)"),
+                    "Днів у Lotcheck": st.column_config.NumberColumn("Днів у Lotcheck"),
                     "Статус Lotcheck": st.column_config.SelectboxColumn("Результат Lotcheck", options=["In Development", "In testing", "Submitted for lotcheck", "Passed Lotcheck", "Blocked"])
                 },
                 hide_index=True,
@@ -1231,6 +1202,7 @@ elif app_mode == "🚀 Release Pipeline":
             ps_df = pipeline_df[pipeline_df["PlayStation"] == True][ps_cols].copy()
             st.dataframe(ps_df, hide_index=True, use_container_width=True, height=380)
 
+    # 3. БЛОКЕРИ, QA ТА КОМАНДА
     with pipe_tab3:
         st.markdown("### 🚨 Оперативні блокери та розподіл задач")
         
@@ -1450,7 +1422,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 5: ТИЖНЕВА ДИНАМІКА (4 ПОВНІ ВКЛАДКИ)
+# 📈 РОЗДІЛ 5: ТИЖНЕВА ДИНАМІКА (WoW)
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")

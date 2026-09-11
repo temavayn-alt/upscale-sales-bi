@@ -398,28 +398,37 @@ def save_pipeline_master_data(df):
         st.error(f"Помилка збереження пайплайну: {e}")
 
 # ==============================================================================
-# 💾 ЛОГІКА ЗБЕРЕЖЕННЯ ДАНИХ ДЛЯ RELEASE ACTIVITY
+# 💾 ЛОГІКА АВТОМАТИЧНОГО ЗБЕРЕЖЕННЯ ДЛЯ RELEASE ACTIVITY (БЕЗ КНОПОК)
 # ==============================================================================
 ACTIVITY_CHECKBOX_COLS = [
     "Keymailer page", "Instagram", "YouTube", "PS Form", "PS Trailer",
     "Xbox Trailer", "Xbox Shorts", "Xbox Form", "IGN Trailer", "Press Release", "Trophy Guide", "Keys"
 ]
 
+INITIAL_ACTIVITY_DEFAULTS = {
+    "Street Combat Fighting": {"Keymailer page": True, "Instagram": True, "YouTube": True, "Keys": True},
+    "Heavy Duty": {"Keymailer page": True, "Instagram": True, "YouTube": True, "Xbox Shorts": True, "Keys": True},
+    "From the Bunker": {"Keymailer page": True, "Instagram": True, "YouTube": True, "Xbox Trailer": True, "Xbox Shorts": True, "Keys": True},
+    "Loaders Inc.": {"Keymailer page": True, "Instagram": True, "YouTube": True, "Keys": True},
+    "Fly for Fly": {"Keymailer page": True, "Instagram": True, "YouTube": True, "Keys": True}
+}
+
 def load_saved_activities():
     if os.path.exists(ACTIVITY_STORAGE_FILE):
         try:
             with open(ACTIVITY_STORAGE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if data: return data
         except Exception:
-            return {}
-    return {}
+            pass
+    return INITIAL_ACTIVITY_DEFAULTS.copy()
 
 def save_activities_to_disk(data_dict):
     try:
         with open(ACTIVITY_STORAGE_FILE, "w", encoding="utf-8") as f:
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        st.error(f"Помилка збереження: {e}")
+        st.error(f"Помилка автозбереження активностей: {e}")
 
 # ==============================================================================
 # 🧭 САЙДБАР (БРЕНДОВАНА ШАПКА + NAV PILLS + КНОПКА ВНИЗУ)
@@ -808,6 +817,34 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                 height=340
             )
 
+            selected_xb_games = edited_xb_df[edited_xb_df["Подати гру"] == True]
+            selected_count = len(selected_xb_games)
+
+            if selected_count > cur_xb_sale["limit"]:
+                st.error(f"⚠️ **Перевищено ліміт!** Обрано **{selected_count}** ігор із дозволених **{cur_xb_sale['limit']}**.")
+            else:
+                st.success(f"✅ Обрано **{selected_count}** із **{cur_xb_sale['limit']}** доступних слотів.")
+
+            if st.button("📦 Сформувати пакет заявки для Xbox Portal", use_container_width=True):
+                if selected_xb_games.empty:
+                    st.warning("Оберіть хоча б одну гру для формування заявки!")
+                else:
+                    submission_text_lines = [
+                        f"=== UPSCALE STUDIO // XBOX PROMOTION SUBMISSION ===",
+                        f"Event: {cur_xb_sale['name']}",
+                        f"Dates: {cur_xb_sale['start']} to {cur_xb_sale['end']}",
+                        f"Total Titles: {len(selected_xb_games)} / {cur_xb_sale['limit']}",
+                        f"--------------------------------------------------"
+                    ]
+                    for _, srow in selected_xb_games.iterrows():
+                        sale_p = round(srow["Базова ціна ($)"] * (1 - srow["Знижка Xbox (%)"] / 100.0), 2)
+                        submission_text_lines.append(f"• {srow['Гра']} | Base: ${srow['Базова ціна ($)']:.2f} | Discount: {srow['Знижка Xbox (%)']}% | Final: ${sale_p:.2f}")
+
+                    st.markdown("##### 📋 Текстовий звіт для форми ID@Xbox:")
+                    st.text_area("Готово до копіювання:", "\n".join(submission_text_lines), height=180)
+                    csv_xb_sub = selected_xb_games[["Гра", "Базова ціна ($)", "Знижка Xbox (%)", "Ціна на сейлі ($)"]].to_csv(index=False).encode('utf-8')
+                    st.download_button("📥 Завантажити CSV заявки для ID@Xbox", data=csv_xb_sub, file_name=f"Xbox_{cur_xb_sale['name'].split(' ')[0]}_Submission.csv", mime="text/csv")
+
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
         st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та вхідних джерел")
@@ -1004,6 +1041,39 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
         csv_data = filtered_df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Експортувати дані (.CSV)", data=csv_data, file_name="console_sales_portfolio.csv", mime="text/csv")
 
+        st.markdown("---")
+        st.subheader("📄 One-Pager Executive Звіт")
+        
+        report_html_content = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Upscale Studio Executive Report</title>
+<style>
+body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, sans-serif; padding: 30px; }}
+.card {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; text-align: center; }}
+.grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }}
+.title {{ font-size: 24px; font-weight: bold; color: #fff; }}
+.val {{ font-size: 26px; font-weight: 800; margin: 6px 0 0 0; }}
+</style></head>
+<body>
+<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px;">
+<div><div class="title">UPSCALE STUDIO</div><div>Console Operations Executive Report</div></div>
+<div><b>Date:</b> {datetime.now().strftime('%B %Y')}</div>
+</div>
+<div class="grid">
+<div class="card"><div>TOTAL CONSOLE GROSS</div><div class="val" style="color:#38bdf8;">${total_gross:,.0f}</div></div>
+<div class="card"><div>PLAYSTATION</div><div class="val" style="color:#60a5fa;">${ps_rev:,.0f}</div></div>
+<div class="card"><div>NINTENDO SWITCH</div><div class="val" style="color:#f87171;">${switch_rev:,.0f}</div></div>
+<div class="card"><div>XBOX</div><div class="val" style="color:#4ade80;">${xbox_rev:,.0f}</div></div>
+</div>
+</body></html>"""
+
+        st.download_button(
+            label="📥 Завантажити One-Pager звіт (.HTML / PDF)",
+            data=report_html_content,
+            file_name=f"Upscale_Studio_Executive_Report_{datetime.now().strftime('%Y_%m')}.html",
+            mime="text/html"
+        )
+
 
 # ==============================================================================
 # 🚀 РОЗДІЛ 2: RELEASE PIPELINE (ПОВНІ 23 ПРОЕКТИ ТА КОНТРОЛЬ ЗРИВУ ТЕРМІНІВ)
@@ -1148,7 +1218,6 @@ elif app_mode == "🚀 Release Pipeline":
         if "Nintendo" in cab_choice:
             st.markdown("#### 🔴 Nintendo Switch: Статус сертифікації та контроль витраченого часу")
             
-            # Візуальний графік відхилення Plan vs Fact
             chart_timing_df = pipeline_df[pipeline_df["Плановий строк"] > 0].copy()
             if not chart_timing_df.empty:
                 fig_timing = go.Figure()
@@ -1239,14 +1308,24 @@ elif app_mode == "🚀 Release Pipeline":
 
 
 # ==============================================================================
-# 📋 РОЗДІЛ 3: RELEASE ACTIVITY
+# 📋 РОЗДІЛ 3: RELEASE ACTIVITY (МИТТЄВЕ АВТОЗБЕРЕЖЕННЯ В РЕАЛЬНОМУ ЧАСІ)
 # ==============================================================================
 elif app_mode == "📋 Release Activity":
     st.title("📋 Release Marketing & Launch Activity Tracker")
-    st.caption("Інтерактивний чек-лист підготовки до релізу • Галочки зберігаються автоматично на сервері")
+    st.caption("Інтерактивний чек-лист підготовки до релізу • 🟢 Всі відмітки зберігаються автоматично")
 
-    saved_state = load_saved_activities()
+    # Ініціалізація стейту в пам'яті
+    if "activity_state_dict" not in st.session_state:
+        st.session_state.activity_state_dict = load_saved_activities()
 
+    # Синхронізація з усіма іграми з бази
+    for _, r in raw_df.iterrows():
+        g_name = str(r["Game_Name_Clean"]).strip()
+        if not g_name or g_name.lower() == 'nan': continue
+        if g_name not in st.session_state.activity_state_dict:
+            st.session_state.activity_state_dict[g_name] = {task: False for task in ACTIVITY_CHECKBOX_COLS}
+
+    # Побудова повної таблиці
     activity_rows = []
     for _, r in raw_df.iterrows():
         g_name = str(r["Game_Name_Clean"]).strip()
@@ -1255,7 +1334,7 @@ elif app_mode == "📋 Release Activity":
         r_date_val = r.get(rel_date_col, "—") if rel_date_col else "—"
         r_status = str(r.get(status_col, "In porting")).strip() if status_col else "In porting"
 
-        game_saved = saved_state.get(g_name, {})
+        game_saved = st.session_state.activity_state_dict.get(g_name, {})
 
         row_dict = {
             "Гра (Title)": g_name,
@@ -1282,8 +1361,6 @@ elif app_mode == "📋 Release Activity":
     else:
         display_df = activity_df.copy()
 
-    st.markdown("#### 🛠️ Інтерактивна матриця маркетингових задач:")
-
     col_config = {
         "Гра (Title)": st.column_config.TextColumn("Title", disabled=True, width="medium"),
         "Дата релізу": st.column_config.TextColumn("Release Date", disabled=True, width="small"),
@@ -1299,22 +1376,30 @@ elif app_mode == "📋 Release Activity":
         disabled=["Гра (Title)", "Дата релізу", "Статус", "Готовність (%)"],
         hide_index=True,
         use_container_width=True,
-        height=520
+        height=520,
+        key="release_activity_live_editor"
     )
 
-    if st.button("💾 Зберегти зміни чек-листа на сервері", use_container_width=True):
-        new_state_to_save = saved_state.copy()
-        for _, erow in edited_act_df.iterrows():
-            g_n = erow["Гра (Title)"]
-            new_state_to_save[g_n] = {task: bool(erow[task]) for task in ACTIVITY_CHECKBOX_COLS}
+    # ⚡ МИТТЄВЕ АВТОЗБЕРЕЖЕННЯ ПРИ БУДЬ-ЯКІЙ ЗМІНІ ЧЕКБОКСУ
+    has_changes = False
+    for _, erow in edited_act_df.iterrows():
+        g_n = erow["Гра (Title)"]
+        if g_n not in st.session_state.activity_state_dict:
+            st.session_state.activity_state_dict[g_n] = {}
         
-        save_activities_to_disk(new_state_to_save)
-        st.success("🎉 Усі відмітки успішно збережено!")
+        for task in ACTIVITY_CHECKBOX_COLS:
+            current_val = bool(erow[task])
+            if st.session_state.activity_state_dict[g_n].get(task, False) != current_val:
+                st.session_state.activity_state_dict[g_n][task] = current_val
+                has_changes = True
 
-    c_e1, c_e2 = st.columns([1, 4])
-    with c_e1:
-        csv_act = edited_act_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Експортувати активності (.CSV)", data=csv_act, file_name="upscale_release_activities.csv", mime="text/csv")
+    if has_changes:
+        save_activities_to_disk(st.session_state.activity_state_dict)
+
+    st.caption("🟢 Усі відмітки зберігаються автоматично на сервері без необхідності натискати кнопки.")
+
+    csv_act = edited_act_df.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Експортувати активності (.CSV)", data=csv_act, file_name="upscale_release_activities.csv", mime="text/csv")
 
 
 # ==============================================================================

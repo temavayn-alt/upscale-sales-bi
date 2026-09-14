@@ -21,7 +21,14 @@ PIPELINE_STORAGE_FILE = "pipeline_master_state.json"
 LOGO_FILE = "up4.png"
 # ==============================================================================
 
-# Перевірка наявності логотипу для favicon
+# Довідник курсів валют для автоматичної конвертації консольних звітів у USD
+FX_RATES = {
+    "USD": 1.00, "EUR": 1.09, "GBP": 1.28, "AUD": 0.67, "NZD": 0.61, "CAD": 0.74,
+    "CHF": 1.15, "JPY": 0.0068, "CZK": 0.044, "PLN": 0.26, "ZAR": 0.055, "BRL": 0.18,
+    "MXN": 0.052, "SEK": 0.096, "NOK": 0.093, "DKK": 0.146, "CLP": 0.0011, "COP": 0.00024,
+    "PEN": 0.27, "ARS": 0.0010, "HKD": 0.128, "KRW": 0.00075, "TWD": 0.031
+}
+
 page_icon_setting = LOGO_FILE if os.path.exists(LOGO_FILE) else "🎮"
 
 st.set_page_config(
@@ -252,6 +259,61 @@ def clean_num_val(val):
     try: return float(s)
     except: return 0.0
 
+# Парсер щомісячних фінансових звітів Nintendo eShop
+def parse_nintendo_monthly_csv(df_raw):
+    date_cols = [c for c in df_raw.columns if re.match(r"^\d{2}/\d{2}/\d{2}$", str(c).strip())]
+    if not date_cols:
+        return pd.DataFrame(), []
+    
+    cost_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["points", "cost", "price", "ціна"])), "Points/Cost")
+    curr_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["curr", "валют"])), "Currency")
+    item_col = next((c for c in df_raw.columns if "itemname" in c.lower() or "item name" in c.lower()), None)
+    title_col = next((c for c in df_raw.columns if "titlename" in c.lower() or "title name" in c.lower()), None)
+    target_name_col = item_col if item_col else (title_col if title_col else df_raw.columns[1])
+    
+    def format_month_label(c_str):
+        try:
+            parts = c_str.split("/")
+            m = int(parts[0])
+            y = 2000 + int(parts[2])
+            month_names = ["", "Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"]
+            if 1 <= m <= 12:
+                return f"{month_names[m]} {y}"
+        except:
+            pass
+        return c_str
+
+    month_label_map = {c: format_month_label(c) for c in date_cols}
+    
+    processed_records = []
+    for _, row in df_raw.iterrows():
+        item_name = str(row.get(target_name_col, "Unknown")).strip()
+        if not item_name or item_name.lower() == 'nan': continue
+        
+        curr = str(row.get(curr_col, "USD")).strip().upper()
+        fx = FX_RATES.get(curr, 1.0)
+        cost = clean_num_val(row.get(cost_col, 0.0))
+        
+        row_dict = {"Назва гри / DLC": item_name}
+        for d_col in date_cols:
+            units = clean_num_val(row.get(d_col, 0.0))
+            rev_usd = units * cost * fx
+            row_dict[d_col] = rev_usd
+        processed_records.append(row_dict)
+        
+    proc_df = pd.DataFrame(processed_records)
+    if proc_df.empty:
+        return pd.DataFrame(), []
+        
+    grouped = proc_df.groupby("Назва гри / DLC")[date_cols].sum().reset_index()
+    grouped["Всього ($)"] = grouped[date_cols].sum(axis=1)
+    grouped = grouped.sort_values(by="Всього ($)", ascending=False).reset_index(drop=True)
+    
+    grouped_renamed = grouped.rename(columns=month_label_map)
+    ordered_month_labels = [month_label_map[c] for c in date_cols]
+    
+    return grouped_renamed, ordered_month_labels
+
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
@@ -398,7 +460,7 @@ def save_pipeline_master_data(df):
         st.error(f"Помилка збереження пайплайну: {e}")
 
 # ==============================================================================
-# 💾 ЛОГІКА АВТОМАТИЧНОГО ЗБЕРЕЖЕННЯ ДЛЯ RELEASE ACTIVITY (БЕЗ КНОПОК)
+# 💾 ЛОГІКА АВТОМАТИЧНОГО ЗБЕРЕЖЕННЯ ДЛЯ RELEASE ACTIVITY
 # ==============================================================================
 ACTIVITY_CHECKBOX_COLS = [
     "Keymailer page", "Instagram", "YouTube", "PS Form", "PS Trailer",
@@ -428,7 +490,7 @@ def save_activities_to_disk(data_dict):
         with open(ACTIVITY_STORAGE_FILE, "w", encoding="utf-8") as f:
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        st.error(f"Помилка автозбереження активностей: {e}")
+        st.error(f"Помилка автозбереження: {e}")
 
 # ==============================================================================
 # 🧭 САЙДБАР (БРЕНДОВАНА ШАПКА + NAV PILLS + КНОПКА ВНИЗУ)
@@ -454,6 +516,7 @@ with st.sidebar:
         "Навігація:",
         [
             "🎮 Наші ігри", 
+            "📅 Помісячна динаміка (Monthly)",
             "🚀 Release Pipeline",
             "📋 Release Activity",
             "🎯 Цілі та KPI 2026", 
@@ -1076,7 +1139,105 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 2: RELEASE PIPELINE (ПОВНІ 23 ПРОЕКТИ ТА КОНТРОЛЬ ЗРИВУ ТЕРМІНІВ)
+# 📅 РОЗДІЛ 2: ПОМІСЯЧНА ДИНАМІКА (MONTHLY REVENUE MATRIX)
+# ==============================================================================
+elif app_mode == "📅 Помісячна динаміка (Monthly)":
+    st.title("📅 Помісячна виручка та Cashflow портфоліо ($ USD)")
+    st.caption("Повний помісячний зріз продажів • Автоматична конвертація валют (EUR, AUD, GBP, JPY ➔ USD)")
+
+    uploaded_monthly_file = st.file_uploader(
+        "📂 Завантажте щомісячний звіт консолей / Nintendo eShop (.CSV або .TXT з роздільниками):",
+        type=["csv", "txt", "tsv"],
+        help="Завантажте щомісячний файл звіту Nintendo Developer Portal"
+    )
+
+    if uploaded_monthly_file is not None:
+        try:
+            # Читання файлу (з підтримкою TAB та комою)
+            raw_monthly_df = pd.read_csv(uploaded_monthly_file, sep=None, engine='python', dtype=str)
+            st.session_state["cached_monthly_raw"] = raw_monthly_df
+            st.toast("✅ Звіт успішно завантажено та розпізнано!")
+        except Exception as e:
+            st.error(f"Помилка читання файлу: {e}")
+
+    # Перевірка наявності даних
+    if "cached_monthly_raw" in st.session_state and not st.session_state["cached_monthly_raw"].empty:
+        active_monthly_raw = st.session_state["cached_monthly_raw"]
+        monthly_matrix_df, month_labels = parse_nintendo_monthly_csv(active_monthly_raw)
+
+        if not monthly_matrix_df.empty:
+            # KPI Картки помісячного блоку
+            total_m_rev = monthly_matrix_df["Всього ($)"].sum()
+            total_items_count = len(monthly_matrix_df)
+            best_month_label = month_labels[-1] if month_labels else "—"
+            best_month_val = monthly_matrix_df[best_month_label].sum() if best_month_label in monthly_matrix_df.columns else 0.0
+
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            mc1.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса звіту</div><div class="kpi-value">${total_m_rev:,.2f}</div><span class="kpi-badge badge-total">Конвертовано в USD</span></div>', unsafe_allow_html=True)
+            mc2.markdown(f'<div class="kpi-card"><div class="kpi-label">Тайтлів та DLC у звіті</div><div class="kpi-value">{total_items_count}</div><span class="kpi-badge badge-ps">Окремі рядки</span></div>', unsafe_allow_html=True)
+            mc3.markdown(f'<div class="kpi-card"><div class="kpi-label">Останній місяць ({best_month_label})</div><div class="kpi-value" style="color:#38bdf8 !important;">${best_month_val:,.2f}</div><span class="kpi-badge badge-xbox">Свіжий виторг</span></div>', unsafe_allow_html=True)
+            mc4.markdown(f'<div class="kpi-card"><div class="kpi-label">Діапазон місяців</div><div class="kpi-value" style="font-size:18px;">{month_labels[0]} ➔ {month_labels[-1]}</div><span class="kpi-badge badge-switch">{len(month_labels)} місяців</span></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            m_tab1, m_tab2, m_tab3 = st.tabs([
+                "📑 Зведена матриця (Всі тайтли та DLC)", 
+                "🔥 Теплова карта (Monthly Heatmap)", 
+                "📈 Індивідуальний тренд гри"
+            ])
+
+            with m_tab1:
+                st.subheader("📑 Помісячна виручка по кожній грі та DLC ($ USD)")
+                
+                # Форматування чисел для відображення
+                format_cfg = {"Всього ($)": st.column_config.NumberColumn("Всього ($)", format="$%.2f")}
+                for m_col in month_labels:
+                    format_cfg[m_col] = st.column_config.NumberColumn(m_col, format="$%.2f")
+
+                st.dataframe(monthly_matrix_df, column_config=format_cfg, use_container_width=True, height=480)
+                
+                csv_m_out = monthly_matrix_df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Завантажити помісячну матрицю (.CSV)", data=csv_m_out, file_name="nintendo_monthly_usd_matrix.csv", mime="text/csv")
+
+            with m_tab2:
+                st.subheader("🔥 Теплова карта виторгу за місяцями (Heatmap)")
+                st.caption("Візуалізація піків продажів, розпродажів та сезонного затухання")
+                
+                # Топ-20 продуктів для гарного відображення на Heatmap
+                top_heatmap_df = monthly_matrix_df.head(20).set_index("Назва гри / DLC")[month_labels]
+                
+                fig_heat = px.imshow(
+                    top_heatmap_df,
+                    labels=dict(x="Місяць", y="Гра / DLC", color="Виторг ($)"),
+                    x=month_labels,
+                    y=top_heatmap_df.index,
+                    color_continuous_scale="Purples",
+                    aspect="auto"
+                )
+                fig_heat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=520)
+                st.plotly_chart(fig_heat, use_container_width=True)
+
+            with m_tab3:
+                st.subheader("📈 Індивідуальна динаміка тайтлу по місяцях")
+                selected_item_for_trend = st.selectbox("Оберіть гру або DLC для детального аналізу:", options=monthly_matrix_df["Назва гри / DLC"].tolist(), index=0)
+                
+                item_row = monthly_matrix_df[monthly_matrix_df["Назва гри / DLC"] == selected_item_for_trend].iloc[0]
+                trend_data = [{"Місяць": m, "Виторг ($)": item_row[m]} for m in month_labels]
+                trend_df = pd.DataFrame(trend_data)
+                
+                fig_trend = px.bar(trend_df, x="Місяць", y="Виторг ($)", text="Виторг ($)", color_discrete_sequence=["#d946ef"])
+                fig_trend.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+                fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=380)
+                st.plotly_chart(fig_trend, use_container_width=True)
+
+        else:
+            st.warning("⚠️ Не вдалося розпізнати помісячні колонки (формату MM/01/YY). Перевірте файл.")
+    else:
+        st.info("💡 Завантажте вивантажений файл помісячного звіту Nintendo/консолей вище, щоб побудувати інтерактивну матрицю.")
+
+
+# ==============================================================================
+# 🚀 РОЗДІЛ 3: RELEASE PIPELINE (ПОВНІ 23 ПРОЕКТИ ТА КОНТРОЛЬ ЗРИВУ ТЕРМІНІВ)
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
@@ -1084,7 +1245,6 @@ elif app_mode == "🚀 Release Pipeline":
 
     pipeline_df = load_pipeline_master_data()
 
-    # ФОРМА ДОДАВАННЯ НОВОГО ПРОЕКТУ
     with st.expander("➕ Додати нову гру в пайплайн портінгу", expanded=False):
         with st.form("add_new_pipeline_game_form", clear_on_submit=True):
             f_col1, f_col2, f_col3 = st.columns(3)
@@ -1129,11 +1289,9 @@ elif app_mode == "🚀 Release Pipeline":
         "🚨 Блокери, QA та Команда"
     ])
 
-    # 1. ГОЛОВНИЙ ТРЕКЕР
     with pipe_tab1:
         st.markdown("### 📊 Оперативний статус виробництва (Всі 23 проекти)")
         
-        # Обчислення зривів строків
         pipeline_df["Плановий строк"] = pd.to_numeric(pipeline_df.get("Плановий строк", 0), errors="coerce").fillna(0).astype(int)
         pipeline_df["Факт до сабміту"] = pd.to_numeric(pipeline_df.get("Факт до сабміту", 0), errors="coerce").fillna(0).astype(int)
         
@@ -1210,7 +1368,6 @@ elif app_mode == "🚀 Release Pipeline":
             save_pipeline_master_data(pipeline_df)
             st.success("🎉 Усі зміни збережено у файл `pipeline_master_state.json`!")
 
-    # 2. КОНСОЛЬНІ КАБІНЕТИ ТА ДЕТАЛЬНИЙ КОНТРОЛЬ ЛОТЧЕКУ
     with pipe_tab2:
         st.markdown("### 🎮 Детальний контроль консольних кабінетів та строків сертифікації")
         cab_choice = st.radio("Оберіть консольну платформу:", ["🔴 Nintendo Switch (Lotcheck Deep-Dive & Строки)", "🟢 Xbox (ID@Xbox воронка)", "🔵 PlayStation (Safe Publisher Setup)"], horizontal=True)
@@ -1271,10 +1428,8 @@ elif app_mode == "🚀 Release Pipeline":
             ps_df = pipeline_df[pipeline_df["PlayStation"] == True][ps_cols].copy()
             st.dataframe(ps_df, hide_index=True, use_container_width=True, height=380)
 
-    # 3. БЛОКЕРИ, QA ТА КОМАНДА
     with pipe_tab3:
         st.markdown("### 🚨 Оперативні блокери та розподіл задач")
-        
         b_left, b_right = st.columns(2)
         with b_left:
             st.markdown("#### 🧪 Очікують перевірки QA (Антон перед сабмітом):")
@@ -1308,24 +1463,21 @@ elif app_mode == "🚀 Release Pipeline":
 
 
 # ==============================================================================
-# 📋 РОЗДІЛ 3: RELEASE ACTIVITY (МИТТЄВЕ АВТОЗБЕРЕЖЕННЯ В РЕАЛЬНОМУ ЧАСІ)
+# 📋 РОЗДІЛ 4: RELEASE ACTIVITY (МИТТЄВЕ АВТОЗБЕРЕЖЕННЯ)
 # ==============================================================================
 elif app_mode == "📋 Release Activity":
     st.title("📋 Release Marketing & Launch Activity Tracker")
     st.caption("Інтерактивний чек-лист підготовки до релізу • 🟢 Всі відмітки зберігаються автоматично")
 
-    # Ініціалізація стейту в пам'яті
     if "activity_state_dict" not in st.session_state:
         st.session_state.activity_state_dict = load_saved_activities()
 
-    # Синхронізація з усіма іграми з бази
     for _, r in raw_df.iterrows():
         g_name = str(r["Game_Name_Clean"]).strip()
         if not g_name or g_name.lower() == 'nan': continue
         if g_name not in st.session_state.activity_state_dict:
             st.session_state.activity_state_dict[g_name] = {task: False for task in ACTIVITY_CHECKBOX_COLS}
 
-    # Побудова повної таблиці
     activity_rows = []
     for _, r in raw_df.iterrows():
         g_name = str(r["Game_Name_Clean"]).strip()
@@ -1380,7 +1532,6 @@ elif app_mode == "📋 Release Activity":
         key="release_activity_live_editor"
     )
 
-    # ⚡ МИТТЄВЕ АВТОЗБЕРЕЖЕННЯ ПРИ БУДЬ-ЯКІЙ ЗМІНІ ЧЕКБОКСУ
     has_changes = False
     for _, erow in edited_act_df.iterrows():
         g_n = erow["Гра (Title)"]
@@ -1396,14 +1547,13 @@ elif app_mode == "📋 Release Activity":
     if has_changes:
         save_activities_to_disk(st.session_state.activity_state_dict)
 
-    st.caption("🟢 Усі відмітки зберігаються автоматично на сервері без необхідності натискати кнопки.")
-
+    st.caption("🟢 Усі відмітки зберігаються автоматично на сервері в реальному часі.")
     csv_act = edited_act_df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Експортувати активності (.CSV)", data=csv_act, file_name="upscale_release_activities.csv", mime="text/csv")
 
 
 # ==============================================================================
-# 🎯 РОЗДІЛ 4: ЦІЛІ ТА KPI 2026
+# 🎯 РОЗДІЛ 5: ЦІЛІ ТА KPI 2026
 # ==============================================================================
 elif app_mode == "🎯 Цілі та KPI 2026":
     st.title("🎯 Виконання річного та квартальних планів (2026)")
@@ -1507,7 +1657,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 5: ТИЖНЕВА ДИНАМІКА (WoW)
+# 📈 РОЗДІЛ 6: ТИЖНЕВА ДИНАМІКА (WoW)
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
@@ -1599,7 +1749,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 
 
 # ==============================================================================
-# 🧮 РОЗДІЛ 6: КАЛЬКУЛЯТОР ПРОГНОЗІВ
+# 🧮 РОЗДІЛ 7: КАЛЬКУЛЯТОР ПРОГНОЗІВ
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")

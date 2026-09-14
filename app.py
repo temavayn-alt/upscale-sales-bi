@@ -268,23 +268,71 @@ def contains_japanese(text):
 # 📊 ОНОВЛЕНИЙ ПАРСЕР ТИЖНЕВОЇ ЗВІТНОСТІ (ПОВНА СТРУКТУРА 42 КОЛОНОК З ДЕЛЬТАМИ)
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
-def load_weekly_data(sheet_url):
+def load_data(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
         return pd.DataFrame()
     csv_url = get_export_url(sheet_url)
     try:
-        raw_w = pd.read_csv(csv_url, header=None, dtype=str)
-        if raw_w.empty: return pd.DataFrame()
+        df = pd.read_csv(csv_url, dtype=str)
+    except Exception:
+        return pd.DataFrame()
 
-        first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
-        second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
+    text_column_keys = ["cover", "image", "постер", "url", "фото", "link", "посилання", "date", "дата", "name", "назва", "genre", "жанр", "status", "platform", "insights", "formula", "ai"]
+    for col in df.columns:
+        col_lower = str(col).lower()
+        if any(tk in col_lower for tk in text_column_keys):
+            continue
+        df[col] = df[col].apply(clean_num_val)
 
-        if "from" in second_row_str or "sales" in second_row_str or "to" in second_row_str:
-            data_df = raw_w.iloc[2:].copy().reset_index(drop=True)
-        elif "from" in first_row_str or "sales" in first_row_str:
-            data_df = raw_w.iloc[1:].copy().reset_index(drop=True)
-        else:
-            data_df = raw_w.copy()
+    name_col = next((c for c in df.columns if any(k in c.lower() for k in ["game name", "game", "title", "назва"])), df.columns[0])
+    df.rename(columns={name_col: "Game_Name_Clean"}, inplace=True)
+    df = df[df["Game_Name_Clean"].astype(str).str.strip() != ""]
+    return df
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_nintendo_monthly_from_sheet(sheet_url):
+    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
+        return pd.DataFrame()
+    csv_url = get_export_url(sheet_url)
+    try:
+        df = pd.read_csv(csv_url, dtype=str)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+def prepare_quarterly_data(df_weekly):
+    if df_weekly.empty or "From" not in df_weekly.columns:
+        return pd.DataFrame()
+    df = df_weekly.copy()
+    df = df.dropna(subset=["Parsed_Date"]).copy()
+    df["Year"] = df["Parsed_Date"].apply(lambda d: d.year)
+    df["Quarter"] = df["Parsed_Date"].apply(lambda d: f"Q{math.ceil(d.month/3)} {d.year}")
+    return df
+
+
+# 2. ТЕПЕР ВИКЛИКАЄМО ЇХ (ПІСЛЯ ТОГО, ЯК ВОНИ ОГОЛОШЕНІ):
+raw_df = load_data(GOOGLE_SHEET_URL)
+weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
+nintendo_monthly_raw_df = load_nintendo_monthly_from_sheet(NINTENDO_MONTHLY_SHEET_URL)
+sheet_pipeline_df = load_pipeline_from_sheet(PIPELINE_SHEET_URL)
+
+if raw_df.empty:
+    st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
+    st.stop()
+
+cover_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["cover", "image", "постер", "обкладинка"])), None)
+discount_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["target discount", "discount", "знижк"])), None)
+porting_cost_col = next((c for c in raw_df.columns if "porting cost" in c.lower() or "porting" in c.lower() or "витрати" in c.lower()), None)
+rev_split_col = next((c for c in raw_df.columns if "revenue split" in c.lower() or "split" in c.lower()), None)
+recoup_col = next((c for c in raw_df.columns if "recoup" in c.lower() or "рекуп" in c.lower()), None)
+status_col = next((c for c in raw_df.columns if "status" in c.lower() or "статус" in c.lower()), None)
+rel_date_col = next((c for c in raw_df.columns if any(k in c.lower() for k in ["release date", "release", "date", "дата"])), None)
+genre_col = next((c for c in raw_df.columns if "genre" in c.lower() or "жанр" in c.lower()), None)
+
+DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
+
+if "scouted_leads" not in st.session_state:
+    st.session_state.scouted_leads = []
 
         # Точна мапа нових колонок
         col_map = {

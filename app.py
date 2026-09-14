@@ -23,8 +23,15 @@ PIPELINE_STORAGE_FILE = "pipeline_master_state.json"
 LOGO_FILE = "up4.png"
 
 # ==============================================================================
-# 🎨 2. СТИЛІ ТА КОНФІГУРАЦІЯ СТОРІНКИ
+# 💱 2. ГЛОБАЛЬНИЙ ДОВІДНИК КУРСІВ ВАЛЮТ (FX RATES)
 # ==============================================================================
+FX_RATES = {
+    "USD": 1.00, "EUR": 1.09, "GBP": 1.28, "AUD": 0.67, "NZD": 0.61, "CAD": 0.74,
+    "CHF": 1.15, "JPY": 0.0068, "CZK": 0.044, "PLN": 0.26, "ZAR": 0.055, "BRL": 0.18,
+    "MXN": 0.052, "SEK": 0.096, "NOK": 0.093, "DKK": 0.146, "CLP": 0.0011, "COP": 0.00024,
+    "PEN": 0.27, "ARS": 0.0010, "HKD": 0.128, "KRW": 0.00075, "TWD": 0.031
+}
+
 page_icon_setting = LOGO_FILE if os.path.exists(LOGO_FILE) else "🎮"
 
 st.set_page_config(
@@ -34,11 +41,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Професійні стилі темної теми + градієнти бренду
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     
-    /* Навігація в сайдбарі без радіоточок */
     section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {
         display: none !important;
     }
@@ -71,7 +78,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Вкладки */
     .stTabs [data-baseweb="tab-list"] {
         gap: 16px;
         border-bottom: 1px solid #28283c;
@@ -97,7 +103,6 @@ st.markdown("""
         border-bottom: 2px solid #d946ef !important;
     }
 
-    /* Картки */
     .kpi-card {
         background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
         border: 1px solid #2e2e44;
@@ -121,14 +126,13 @@ st.markdown("""
     .game-poster { width: 85px; height: 105px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
     .top-podium-card { background: #181824; border: 1px solid #2b2b3f; border-radius: 10px; padding: 12px; text-align: center; }
     .sandbox-box { background: #171724; border: 1px solid #2f2f45; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
+    .report-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; color: #f8fafc; }
     .blocker-box { background: #201319; border-left: 4px solid #ef4444; border: 1px solid #3f1a24; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
     .alert-card-red { background: linear-gradient(135deg, #2d141e 0%, #1c0d13 100%); border: 1px solid #7f1d1d; border-left: 5px solid #ef4444; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ==============================================================================
-# 📚 3. ДОВІДНИКИ, КУРСИ ВАЛЮТ ТА ТАРГЕТИ
-# ==============================================================================
+# 🎯 ВІДКАЛІБРОВАНІ ЦІЛІ НА 2026 РІК ($500k TARGET)
 TARGETS_2026 = {
     "Year 2026 (Весь рік)": {
         "Revenue": 500000.0, "Nintendo_Revenue": 130000.0, "PS_Revenue": 250000.0, "Xbox_Revenue": 120000.0,
@@ -222,7 +226,7 @@ ACTIVITY_CHECKBOX_COLS = [
 ]
 
 # ==============================================================================
-# ⚙️ 4. ВСІ ФУНКЦІЇ ОБРОБКИ ТА ПАРСИНГУ (ОГОЛОШЕНІ ПЕРЕД ВИКЛИКАМИ)
+# ⚙️ 3. ВСІ ДОПОМІЖНІ ФУНКЦІЇ ТА ПАРСЕРИ (ОГОЛОШЕНІ ПЕРЕД ВИКЛИКОМ)
 # ==============================================================================
 def get_export_url(url_or_id):
     if not url_or_id: return ""
@@ -340,7 +344,7 @@ def parse_nintendo_monthly_data(df_raw):
     
     return grouped_renamed, ordered_month_labels, month_label_map
 
-# Нормалізатор таблиці Release Pipeline
+# Нормалізатор таблиці Release Pipeline (Захищений від відсутніх колонок)
 def normalize_pipeline_dataframe(df_in):
     if df_in.empty:
         return pd.DataFrame()
@@ -372,7 +376,7 @@ def normalize_pipeline_dataframe(df_in):
         if old_k in df.columns and new_k not in df.columns:
             df.rename(columns={old_k: new_k}, inplace=True)
             
-    if "Гра" not in df.columns:
+    if "Гра" not in df.columns and not df.empty:
         df.rename(columns={df.columns[0]: "Гра"}, inplace=True)
 
     def is_true_val(v):
@@ -427,71 +431,6 @@ def load_data(sheet_url):
     df.rename(columns={name_col: "Game_Name_Clean"}, inplace=True)
     df = df[df["Game_Name_Clean"].astype(str).str.strip() != ""]
     return df
-
-@st.cache_data(ttl=300, show_spinner=False)
-def load_weekly_data(sheet_url):
-    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
-        return pd.DataFrame()
-    csv_url = get_export_url(sheet_url)
-    try:
-        raw_w = pd.read_csv(csv_url, header=None, dtype=str)
-        if raw_w.empty: return pd.DataFrame()
-
-        first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
-        second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
-
-        if "from" in second_row_str or "sales" in second_row_str or "to" in second_row_str:
-            data_df = raw_w.iloc[2:].copy().reset_index(drop=True)
-        elif "from" in first_row_str or "sales" in first_row_str:
-            data_df = raw_w.iloc[1:].copy().reset_index(drop=True)
-        else:
-            data_df = raw_w.copy()
-
-        col_map = {
-            0: "From", 1: "To",
-            2: "Nintendo_Sales", 3: "Nintendo_Sales_Diff",
-            4: "Nintendo_Wishlists", 5: "Nintendo_Wishlists_Diff",
-            6: "Nintendo_Revenue", 7: "Nintendo_Revenue_Diff",
-            8: "PS_Sales", 9: "PS_Sales_Diff",
-            10: "PS_Wishlists", 11: "PS_Wishlists_Diff",
-            12: "PS_Revenue", 13: "PS_Revenue_Diff",
-            14: "Xbox_Sales", 15: "Xbox_Sales_Diff",
-            16: "Xbox_Wishlists", 17: "Xbox_Wishlists_Diff",
-            18: "Xbox_Revenue", 19: "Xbox_Revenue_Diff",
-            20: "Leads", 21: "Leads_Diff",
-            22: "Contacts", 23: "Contacts_Diff",
-            24: "Opportunities", 25: "Opportunities_Diff",
-            26: "Sequence_Started", 27: "Sequence_Started_Diff",
-            28: "Calls", 29: "Calls_Diff",
-            30: "Deals", 31: "Deals_Diff",
-            32: "Twitter", 33: "Twitter_Diff",
-            34: "Instagram", 35: "Instagram_Diff",
-            36: "TikTok", 37: "TikTok_Diff",
-            38: "YouTube", 39: "YouTube_Diff",
-            40: "Discord", 41: "Discord_Diff"
-        }
-
-        parsed_dict = {}
-        for col_idx, col_name in col_map.items():
-            if col_idx < data_df.shape[1]:
-                parsed_dict[col_name] = data_df.iloc[:, col_idx]
-
-        df_out = pd.DataFrame(parsed_dict)
-        for c in df_out.columns:
-            if c not in ["From", "To"]:
-                df_out[c] = df_out[c].apply(clean_num_val)
-
-        df_out = df_out[df_out["From"].astype(str).str.strip().str.lower() != 'nan']
-        df_out = df_out[df_out["From"].astype(str).str.strip() != '']
-        
-        df_out["Parsed_Date"] = df_out["From"].apply(parse_flexible_date)
-        df_out["Month_Label"] = df_out["Parsed_Date"].apply(lambda d: d.strftime("%b %Y") if pd.notna(d) else "—")
-        df_out["Total_Revenue"] = df_out.get("PS_Revenue", 0.0) + df_out.get("Nintendo_Revenue", 0.0) + df_out.get("Xbox_Revenue", 0.0)
-        df_out["Total_Sales"] = df_out.get("PS_Sales", 0.0) + df_out.get("Nintendo_Sales", 0.0) + df_out.get("Xbox_Sales", 0.0)
-        
-        return df_out.reset_index(drop=True)
-    except Exception:
-        return pd.DataFrame()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_nintendo_monthly_from_sheet(sheet_url):
@@ -559,7 +498,7 @@ def prepare_quarterly_data(df_weekly):
     return df
 
 # ==============================================================================
-# 🚀 5. ЗАВАНТАЖЕННЯ ДАНИХ ТА СТАТУС КОЛОНОК
+# 🚀 4. ЗАВАНТАЖЕННЯ ДАНИХ ТА ВИЗНАЧЕННЯ ПОЛІВ
 # ==============================================================================
 raw_df = load_data(GOOGLE_SHEET_URL)
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
@@ -585,7 +524,7 @@ if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
 # ==============================================================================
-# 🧭 6. САЙДБАР (БРЕНДОВАНА ШАПКА + NAV PILLS + КНОПКА ВНИЗУ)
+# 🧭 5. САЙДБАР
 # ==============================================================================
 with st.sidebar:
     col_logo, col_title = st.columns([1, 2.8])
@@ -972,34 +911,6 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
                 height=340
             )
 
-            selected_xb_games = edited_xb_df[edited_xb_df["Подати гру"] == True]
-            selected_count = len(selected_xb_games)
-
-            if selected_count > cur_xb_sale["limit"]:
-                st.error(f"⚠️ **Перевищено ліміт!** Обрано **{selected_count}** ігор із дозволених **{cur_xb_sale['limit']}**.")
-            else:
-                st.success(f"✅ Обрано **{selected_count}** із **{cur_xb_sale['limit']}** доступних слотів.")
-
-            if st.button("📦 Сформувати пакет заявки для Xbox Portal", use_container_width=True):
-                if selected_xb_games.empty:
-                    st.warning("Оберіть хоча б одну гру для формування заявки!")
-                else:
-                    submission_text_lines = [
-                        f"=== UPSCALE STUDIO // XBOX PROMOTION SUBMISSION ===",
-                        f"Event: {cur_xb_sale['name']}",
-                        f"Dates: {cur_xb_sale['start']} to {cur_xb_sale['end']}",
-                        f"Total Titles: {len(selected_xb_games)} / {cur_xb_sale['limit']}",
-                        f"--------------------------------------------------"
-                    ]
-                    for _, srow in selected_xb_games.iterrows():
-                        sale_p = round(srow["Базова ціна ($)"] * (1 - srow["Знижка Xbox (%)"] / 100.0), 2)
-                        submission_text_lines.append(f"• {srow['Гра']} | Base: ${srow['Базова ціна ($)']:.2f} | Discount: {srow['Знижка Xbox (%)']}% | Final: ${sale_p:.2f}")
-
-                    st.markdown("##### 📋 Текстовий звіт для форми ID@Xbox:")
-                    st.text_area("Готово до копіювання:", "\n".join(submission_text_lines), height=180)
-                    csv_xb_sub = selected_xb_games[["Гра", "Базова ціна ($)", "Знижка Xbox (%)", "Ціна на сейлі ($)"]].to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Завантажити CSV заявки для ID@Xbox", data=csv_xb_sub, file_name=f"Xbox_{cur_xb_sale['name'].split(' ')[0]}_Submission.csv", mime="text/csv")
-
     with tab_forecast_review:
         st.subheader("🎯 Порівняння прогнозованих та фактичних результатів")
         st.caption("Аудит точності на основі відкаліброваних 30 піджанрів та вхідних джерел")
@@ -1372,7 +1283,7 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 3: RELEASE PIPELINE (ПОВНА СИНХРОНІЗАЦІЯ З GOOGLE SHEETS)
+# 🚀 РОЗДІЛ 3: RELEASE PIPELINE (ПОВНА БЕЗПЕЧНА СИНХРОНІЗАЦІЯ)
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
@@ -1434,6 +1345,11 @@ elif app_mode == "🚀 Release Pipeline":
     with pipe_tab1:
         st.markdown("### 📊 Оперативний статус виробництва")
         
+        # Повний захист від відсутності колонок
+        for col_chk in ["Плановий строк", "Факт до сабміту"]:
+            if col_chk not in pipeline_df.columns:
+                pipeline_df[col_chk] = 0
+
         overrun_projects = pipeline_df[(pipeline_df["Факт до сабміту"] > pipeline_df["Плановий строк"]) & (pipeline_df["Плановий строк"] > 0)]
         overrun_count = len(overrun_projects)
         in_dev_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Development|testing", case=False)])
@@ -1799,35 +1715,43 @@ elif app_mode == "🎯 Цілі та KPI 2026":
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 6: ТИЖНЕВА ДИНАМІКА (РОЗШИРЕНА BIZDEV ВОРОНКА ТА ФІЛЬТРИ ДАТ)
+# 📈 РОЗДІЛ 6: ТИЖНЕВА ДИНАМІКА (НОВА BIZDEV ВОРОНКА ТА ФІЛЬТР ДАТ)
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
-    st.caption("Динаміка консольних зборів, вішлістів, повна BizDev воронка конверсій та соцмережі")
+    st.caption("Динаміка консольних зборів, вішлістів, повна воронка лідогенерації та соцмережі")
 
     if weekly_df.empty:
         st.warning("⚠️ Вкажи валідне посилання на тижневу вкладку з `#gid=...` у рядку `WEEKLY_SHEET_URL`.")
         st.stop()
 
+    # 🎛️ ФІЛЬТРАЦІЯ: ВЕСЬ ПЕРІОД АБО START DATE / END DATE
     st.markdown("---")
     w_f_col1, w_f_col2 = st.columns([1.2, 2.8])
     with w_f_col1:
-        w_filter_mode = st.radio(
-            "Фільтрація періоду тижнів:",
-            ["Всі тижні", "Останні 4 тижні (1 міс)", "Останні 12 тижнів (Квартал)", "Вибір конкретного місяця"],
+        w_period_mode = st.radio(
+            "Період аналізу тижнів:",
+            ["📅 Весь період", "🗓️ Діапазон дат (Start / End)"],
             index=0
         )
 
-    all_months_available = [str(m) for m in weekly_df["Month_Label"].unique() if m != "—"]
+    valid_dates = weekly_df["Parsed_Date"].dropna()
+    min_d = valid_dates.min().date() if not valid_dates.empty else datetime.now().date() - timedelta(days=90)
+    max_d = valid_dates.max().date() if not valid_dates.empty else datetime.now().date()
 
     with w_f_col2:
-        if w_filter_mode == "Останні 4 тижні (1 міс)":
-            active_weekly_df = weekly_df.tail(4).copy()
-        elif w_filter_mode == "Останні 12 тижнів (Квартал)":
-            active_weekly_df = weekly_df.tail(12).copy()
-        elif w_filter_mode == "Вибір конкретного місяця":
-            selected_w_month = st.selectbox("Оберіть звітний місяць:", options=all_months_available, index=len(all_months_available)-1 if all_months_available else 0)
-            active_weekly_df = weekly_df[weekly_df["Month_Label"] == selected_w_month].copy()
+        if w_period_mode == "🗓️ Діапазон дат (Start / End)":
+            date_range = st.date_input(
+                "Оберіть діапазон (Start Date ➔ End Date):",
+                value=(min_d, max_d),
+                min_value=min_d,
+                max_value=max_d + timedelta(days=365)
+            )
+            if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+                start_val, end_val = date_range
+                active_weekly_df = weekly_df[(weekly_df["Parsed_Date"].dt.date >= start_val) & (weekly_df["Parsed_Date"].dt.date <= end_val)].copy()
+            else:
+                active_weekly_df = weekly_df.copy()
         else:
             active_weekly_df = weekly_df.copy()
 
@@ -1883,41 +1807,54 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         fig_w_sales.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), yaxis_title="Продано копій (шт)")
         st.plotly_chart(fig_w_sales, use_container_width=True)
 
+    # ==============================================================================
+    # 🎯 ВКЛАДКА: НОВА ЛОГІКА BIZDEV ВОРОНКИ (LEADS ➔ SEQUENCE ➔ CONTACTS ➔ OPPS ➔ CALLS ➔ DEALS)
+    # ==============================================================================
     with w_tab2:
         st.subheader("🎯 Повна воронка залучення проектів (Leads ➔ Deals)")
-        st.caption("Покроковий аналіз конверсії скаутингу, аутрічу, колів та підписаних договорів")
+        st.caption("Аналіз конверсії: Додано лідів ➔ Запущено Sequence ➔ Отримано відповідей ➔ Зацікавлені ➔ Дзвінки ➔ Угоди")
 
         tot_leads = float(active_weekly_df["Leads"].sum()) if "Leads" in active_weekly_df.columns else 0.0
+        tot_seq = float(active_weekly_df["Sequence_Started"].sum()) if "Sequence_Started" in active_weekly_df.columns else 0.0
         tot_contacts = float(active_weekly_df["Contacts"].sum()) if "Contacts" in active_weekly_df.columns else 0.0
         tot_opps = float(active_weekly_df["Opportunities"].sum()) if "Opportunities" in active_weekly_df.columns else 0.0
-        tot_seq = float(active_weekly_df["Sequence_Started"].sum()) if "Sequence_Started" in active_weekly_df.columns else 0.0
         tot_calls = float(active_weekly_df["Calls"].sum()) if "Calls" in active_weekly_df.columns else 0.0
         tot_deals = float(active_weekly_df["Deals"].sum()) if "Deals" in active_weekly_df.columns else 0.0
 
-        conv_leads_contacts = (tot_contacts / max(tot_leads, 1.0)) * 100
-        conv_contacts_opps = (tot_opps / max(tot_contacts, 1.0)) * 100 if tot_opps > 0 else 100.0
-        conv_opps_seq = (tot_seq / max(tot_opps if tot_opps > 0 else tot_contacts, 1.0)) * 100
-        conv_seq_calls = (tot_calls / max(tot_seq if tot_seq > 0 else tot_contacts, 1.0)) * 100
-        conv_calls_deals = (tot_deals / max(tot_calls, 1.0)) * 100
+        # Точний покроковий прорахунок конверсій
+        conv_leads_seq = (tot_seq / max(tot_leads, 1.0)) * 100
+        conv_seq_contacts = (tot_contacts / max(tot_seq if tot_seq > 0 else tot_leads, 1.0)) * 100  # Reply Rate
+        conv_contacts_opps = (tot_opps / max(tot_contacts, 1.0)) * 100 if tot_opps > 0 else 100.0  # Interest Rate
+        conv_opps_calls = (tot_calls / max(tot_opps if tot_opps > 0 else tot_contacts, 1.0)) * 100
+        conv_calls_deals = (tot_deals / max(tot_calls, 1.0)) * 100  # Closing Rate
 
+        # KPI Картки воронки
         fc1, fc2, fc3, fc4, fc5, fc6 = st.columns(6)
-        fc1.metric("🔍 1. Leads", f"{int(tot_leads):,}")
-        fc2.metric("✉️ 2. Contacts", f"{int(tot_contacts):,}", f"{conv_leads_contacts:.1f}%")
-        fc3.metric("🎯 3. Opportunities", f"{int(tot_opps):,}", f"{conv_contacts_opps:.1f}%" if tot_opps > 0 else "—")
-        fc4.metric("🚀 4. Sequences", f"{int(tot_seq):,}", f"{conv_opps_seq:.1f}%" if tot_seq > 0 else "—")
-        fc5.metric("📞 5. Calls", f"{int(tot_calls):,}", f"{conv_seq_calls:.1f}%")
-        fc6.metric("🤝 6. Deals", f"{int(tot_deals):,}", f"{conv_calls_deals:.1f}% з колів")
+        fc1.metric("🔍 1. Leads", f"{int(tot_leads):,}", "Додано")
+        fc2.metric("🚀 2. Sequence", f"{int(tot_seq):,}", f"{conv_leads_seq:.1f}% аутріч")
+        fc3.metric("✉️ 3. Contacts", f"{int(tot_contacts):,}", f"{conv_seq_contacts:.1f}% відповіли")
+        fc4.metric("🎯 4. Opps", f"{int(tot_opps):,}", f"{conv_contacts_opps:.1f}% інтерес" if tot_opps > 0 else "—")
+        fc5.metric("📞 5. Calls", f"{int(tot_calls):,}", f"{conv_opps_calls:.1f}% коли")
+        fc6.metric("🤝 6. Deals", f"{int(tot_deals):,}", f"{conv_calls_deals:.1f}% закриття")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        funnel_stages = ["1. Leads (Скаутинг)", "2. Contacts (Прямі контакти)", "3. Opportunities (Кваліфіковані)", "4. Sequence Started (Аутріч)", "5. Calls (Пітч-коли)", "6. Deals (Підписані договори)"]
-        funnel_values = [tot_leads, tot_contacts, tot_opps if tot_opps > 0 else tot_contacts * 0.8, tot_seq if tot_seq > 0 else tot_contacts * 0.7, tot_calls, tot_deals]
+        # Графік воронки (Plotly Funnel)
+        funnel_stages = [
+            "1. Leads (Додані ліди)",
+            "2. Sequence Started (Кому написали)",
+            "3. Contacts (Отримано відповідей)",
+            "4. Opportunities (Зацікавлені)",
+            "5. Calls (Дзвінки / Коли)",
+            "6. Deals (Підписані договори)"
+        ]
+        funnel_values = [tot_leads, tot_seq if tot_seq > 0 else tot_leads * 0.8, tot_contacts, tot_opps if tot_opps > 0 else tot_contacts * 0.7, tot_calls, tot_deals]
 
         fig_funnel = go.Figure(go.Funnel(
             y=funnel_stages,
             x=funnel_values,
             textinfo="value+percent initial+percent previous",
-            marker=dict(color=["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#10b981"]),
+            marker=dict(color=["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#f59e0b", "#10b981"]),
             connector={"line": {"color": "#475569", "width": 1.5}}
         ))
         fig_funnel.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=380, margin=dict(t=20, b=20, l=20, r=20))
@@ -1925,7 +1862,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 
         st.markdown("---")
         st.subheader("📊 Тижнева динаміка воронки (Leads ➔ Deals)")
-        bd_cols_chart = [c for c in ["Leads", "Contacts", "Opportunities", "Sequence_Started", "Calls", "Deals"] if c in active_weekly_df.columns]
+        bd_cols_chart = [c for c in ["Leads", "Sequence_Started", "Contacts", "Opportunities", "Calls", "Deals"] if c in active_weekly_df.columns]
         fig_bd_bar = px.bar(active_weekly_df, x="From", y=bd_cols_chart, barmode="group", color_discrete_sequence=["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#f59e0b", "#10b981"])
         fig_bd_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Кількість")
         st.plotly_chart(fig_bd_bar, use_container_width=True)

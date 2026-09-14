@@ -11,12 +11,11 @@ import re
 from anthropic import Anthropic
 
 # ==============================================================================
-# 🔗 1. НАЛАШТУВАННЯ ТАБЛИЦЬ ТА ЗБЕРЕЖЕННЯ:
+# 🔗 1. НАЛАШТУВАННЯ ТАБЛИЦЬ ТА АПІ:
 # ==============================================================================
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
-NINTENDO_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1182691055#gid=1182691055"
-XBOX_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1981339676#gid=1981339676"
+NINTENDO_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 PIPELINE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec"
 ANTHROPIC_API_KEY = ""  # Залиш порожнім або додай у Secrets
@@ -26,7 +25,7 @@ PIPELINE_STORAGE_FILE = "pipeline_master_state.json"
 LOGO_FILE = "up4.png"
 
 # ==============================================================================
-# 💱 2. ГЛОБАЛЬНИЙ ДОВІДНИК КУРСІВ ВАЛЮТ (FX RATES) ТА КОНСТАНТИ
+# 💱 2. ГЛОБАЛЬНИЙ ДОВІДНИК КУРСІВ ВАЛЮТ (FX RATES)
 # ==============================================================================
 FX_RATES = {
     "USD": 1.00, "EUR": 1.09, "GBP": 1.28, "AUD": 0.67, "NZD": 0.61, "CAD": 0.74,
@@ -35,8 +34,107 @@ FX_RATES = {
     "PEN": 0.27, "ARS": 0.0010, "HKD": 0.128, "KRW": 0.00075, "TWD": 0.031
 }
 
-MONTH_NAMES_UA = ["", "Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"]
+page_icon_setting = LOGO_FILE if os.path.exists(LOGO_FILE) else "🎮"
 
+st.set_page_config(
+    page_title="Upscale Studio | Console BI & Growth Hub",
+    page_icon=page_icon_setting,
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Професійні стилі темної теми + градієнти бренду
+st.markdown("""
+<style>
+    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+    
+    section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+        background-color: #171724 !important;
+        border: 1px solid #28283c !important;
+        border-radius: 9px !important;
+        padding: 9px 14px !important;
+        margin-bottom: 6px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background-color: #222235 !important;
+        border-color: #a855f7 !important;
+        transform: translateX(2px);
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"],
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(90deg, rgba(192, 38, 211, 0.22) 0%, rgba(249, 115, 22, 0.16) 100%) !important;
+        border: 1px solid #d946ef !important;
+        box-shadow: 0 2px 10px rgba(217, 70, 239, 0.15) !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p,
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 16px;
+        border-bottom: 1px solid #28283c;
+        background-color: transparent !important;
+        padding-bottom: 0px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 38px;
+        background-color: transparent !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        padding: 4px 10px;
+        color: #94a3b8 !important;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover { color: #e2e8f0 !important; }
+    .stTabs [aria-selected="true"] {
+        background-color: transparent !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        border-bottom: 2px solid #d946ef !important;
+    }
+
+    .kpi-card {
+        background: linear-gradient(135deg, #1e1e2d 0%, #161622 100%);
+        border: 1px solid #2e2e44;
+        border-radius: 12px;
+        padding: 16px 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+        margin-bottom: 10px;
+    }
+    .kpi-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+    .kpi-value { font-size: 24px; font-weight: 800; color: #ffffff !important; margin-bottom: 4px; font-family: -apple-system, sans-serif; }
+    .kpi-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+    .badge-total { background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+    .badge-switch { background-color: rgba(230, 0, 18, 0.18); color: #ff6b6b; }
+    .badge-ps { background-color: rgba(0, 55, 145, 0.25); color: #60a5fa; }
+    .badge-xbox { background-color: rgba(16, 124, 16, 0.25); color: #4ade80; }
+    
+    .insight-card-flex {
+        display: flex; gap: 16px; background-color: #171723; border-left: 4px solid #d946ef;
+        padding: 14px 18px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #28283c; align-items: center;
+    }
+    .game-poster { width: 85px; height: 105px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+    .top-podium-card { background: #181824; border: 1px solid #2b2b3f; border-radius: 10px; padding: 12px; text-align: center; }
+    .sandbox-box { background: #171724; border: 1px solid #2f2f45; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
+    .report-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; color: #f8fafc; }
+    .blocker-box { background: #201319; border-left: 4px solid #ef4444; border: 1px solid #3f1a24; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+    .alert-card-red { background: linear-gradient(135deg, #2d141e 0%, #1c0d13 100%); border: 1px solid #7f1d1d; border-left: 5px solid #ef4444; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+</style>
+""", unsafe_allow_html=True)
+
+# 🎯 ВІДКАЛІБРОВАНІ ЦІЛІ НА 2026 РІК ($500k TARGET)
 TARGETS_2026 = {
     "Year 2026 (Весь рік)": {
         "Revenue": 500000.0, "Nintendo_Revenue": 130000.0, "PS_Revenue": 250000.0, "Xbox_Revenue": 120000.0,
@@ -130,7 +228,7 @@ ACTIVITY_CHECKBOX_COLS = [
 ]
 
 # ==============================================================================
-# 🛠️ 3. ПАРСЕРИ ТА ЗАХИЩЕНІ ФУНКЦІЇ ОБРОБКИ ДАНИХ
+# ⚙️ 3. ВСІ ДОПОМІЖНІ ФУНКЦІЇ ТА ПАРСЕРИ (ОГОЛОШЕНІ ПЕРЕД ВИКЛИКОМ)
 # ==============================================================================
 def get_export_url(url_or_id):
     if not url_or_id: return ""
@@ -141,61 +239,153 @@ def get_export_url(url_or_id):
     gid = gid_match.group(1) if gid_match else "0"
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
-# Безпечний парсер щомісячного звіту Xbox Partner Center
-def parse_xbox_monthly_data(df_raw):
-    if df_raw is None or df_raw.empty:
-        return pd.DataFrame(), []
-    
-    title_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["titlename", "title name", "parentproductname"])), "TitleName")
-    date_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["datestamp", "date"])), "DateStamp")
-    usd_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["purchasepriceusdamount", "priceusdamount"])), "PurchasePriceUSDAmount")
+def parse_flexible_date(d_val):
+    if pd.isna(d_val) or not str(d_val).strip() or str(d_val).strip().lower() == 'nan':
+        return None
+    d_str = str(d_val).strip()
+    for fmt in ["%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%Y.%m.%d", "%m/%d/%Y"]:
+        try: return datetime.strptime(d_str[:10], fmt)
+        except: continue
+    try:
+        dt = pd.to_datetime(d_str, dayfirst=True)
+        if pd.notna(dt): return dt.to_pydatetime()
+    except: pass
+    return None
 
-    if title_col not in df_raw.columns or date_col not in df_raw.columns:
-        return pd.DataFrame(), []
+def clean_num_val(val):
+    if pd.isna(val): return 0.0
+    s = str(val).strip().replace("$", "").replace("€", "").replace("%", "").replace("\xa0", "").replace(" ", "")
+    if not s or s.lower() == 'nan': return 0.0
+    if "," in s and "." in s:
+        if s.find(".") < s.find(","): s = s.replace(".", "").replace(",", ".")
+        else: s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    try: return float(s)
+    except: return 0.0
 
-    df = df_raw.copy()
-    df["Clean_Title"] = df[title_col].astype(str).str.strip()
-    df["Clean_Title"] = df["Clean_Title"].replace({"Skinwalker 3D": "Skinwalker"})
-    
-    df["USD_Amount"] = pd.to_numeric(df[usd_col] if usd_col in df.columns else 0.0, errors="coerce").fillna(0.0)
-    df["Parsed_Date"] = pd.to_datetime(df[date_col], errors="coerce")
-    df = df.dropna(subset=["Parsed_Date"])
-    
-    if df.empty:
-        return pd.DataFrame(), []
+def contains_japanese(text):
+    if not text or pd.isna(text): return False
+    return bool(re.search(r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]', str(text)))
 
-    df["Year_Month"] = df["Parsed_Date"].dt.strftime("%Y-%m")
-    sorted_yms = sorted(df["Year_Month"].unique())
+# Парсер щомісячних звітів Nintendo eShop з авто-злиттям японських тайтлів
+def parse_nintendo_monthly_data(df_raw):
+    date_cols = [c for c in df_raw.columns if re.match(r"^\d{2}/\d{2}/\d{2}$", str(c).strip())]
+    if not date_cols:
+        return pd.DataFrame(), [], {}
     
-    def ym_to_label(ym_str):
+    cost_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["points", "cost", "price", "ціна"])), "Points/Cost")
+    curr_col = next((c for c in df_raw.columns if any(k in c.lower() for k in ["curr", "валют"])), "Currency")
+    title_code_col = next((c for c in df_raw.columns if "titlecode" in c.lower() or "title code" in c.lower()), None)
+    item_col = next((c for c in df_raw.columns if "itemname" in c.lower() or "item name" in c.lower()), None)
+    title_col = next((c for c in df_raw.columns if "titlename" in c.lower() or "title name" in c.lower()), None)
+    target_name_col = item_col if item_col else (title_col if title_col else df_raw.columns[1])
+
+    code_to_english_map = {}
+    if title_code_col:
+        for _, r in df_raw.iterrows():
+            t_code = str(r.get(title_code_col, "")).strip()
+            raw_name = str(r.get(target_name_col, "")).strip()
+            if t_code and raw_name and not contains_japanese(raw_name) and raw_name.lower() != 'nan':
+                base_code = t_code[:9] if len(t_code) >= 9 else t_code
+                if base_code not in code_to_english_map:
+                    code_to_english_map[base_code] = raw_name
+                if t_code not in code_to_english_map:
+                    code_to_english_map[t_code] = raw_name
+
+    def format_month_label(c_str):
         try:
-            y, m = ym_str.split("-")
-            return f"{MONTH_NAMES_UA[int(m)]} {y}"
+            parts = c_str.split("/")
+            m = int(parts[0])
+            y = 2000 + int(parts[2])
+            month_names = ["", "Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"]
+            if 1 <= m <= 12:
+                return f"{month_names[m]} {y}"
         except:
-            return ym_str
+            pass
+        return c_str
 
-    month_label_map = {ym: ym_to_label(ym) for ym in sorted_yms}
-    ordered_month_labels = [month_label_map[ym] for ym in sorted_yms]
+    month_label_map = {c: format_month_label(c) for c in date_cols}
+    
+    processed_records = []
+    for _, row in df_raw.iterrows():
+        raw_name = str(row.get(target_name_col, "Unknown")).strip()
+        if not raw_name or raw_name.lower() == 'nan': continue
+        
+        t_code = str(row.get(title_code_col, "")).strip() if title_code_col else ""
+        base_code = t_code[:9] if len(t_code) >= 9 else t_code
+        
+        final_item_name = raw_name
+        if contains_japanese(raw_name):
+            if t_code in code_to_english_map:
+                final_item_name = code_to_english_map[t_code]
+            elif base_code in code_to_english_map:
+                final_item_name = code_to_english_map[base_code]
 
-    pivot = df.pivot_table(
-        index="Clean_Title",
-        columns="Year_Month",
-        values="USD_Amount",
-        aggfunc="sum",
-        fill_value=0.0
-    ).reset_index()
+        curr = str(row.get(curr_col, "USD")).strip().upper()
+        fx = FX_RATES.get(curr, 1.0)
+        cost = clean_num_val(row.get(cost_col, 0.0))
+        
+        row_dict = {"Назва гри / DLC": final_item_name}
+        for d_col in date_cols:
+            units = clean_num_val(row.get(d_col, 0.0))
+            rev_usd = units * cost * fx
+            row_dict[d_col] = rev_usd
+        processed_records.append(row_dict)
+        
+    proc_df = pd.DataFrame(processed_records)
+    if proc_df.empty:
+        return pd.DataFrame(), [], {}
+        
+    grouped = proc_df.groupby("Назва гри / DLC")[date_cols].sum().reset_index()
+    grouped["Всього ($)"] = grouped[date_cols].sum(axis=1)
+    grouped = grouped.sort_values(by="Всього ($)", ascending=False).reset_index(drop=True)
+    
+    grouped_renamed = grouped.rename(columns=month_label_map)
+    ordered_month_labels = [month_label_map[c] for c in date_cols]
+    
+    return grouped_renamed, ordered_month_labels, month_label_map
 
-    pivot.rename(columns={"Clean_Title": "Назва гри / DLC"}, inplace=True)
-    pivot.rename(columns=month_label_map, inplace=True)
-
-    pivot["Всього ($)"] = pivot[ordered_month_labels].sum(axis=1)
-    pivot = pivot.sort_values(by="Всього ($)", ascending=False).reset_index(drop=True)
-
-    return pivot, ordered_month_labels
-
-# Парсер Release Pipeline з повним захистом від KeyError/AttributeError
+# Нормалізатор таблиці Release Pipeline (Захищений від відсутніх колонок)
 def normalize_pipeline_dataframe(df_in):
-    required_defaults = {
+    if df_in.empty:
+        return pd.DataFrame()
+    
+    df = df_in.copy()
+    
+    rename_rules = {
+        "Игра": "Гра", "Title": "Гра", "Game": "Гра",
+        "Разработчик": "Розробник", "Developer": "Розробник", "Dev": "Розробник",
+        "Художник": "Художник", "Artist": "Художник",
+        "Нюансы": "Нюанси", "Notes": "Нюанси",
+        "Дата старта": "Дата старту", "Start Date": "Дата старту",
+        "Планируемая дата финиша": "Планова дата", "Finish Date": "Планова дата",
+        "Планируемый срок": "Плановий строк", "Plan Days": "Плановий строк",
+        "Фактический срок (до сертификации Нинтендо)": "Факт до сабміту", "Fact Days": "Факт до сабміту",
+        "Статус сертификации": "Статус Lotcheck", "Lotcheck Status": "Статус Lotcheck",
+        "Nintendo Switch": "Switch", "Nintendo Switch релизный билд загружен Дата": "Switch Білд Дата",
+        "Nintendo Switch релизный принят, дата и с которого раза": "Прийнято Lotcheck",
+        "Длительность прохождения сертификации": "Днів у Lotcheck",
+        "С какого раза принята сертификация": "Спроби Lotcheck",
+        "XBox": "Xbox", "XBox концепт отправлен": "Xbox Концепт", "XBox TLA отправлен": "Xbox TLA",
+        "Play Station": "PlayStation", "PS продукт создан": "PS Продукт",
+        "Трейлеры все готовы": "Трейлер", "Трейлер": "Трейлер",
+        "Картинки предоставлены": "Картинки", "Картинки": "Картинки",
+        "Текстовые ресурсы предоставлены": "Тексти", "Тексти": "Тексти"
+    }
+    
+    for old_k, new_k in rename_rules.items():
+        if old_k in df.columns and new_k not in df.columns:
+            df.rename(columns={old_k: new_k}, inplace=True)
+            
+    if "Гра" not in df.columns and not df.empty:
+        df.rename(columns={df.columns[0]: "Гра"}, inplace=True)
+
+    def is_true_val(v):
+        s = str(v).strip().lower()
+        return s in ["✅", "true", "1", "yes", "да"]
+
+    defaults = {
         "Гра": "Unknown Project", "Розробник": "Не вказано", "Художник": "",
         "Нюанси": "", "Дата старту": "", "Планова дата": "",
         "Плановий строк": 0, "Факт до сабміту": 0,
@@ -206,46 +396,7 @@ def normalize_pipeline_dataframe(df_in):
         "PlayStation": False, "PS Продукт": False
     }
 
-    if df_in is None or df_in.empty:
-        return pd.DataFrame(columns=list(required_defaults.keys()))
-    
-    df = df_in.copy()
-    for col in list(df.columns):
-        c_clean = str(col).strip().lower()
-        if "сертификации" in c_clean or "lotcheck" in c_clean:
-            df.rename(columns={col: "Статус Lotcheck"}, inplace=True)
-        elif c_clean in ["игра", "title", "game"]:
-            df.rename(columns={col: "Гра"}, inplace=True)
-        elif c_clean in ["разработчик", "developer", "dev"]:
-            df.rename(columns={col: "Розробник"}, inplace=True)
-        elif c_clean in ["художник", "artist"]:
-            df.rename(columns={col: "Художник"}, inplace=True)
-        elif "планируемый срок" in c_clean or "плановий строк" in c_clean:
-            df.rename(columns={col: "Плановий строк"}, inplace=True)
-        elif "фактический срок" in c_clean or "факт до сабміту" in c_clean:
-            df.rename(columns={col: "Факт до сабміту"}, inplace=True)
-        elif "планируемая дата" in c_clean or "планова дата" in c_clean:
-            df.rename(columns={col: "Планова дата"}, inplace=True)
-        elif "длительность" in c_clean or "днів у lotcheck" in c_clean:
-            df.rename(columns={col: "Днів у Lotcheck"}, inplace=True)
-        elif "с какого раза" in c_clean or "спроби lotcheck" in c_clean:
-            df.rename(columns={col: "Спроби Lotcheck"}, inplace=True)
-        elif "принят" in c_clean:
-            df.rename(columns={col: "Прийнято Lotcheck"}, inplace=True)
-        elif c_clean in ["nintendo switch", "switch"]:
-            df.rename(columns={col: "Switch"}, inplace=True)
-        elif c_clean == "xbox":
-            df.rename(columns={col: "Xbox"}, inplace=True)
-        elif c_clean in ["play station", "playstation", "ps"]:
-            df.rename(columns={col: "PlayStation"}, inplace=True)
-
-    if "Гра" not in df.columns and not df.empty:
-        df.rename(columns={df.columns[0]: "Гра"}, inplace=True)
-
-    def is_true_val(v):
-        return str(v).strip().lower() in ["✅", "true", "1", "yes", "да"]
-
-    for col_name, def_val in required_defaults.items():
+    for col_name, def_val in defaults.items():
         if col_name not in df.columns:
             df[col_name] = def_val
 
@@ -258,23 +409,10 @@ def normalize_pipeline_dataframe(df_in):
 
     df = df[df["Гра"].astype(str).str.strip() != ""]
     df = df[~df["Гра"].astype(str).str.contains("Что нужно|Резюме|Добавить треккинг|Чистка|Работа с|Горящие|Ожидающие|Коммуникация", case=False, na=False)]
+    
     return df.reset_index(drop=True)
 
-# ==============================================================================
-# 📥 4. ЗАВАНТАЖУВАЧІ ТАБЛИЦЬ (ОГОЛОШЕНІ ДО ВИКЛИКІВ)
-# ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
-def clean_num_val(val):
-    if pd.isna(val): return 0.0
-    s = str(val).strip().replace("$", "").replace("€", "").replace("%", "").replace("\xa0", "").replace(" ", "")
-    if not s or s.lower() == 'nan': return 0.0
-    if "," in s and "." in s:
-        if s.find(".") < s.find(","): s = s.replace(".", "").replace(",", ".")
-        else: s = s.replace(",", "")
-    elif "," in s:
-        s = s.replace(",", ".")
-    try: return float(s)
-    except: return 0.0
 def load_data(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
         return pd.DataFrame()
@@ -297,79 +435,24 @@ def load_data(sheet_url):
     return df
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_weekly_data(sheet_url):
-    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
-        return pd.DataFrame()
-    csv_url = get_export_url(sheet_url)
-    try:
-        raw_w = pd.read_csv(csv_url, header=None, dtype=str)
-        if raw_w.empty: return pd.DataFrame()
-
-        first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
-        second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
-
-        if "from" in second_row_str or "sales" in second_row_str or "to" in second_row_str:
-            data_df = raw_w.iloc[2:].copy().reset_index(drop=True)
-        elif "from" in first_row_str or "sales" in first_row_str:
-            data_df = raw_w.iloc[1:].copy().reset_index(drop=True)
-        else:
-            data_df = raw_w.copy()
-
-        # Новий точний порядок колонок воронки (Leads -> Sequence -> Contacts -> Opps -> Calls -> Deals)
-        col_map = {
-            0: "From", 1: "To",
-            2: "Nintendo_Sales", 3: "Nintendo_Sales_Diff",
-            4: "Nintendo_Wishlists", 5: "Nintendo_Wishlists_Diff",
-            6: "Nintendo_Revenue", 7: "Nintendo_Revenue_Diff",
-            8: "PS_Sales", 9: "PS_Sales_Diff",
-            10: "PS_Wishlists", 11: "PS_Wishlists_Diff",
-            12: "PS_Revenue", 13: "PS_Revenue_Diff",
-            14: "Xbox_Sales", 15: "Xbox_Sales_Diff",
-            16: "Xbox_Wishlists", 17: "Xbox_Wishlists_Diff",
-            18: "Xbox_Revenue", 19: "Xbox_Revenue_Diff",
-            20: "Leads", 21: "Leads_Diff",
-            22: "Sequence_Started", 23: "Sequence_Started_Diff",
-            24: "Contacts", 25: "Contacts_Diff",
-            26: "Opportunities", 27: "Opportunities_Diff",
-            28: "Calls", 29: "Calls_Diff",
-            30: "Deals", 31: "Deals_Diff",
-            32: "Twitter", 33: "Twitter_Diff",
-            34: "Instagram", 35: "Instagram_Diff",
-            36: "TikTok", 37: "TikTok_Diff",
-            38: "YouTube", 39: "YouTube_Diff",
-            40: "Discord", 41: "Discord_Diff"
-        }
-
-        parsed_dict = {}
-        for col_idx, col_name in col_map.items():
-            if col_idx < data_df.shape[1]:
-                parsed_dict[col_name] = data_df.iloc[:, col_idx]
-
-        df_out = pd.DataFrame(parsed_dict)
-        for c in df_out.columns:
-            if c not in ["From", "To"]:
-                df_out[c] = df_out[c].apply(clean_num_val)
-
-        df_out = df_out[df_out["From"].astype(str).str.strip().str.lower() != 'nan']
-        df_out = df_out[df_out["From"].astype(str).str.strip() != '']
-        
-        df_out["Parsed_Date"] = df_out["From"].apply(parse_flexible_date)
-        df_out["Month_Label"] = df_out["Parsed_Date"].apply(lambda d: d.strftime("%b %Y") if pd.notna(d) else "—")
-        df_out["Total_Revenue"] = df_out.get("PS_Revenue", 0.0) + df_out.get("Nintendo_Revenue", 0.0) + df_out.get("Xbox_Revenue", 0.0)
-        df_out["Total_Sales"] = df_out.get("PS_Sales", 0.0) + df_out.get("Nintendo_Sales", 0.0) + df_out.get("Xbox_Sales", 0.0)
-        
-        return df_out.reset_index(drop=True)
-    except Exception:
-        return pd.DataFrame()
-
-@st.cache_data(ttl=300, show_spinner=False)
-def load_raw_sheet_csv(sheet_url):
+def load_nintendo_monthly_from_sheet(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
         return pd.DataFrame()
     csv_url = get_export_url(sheet_url)
     try:
         df = pd.read_csv(csv_url, dtype=str)
         return df
+    except Exception:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_pipeline_from_sheet(sheet_url):
+    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
+        return pd.DataFrame()
+    csv_url = get_export_url(sheet_url)
+    try:
+        raw_p = pd.read_csv(csv_url, dtype=str)
+        return normalize_pipeline_dataframe(raw_p)
     except Exception:
         return pd.DataFrame()
 
@@ -417,13 +500,77 @@ def prepare_quarterly_data(df_weekly):
     return df
 
 # ==============================================================================
-# 📥 5. ПЕРВИННЕ ЗАВАНТАЖЕННЯ ДАНИХ
+# 🚀 4. ЗАВАНТАЖЕННЯ ДАНИХ ТА ВИЗНАЧЕННЯ ПОЛІВ
 # ==============================================================================
 raw_df = load_data(GOOGLE_SHEET_URL)
+@st.cache_data(ttl=300, show_spinner=False)
+def load_weekly_data(sheet_url):
+    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
+        return pd.DataFrame()
+    csv_url = get_export_url(sheet_url)
+    try:
+        raw_w = pd.read_csv(csv_url, header=None, dtype=str)
+        if raw_w.empty: return pd.DataFrame()
+
+        first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
+        second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
+
+        if "from" in second_row_str or "sales" in second_row_str or "to" in second_row_str:
+            data_df = raw_w.iloc[2:].copy().reset_index(drop=True)
+        elif "from" in first_row_str or "sales" in first_row_str:
+            data_df = raw_w.iloc[1:].copy().reset_index(drop=True)
+        else:
+            data_df = raw_w.copy()
+
+        # Точна розбивка нової структури колонок
+        col_map = {
+            0: "From", 1: "To",
+            2: "Nintendo_Sales", 3: "Nintendo_Sales_Diff",
+            4: "Nintendo_Wishlists", 5: "Nintendo_Wishlists_Diff",
+            6: "Nintendo_Revenue", 7: "Nintendo_Revenue_Diff",
+            8: "PS_Sales", 9: "PS_Sales_Diff",
+            10: "PS_Wishlists", 11: "PS_Wishlists_Diff",
+            12: "PS_Revenue", 13: "PS_Revenue_Diff",
+            14: "Xbox_Sales", 15: "Xbox_Sales_Diff",
+            16: "Xbox_Wishlists", 17: "Xbox_Wishlists_Diff",
+            18: "Xbox_Revenue", 19: "Xbox_Revenue_Diff",
+            20: "Leads", 21: "Leads_Diff",
+            22: "Sequence_Started", 23: "Sequence_Started_Diff",
+            24: "Contacts", 25: "Contacts_Diff",
+            26: "Opportunities", 27: "Opportunities_Diff",
+            28: "Calls", 29: "Calls_Diff",
+            30: "Deals", 31: "Deals_Diff",
+            32: "Twitter", 33: "Twitter_Diff",
+            34: "Instagram", 35: "Instagram_Diff",
+            36: "TikTok", 37: "TikTok_Diff",
+            38: "YouTube", 39: "YouTube_Diff",
+            40: "Discord", 41: "Discord_Diff"
+        }
+
+        parsed_dict = {}
+        for col_idx, col_name in col_map.items():
+            if col_idx < data_df.shape[1]:
+                parsed_dict[col_name] = data_df.iloc[:, col_idx]
+
+        df_out = pd.DataFrame(parsed_dict)
+        for c in df_out.columns:
+            if c not in ["From", "To"]:
+                df_out[c] = df_out[c].apply(clean_num_val)
+
+        df_out = df_out[df_out["From"].astype(str).str.strip().str.lower() != 'nan']
+        df_out = df_out[df_out["From"].astype(str).str.strip() != '']
+        
+        df_out["Parsed_Date"] = df_out["From"].apply(parse_flexible_date)
+        df_out["Month_Label"] = df_out["Parsed_Date"].apply(lambda d: d.strftime("%b %Y") if pd.notna(d) else "—")
+        df_out["Total_Revenue"] = df_out.get("PS_Revenue", 0.0) + df_out.get("Nintendo_Revenue", 0.0) + df_out.get("Xbox_Revenue", 0.0)
+        df_out["Total_Sales"] = df_out.get("PS_Sales", 0.0) + df_out.get("Nintendo_Sales", 0.0) + df_out.get("Xbox_Sales", 0.0)
+        
+        return df_out.reset_index(drop=True)
+    except Exception:
+        return pd.DataFrame()
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
-nintendo_monthly_raw_df = load_raw_sheet_csv(NINTENDO_MONTHLY_SHEET_URL)
-xbox_monthly_raw_df = load_raw_sheet_csv(XBOX_MONTHLY_SHEET_URL)
-sheet_pipeline_df = normalize_pipeline_dataframe(load_raw_sheet_csv(PIPELINE_SHEET_URL))
+nintendo_monthly_raw_df = load_nintendo_monthly_from_sheet(NINTENDO_MONTHLY_SHEET_URL)
+sheet_pipeline_df = load_pipeline_from_sheet(PIPELINE_SHEET_URL)
 
 if raw_df.empty:
     st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
@@ -444,7 +591,7 @@ if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
 # ==============================================================================
-# 🧭 6. САЙДБАР
+# 🧭 5. САЙДБАР
 # ==============================================================================
 with st.sidebar:
     col_logo, col_title = st.columns([1, 2.8])
@@ -1062,182 +1209,148 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 
 
 # ==============================================================================
-# 📅 РОЗДІЛ 2: ПОМІСЯЧНА ДИНАМІКА (NINTENDO + XBOX + СПІЛЬНИЙ ЗРІЗ)
+# 📅 РОЗДІЛ 2: ПОМІСЯЧНА ДИНАМІКА (ГНУЧКИЙ ФІЛЬТР: МІСЯЦЬ, ДІАПАЗОН, МУЛЬТИСЕЛЕКТ)
 # ==============================================================================
 elif app_mode == "📅 Помісячна динаміка (Monthly)":
     st.title("📅 Помісячна виручка та Cashflow портфоліо ($ USD)")
-    st.caption("Автоматичне зчитування з Google Таблиць • Консольні звіти Nintendo eShop та Xbox Partner Center")
+    st.caption("Автоматичне зчитування з Google Таблиці • Злиття японських тайтлів за TitleCode • Конвертація валют")
 
-    # Перемикач консольних екосистем
-    monthly_platform = st.radio(
-        "Оберіть консольну платформу для помісячного аналізу:",
-        ["🔴 Nintendo eShop", "🟢 Xbox Store", "🌐 Всі консолі разом (Switch + Xbox)"],
-        horizontal=True
-    )
+    active_monthly_raw = nintendo_monthly_raw_df.copy()
 
-    active_monthly_matrix = pd.DataFrame()
-    active_month_labels = []
+    with st.expander("⚙️ Джерело даних помісячного звіту", expanded=False):
+        custom_sheet_url = st.text_input("URL Google Таблиці (Nintendo Monthly):", NINTENDO_MONTHLY_SHEET_URL)
+        if st.button("🔄 Оновити дані з Google Sheets"):
+            active_monthly_raw = load_nintendo_monthly_from_sheet(custom_sheet_url)
+            st.session_state["cached_monthly_raw"] = active_monthly_raw
+            st.rerun()
 
-    # 1. ОБРОБКА NINTENDO
-    if monthly_platform in ["🔴 Nintendo eShop", "🌐 Всі консолі разом (Switch + Xbox)"]:
-        if not nintendo_monthly_raw_df.empty:
-            n_matrix, n_labels, _ = parse_nintendo_monthly_data(nintendo_monthly_raw_df)
-        else:
-            n_matrix, n_labels = pd.DataFrame(), []
+    if not active_monthly_raw.empty:
+        monthly_matrix_df, month_labels, month_map = parse_nintendo_monthly_data(active_monthly_raw)
 
-    # 2. ОБРОБКА XBOX
-    if monthly_platform in ["🟢 Xbox Store", "🌐 Всі консолі разом (Switch + Xbox)"]:
-        if not xbox_monthly_raw_df.empty:
-            x_matrix, x_labels = parse_xbox_monthly_data(xbox_monthly_raw_df)
-        else:
-            x_matrix, x_labels = pd.DataFrame(), []
-
-    # 3. ФОРМУВАННЯ АКТИВНОЇ МАТРИЦІ
-    if monthly_platform == "🔴 Nintendo eShop":
-        active_monthly_matrix = n_matrix
-        active_month_labels = n_labels
-    elif monthly_platform == "🟢 Xbox Store":
-        active_monthly_matrix = x_matrix
-        active_month_labels = x_labels
-    else:
-        # Об'єднання обох платформ
-        if not n_matrix.empty and not x_matrix.empty:
-            common_cols = sorted(list(set(n_labels).union(set(x_labels))))
-            merged_raw = pd.concat([n_matrix, x_matrix], ignore_index=True)
-            active_monthly_matrix = merged_raw.groupby("Назва гри / DLC")[common_cols].sum().reset_index()
-            active_monthly_matrix["Всього ($)"] = active_monthly_matrix[common_cols].sum(axis=1)
-            active_monthly_matrix = active_monthly_matrix.sort_values(by="Всього ($)", ascending=False).reset_index(drop=True)
-            active_month_labels = common_cols
-        elif not n_matrix.empty:
-            active_monthly_matrix = n_matrix
-            active_month_labels = n_labels
-        else:
-            active_monthly_matrix = x_matrix
-            active_month_labels = x_labels
-
-    # Відображення
-    if not active_monthly_matrix.empty and active_month_labels:
-        st.markdown("---")
-        
-        # 🎛️ ГНУЧКИЙ ФІЛЬТР ПЕРІОДУ
-        f_mode_col, f_ctrl_col = st.columns([1.2, 2.8])
-        with f_mode_col:
-            filter_mode = st.radio(
-                "Режим фільтрації періоду:",
-                ["🗓️ Один місяць", "↔️ Діапазон місяців (Слайдер)", "🎯 Довільний вибір", "📅 Всі місяці"],
-                index=0
-            )
-        
-        with f_ctrl_col:
-            if filter_mode == "🗓️ Один місяць":
-                selected_single_m = st.selectbox("Оберіть цільовий місяць:", options=active_month_labels, index=len(active_month_labels)-1)
-                active_selected_months = [selected_single_m]
-            elif filter_mode == "↔️ Діапазон місяців (Слайдер)":
-                start_m, end_m = st.select_slider(
-                    "Оберіть часовий діапазон місяців:",
-                    options=active_month_labels,
-                    value=(active_month_labels[max(0, len(active_month_labels)-6)], active_month_labels[-1])
-                )
-                s_idx = active_month_labels.index(start_m)
-                e_idx = active_month_labels.index(end_m)
-                active_selected_months = active_month_labels[min(s_idx, e_idx):max(s_idx, e_idx)+1]
-            elif filter_mode == "🎯 Довільний вибір":
-                active_selected_months = st.multiselect(
-                    "Оберіть конкретні місяці:",
-                    options=active_month_labels,
-                    default=[active_month_labels[-1]]
-                )
-                if not active_selected_months:
-                    active_selected_months = [active_month_labels[-1]]
-            else:
-                active_selected_months = active_month_labels
-
-        period_label_display = f"{active_selected_months[0]} ➔ {active_selected_months[-1]}" if len(active_selected_months) > 1 else active_selected_months[0]
-        
-        display_period_df = active_monthly_matrix[["Назва гри / DLC"] + active_selected_months].copy()
-        display_period_df["Виторг за період ($)"] = display_period_df[active_selected_months].sum(axis=1)
-        display_period_df["All-Time ($)"] = active_monthly_matrix["Всього ($)"]
-        display_period_df = display_period_df[display_period_df["Виторг за період ($)"] > 0].sort_values(by="Виторг за період ($)", ascending=False).reset_index(drop=True)
-
-        total_period_rev = float(display_period_df["Виторг за період ($)"].sum()) if not display_period_df.empty else 0.0
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        p_c1, p_c2, p_c3, p_c4 = st.columns(4)
-        p_c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Виторг ({period_label_display})</div><div class="kpi-value">${total_period_rev:,.2f}</div><span class="kpi-badge badge-total">{len(active_selected_months)} міс. вибрано</span></div>', unsafe_allow_html=True)
-        p_c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Активних позицій</div><div class="kpi-value">{len(display_period_df)}</div><span class="kpi-badge badge-ps">З продажами</span></div>', unsafe_allow_html=True)
-        p_c3.markdown(f'<div class="kpi-card"><div class="kpi-label">Лідер періоду</div><div class="kpi-value" style="font-size:16px; color:#38bdf8 !important;">{display_period_df.iloc[0]["Назва гри / DLC"] if not display_period_df.empty else "—"}</div><span class="kpi-badge badge-xbox">${display_period_df.iloc[0]["Виторг за період ($)"]:,.2f}</span></div>', unsafe_allow_html=True)
-        p_c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса All-Time</div><div class="kpi-value">${active_monthly_matrix["Всього ($)"].sum():,.2f}</div><span class="kpi-badge badge-switch">Повний звіт</span></div>', unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        m_tab1, m_tab2, m_tab3 = st.tabs([
-            "📊 Топ тайтли та Звіт за період", 
-            "📑 Повна помісячна матриця ($)", 
-            "🔥 Теплова карта (Heatmap) та Тренди"
-        ])
-
-        with m_tab1:
-            st.subheader(f"🏆 Топ-10 продуктів за обраний період ({period_label_display})")
-            if not display_period_df.empty:
-                top10_period = display_period_df.head(10)
-                fig_p_bar = px.bar(
-                    top10_period, x="Виторг за період ($)", y="Назва гри / DLC", orientation="h",
-                    text="Виторг за період ($)", color_discrete_sequence=["#d946ef"]
-                )
-                fig_p_bar.update_traces(texttemplate='$%{text:,.2f}', textposition='outside')
-                fig_p_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=380, yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig_p_bar, use_container_width=True)
-
-            st.markdown("##### 📑 Таблиця продажів за обраний період:")
-            format_cfg_period = {
-                "Виторг за період ($)": st.column_config.NumberColumn("Виторг за період ($)", format="$%.2f"),
-                "All-Time ($)": st.column_config.NumberColumn("All-Time ($)", format="$%.2f")
-            }
-            for m_col in active_selected_months:
-                format_cfg_period[m_col] = st.column_config.NumberColumn(m_col, format="$%.2f")
-
-            st.dataframe(display_period_df, column_config=format_cfg_period, use_container_width=True, height=400)
-            csv_p_out = display_period_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Завантажити звіт за період (.CSV)", data=csv_p_out, file_name=f"console_revenue_{period_label_display.replace(' ➔ ', '_')}.csv", mime="text/csv")
-
-        with m_tab2:
-            st.subheader("📑 Повна помісячна матриця по всіх місяцях ($ USD)")
-            format_cfg_all = {"Всього ($)": st.column_config.NumberColumn("Всього ($)", format="$%.2f")}
-            for m_col in active_month_labels:
-                format_cfg_all[m_col] = st.column_config.NumberColumn(m_col, format="$%.2f")
-
-            st.dataframe(active_monthly_matrix, column_config=format_cfg_all, use_container_width=True, height=480)
-            csv_m_out = active_monthly_matrix.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Завантажити повну матрицю (.CSV)", data=csv_m_out, file_name="console_monthly_usd_matrix.csv", mime="text/csv")
-
-        with m_tab3:
-            st.subheader("🔥 Теплова карта виторгу (Monthly Heatmap)")
-            top_heatmap_df = active_monthly_matrix.head(20).set_index("Назва гри / DLC")[active_month_labels]
-            fig_heat = px.imshow(
-                top_heatmap_df, labels=dict(x="Місяць", y="Гра / DLC", color="Виторг ($)"),
-                x=active_month_labels, y=top_heatmap_df.index, color_continuous_scale="Purples", aspect="auto"
-            )
-            fig_heat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=480)
-            st.plotly_chart(fig_heat, use_container_width=True)
-
+        if not monthly_matrix_df.empty:
             st.markdown("---")
-            st.subheader("📈 Індивідуальний тренд гри")
-            selected_item_for_trend = st.selectbox("Оберіть гру або DLC для перегляду помісячного тренду:", options=active_monthly_matrix["Назва гри / DLC"].tolist(), index=0)
-            item_row = active_monthly_matrix[active_monthly_matrix["Назва гри / DLC"] == selected_item_for_trend].iloc[0]
-            trend_df = pd.DataFrame([{"Місяць": m, "Виторг ($)": item_row[m]} for m in active_month_labels])
             
-            fig_trend = px.bar(trend_df, x="Місяць", y="Виторг ($)", text="Виторг ($)", color_discrete_sequence=["#d946ef"])
-            fig_trend.update_traces(texttemplate='$%{text:,.2f}', textposition='outside')
-            fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=350)
-            st.plotly_chart(fig_trend, use_container_width=True)
+            f_mode_col, f_ctrl_col = st.columns([1.2, 2.8])
+            with f_mode_col:
+                filter_mode = st.radio(
+                    "Оберіть режим фільтрації:",
+                    ["🗓️ Один місяць", "↔️ Діапазон місяців (Слайдер)", "🎯 Довільний вибір (Мультиселект)", "📅 Всі місяці"],
+                    index=0
+                )
+            
+            with f_ctrl_col:
+                if filter_mode == "🗓️ Один місяць":
+                    selected_single_m = st.selectbox("Оберіть цільовий місяць:", options=month_labels, index=len(month_labels)-1)
+                    active_selected_months = [selected_single_m]
+                elif filter_mode == "↔️ Діапазон місяців (Слайдер)":
+                    start_m, end_m = st.select_slider(
+                        "Оберіть часовий діапазон місяців:",
+                        options=month_labels,
+                        value=(month_labels[max(0, len(month_labels)-6)], month_labels[-1])
+                    )
+                    s_idx = month_labels.index(start_m)
+                    e_idx = month_labels.index(end_m)
+                    active_selected_months = month_labels[min(s_idx, e_idx):max(s_idx, e_idx)+1]
+                elif filter_mode == "🎯 Довільний вибір (Мультиселект)":
+                    active_selected_months = st.multiselect(
+                        "Оберіть конкретні місяці:",
+                        options=month_labels,
+                        default=[month_labels[-1]]
+                    )
+                    if not active_selected_months:
+                        active_selected_months = [month_labels[-1]]
+                else:
+                    active_selected_months = month_labels
 
+            period_label_display = f"{active_selected_months[0]} ➔ {active_selected_months[-1]}" if len(active_selected_months) > 1 else active_selected_months[0]
+            
+            display_period_df = monthly_matrix_df[["Назва гри / DLC"] + active_selected_months].copy()
+            display_period_df["Виторг за період ($)"] = display_period_df[active_selected_months].sum(axis=1)
+            display_period_df["All-Time ($)"] = monthly_matrix_df["Всього ($)"]
+            display_period_df = display_period_df[display_period_df["Виторг за період ($)"] > 0].sort_values(by="Виторг за період ($)", ascending=False).reset_index(drop=True)
+
+            total_period_rev = float(display_period_df["Виторг за період ($)"].sum()) if not display_period_df.empty else 0.0
+            display_period_df["Частка у періоді (%)"] = display_period_df["Виторг за період ($)"].apply(lambda x: f"{(x / max(total_period_rev, 1.0))*100:.1f}%")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            p_c1, p_c2, p_c3, p_c4 = st.columns(4)
+            p_c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Виторг ({period_label_display})</div><div class="kpi-value">${total_period_rev:,.2f}</div><span class="kpi-badge badge-total">{len(active_selected_months)} міс. вибрано</span></div>', unsafe_allow_html=True)
+            p_c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Активних тайтлів / DLC</div><div class="kpi-value">{len(display_period_df)}</div><span class="kpi-badge badge-ps">З продажами</span></div>', unsafe_allow_html=True)
+            p_c3.markdown(f'<div class="kpi-card"><div class="kpi-label">Лідер періоду</div><div class="kpi-value" style="font-size:16px; color:#38bdf8 !important;">{display_period_df.iloc[0]["Назва гри / DLC"] if not display_period_df.empty else "—"}</div><span class="kpi-badge badge-xbox">${display_period_df.iloc[0]["Виторг за період ($)"]:,.2f}</span></div>', unsafe_allow_html=True)
+            p_c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Загальна каса All-Time</div><div class="kpi-value">${monthly_matrix_df["Всього ($)"].sum():,.2f}</div><span class="kpi-badge badge-switch">Повна база</span></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            m_tab1, m_tab2, m_tab3 = st.tabs([
+                "📊 Топ тайтли та Детальний звіт", 
+                "📑 Повна помісячна матриця ($)", 
+                "🔥 Теплова карта (Heatmap) та Тренди"
+            ])
+
+            with m_tab1:
+                st.subheader(f"🏆 Топ-10 продуктів за обраний період ({period_label_display})")
+                if not display_period_df.empty:
+                    top10_period = display_period_df.head(10)
+                    fig_p_bar = px.bar(
+                        top10_period, x="Виторг за період ($)", y="Назва гри / DLC", orientation="h",
+                        text="Виторг за період ($)", color_discrete_sequence=["#d946ef"]
+                    )
+                    fig_p_bar.update_traces(texttemplate='$%{text:,.2f}', textposition='outside')
+                    fig_p_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=380, yaxis=dict(autorange="reversed"))
+                    st.plotly_chart(fig_p_bar, use_container_width=True)
+
+                st.markdown("##### 📑 Таблиця продажів за обраний період:")
+                format_cfg_period = {
+                    "Виторг за період ($)": st.column_config.NumberColumn("Виторг за період ($)", format="$%.2f"),
+                    "All-Time ($)": st.column_config.NumberColumn("All-Time ($)", format="$%.2f")
+                }
+                for m_col in active_selected_months:
+                    format_cfg_period[m_col] = st.column_config.NumberColumn(m_col, format="$%.2f")
+
+                st.dataframe(display_period_df, column_config=format_cfg_period, use_container_width=True, height=400)
+                csv_p_out = display_period_df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Завантажити звіт за період (.CSV)", data=csv_p_out, file_name=f"nintendo_revenue_{period_label_display.replace(' ➔ ', '_')}.csv", mime="text/csv")
+
+            with m_tab2:
+                st.subheader("📑 Повна помісячна матриця по всіх місяцях ($ USD)")
+                format_cfg_all = {"Всього ($)": st.column_config.NumberColumn("Всього ($)", format="$%.2f")}
+                for m_col in month_labels:
+                    format_cfg_all[m_col] = st.column_config.NumberColumn(m_col, format="$%.2f")
+
+                st.dataframe(monthly_matrix_df, column_config=format_cfg_all, use_container_width=True, height=480)
+                csv_m_out = monthly_matrix_df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Завантажити повну матрицю (.CSV)", data=csv_m_out, file_name="nintendo_monthly_usd_matrix.csv", mime="text/csv")
+
+            with m_tab3:
+                st.subheader("🔥 Теплова карта виторгу (Monthly Heatmap)")
+                top_heatmap_df = monthly_matrix_df.head(20).set_index("Назва гри / DLC")[month_labels]
+                fig_heat = px.imshow(
+                    top_heatmap_df, labels=dict(x="Місяць", y="Гра / DLC", color="Виторг ($)"),
+                    x=month_labels, y=top_heatmap_df.index, color_continuous_scale="Purples", aspect="auto"
+                )
+                fig_heat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=480)
+                st.plotly_chart(fig_heat, use_container_width=True)
+
+                st.markdown("---")
+                st.subheader("📈 Індивідуальний тренд гри")
+                selected_item_for_trend = st.selectbox("Оберіть гру або DLC для перегляду помісячного тренду:", options=monthly_matrix_df["Назва гри / DLC"].tolist(), index=0)
+                item_row = monthly_matrix_df[monthly_matrix_df["Назва гри / DLC"] == selected_item_for_trend].iloc[0]
+                trend_df = pd.DataFrame([{"Місяць": m, "Виторг ($)": item_row[m]} for m in month_labels])
+                
+                fig_trend = px.bar(trend_df, x="Місяць", y="Виторг ($)", text="Виторг ($)", color_discrete_sequence=["#d946ef"])
+                fig_trend.update_traces(texttemplate='$%{text:,.2f}', textposition='outside')
+                fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=350)
+                st.plotly_chart(fig_trend, use_container_width=True)
+
+        else:
+            st.warning("⚠️ Не вдалося знайти помісячні дати у звіті.")
     else:
-        st.info("💡 Дані з Google Таблиці ще не завантажені або вкладка порожня. Перевірте URL у рядках `NINTENDO_MONTHLY_SHEET_URL` або `XBOX_MONTHLY_SHEET_URL`.")
+        st.info("💡 Вкажіть дійсне посилання на Google Таблицю у рядку `NINTENDO_MONTHLY_SHEET_URL`.")
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 3: RELEASE PIPELINE (ПОВНІ 23 ПРОЕКТИ ТА КОНТРОЛЬ ЗРИВУ ТЕРМІНІВ)
+# 🚀 РОЗДІЛ 3: RELEASE PIPELINE (ПОВНА БЕЗПЕЧНА СИНХРОНІЗАЦІЯ)
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
@@ -1299,7 +1412,7 @@ elif app_mode == "🚀 Release Pipeline":
     with pipe_tab1:
         st.markdown("### 📊 Оперативний статус виробництва")
         
-        # Гарантія наявності числових колонок для запобігання KeyError
+        # Повний захист від відсутності колонок
         for col_chk in ["Плановий строк", "Факт до сабміту"]:
             if col_chk not in pipeline_df.columns:
                 pipeline_df[col_chk] = 0
@@ -1679,6 +1792,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.warning("⚠️ Вкажи валідне посилання на тижневу вкладку з `#gid=...` у рядку `WEEKLY_SHEET_URL`.")
         st.stop()
 
+    # 🎛️ ФІЛЬТРАЦІЯ: ВЕСЬ ПЕРІОД АБО START DATE / END DATE
     st.markdown("---")
     w_f_col1, w_f_col2 = st.columns([1.2, 2.8])
     with w_f_col1:
@@ -1760,6 +1874,9 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         fig_w_sales.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), yaxis_title="Продано копій (шт)")
         st.plotly_chart(fig_w_sales, use_container_width=True)
 
+    # ==============================================================================
+    # 🎯 ВКЛАДКА: НОВА ЛОГІКА BIZDEV ВОРОНКИ (LEADS ➔ SEQUENCE ➔ CONTACTS ➔ OPPS ➔ CALLS ➔ DEALS)
+    # ==============================================================================
     with w_tab2:
         st.subheader("🎯 Повна воронка залучення проектів (Leads ➔ Deals)")
         st.caption("Аналіз конверсії: Додано лідів ➔ Запущено Sequence ➔ Отримано відповідей ➔ Зацікавлені ➔ Дзвінки ➔ Угоди")
@@ -1771,12 +1888,14 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         tot_calls = float(active_weekly_df["Calls"].sum()) if "Calls" in active_weekly_df.columns else 0.0
         tot_deals = float(active_weekly_df["Deals"].sum()) if "Deals" in active_weekly_df.columns else 0.0
 
+        # Точний покроковий прорахунок конверсій
         conv_leads_seq = (tot_seq / max(tot_leads, 1.0)) * 100
-        conv_seq_contacts = (tot_contacts / max(tot_seq if tot_seq > 0 else tot_leads, 1.0)) * 100
-        conv_contacts_opps = (tot_opps / max(tot_contacts, 1.0)) * 100 if tot_opps > 0 else 100.0
+        conv_seq_contacts = (tot_contacts / max(tot_seq if tot_seq > 0 else tot_leads, 1.0)) * 100  # Reply Rate
+        conv_contacts_opps = (tot_opps / max(tot_contacts, 1.0)) * 100 if tot_opps > 0 else 100.0  # Interest Rate
         conv_opps_calls = (tot_calls / max(tot_opps if tot_opps > 0 else tot_contacts, 1.0)) * 100
-        conv_calls_deals = (tot_deals / max(tot_calls, 1.0)) * 100
+        conv_calls_deals = (tot_deals / max(tot_calls, 1.0)) * 100  # Closing Rate
 
+        # KPI Картки воронки
         fc1, fc2, fc3, fc4, fc5, fc6 = st.columns(6)
         fc1.metric("🔍 1. Leads", f"{int(tot_leads):,}", "Додано")
         fc2.metric("🚀 2. Sequence", f"{int(tot_seq):,}", f"{conv_leads_seq:.1f}% аутріч")
@@ -1787,6 +1906,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # Графік воронки (Plotly Funnel)
         funnel_stages = [
             "1. Leads (Додані ліди)",
             "2. Sequence Started (Кому написали)",

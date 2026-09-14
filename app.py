@@ -15,7 +15,7 @@ from anthropic import Anthropic
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
 NINTENDO_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1182691055#gid=1182691055"
-PIPELINE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1HKBXSvc4pJxDc1Rg2TO-NT8Ww3h3QJBKq_XpInyjhHE/edit?gid=1287937918#gid=1287937918"
+PIPELINE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1Dkw9w6Cuwy5bBr9-f2xihXANr4CeHYRWrQ-HkRMEThM/edit?gid=1287937918#gid=1287937918"
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec"
 ANTHROPIC_API_KEY = ""  # Залиш порожнім або додай у Secrets
 ACTIVITY_STORAGE_FILE = "release_activity_state.json"

@@ -476,6 +476,22 @@ def load_pipeline_from_sheet(sheet_url):
     except Exception:
         return pd.DataFrame()
 
+def load_pipeline_master_data():
+    if os.path.exists(PIPELINE_STORAGE_FILE):
+        try:
+            with open(PIPELINE_STORAGE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data: return pd.DataFrame(data)
+        except Exception:
+            pass
+    return pd.DataFrame(SEEDED_PIPELINE_PROJECTS) if 'SEEDED_PIPELINE_PROJECTS' in globals() else pd.DataFrame()
+
+def save_pipeline_master_data(df):
+    try:
+        with open(PIPELINE_STORAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(df.to_dict(orient="records"), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"Помилка збереження пайплайну: {e}")
 def prepare_quarterly_data(df_weekly):
     if df_weekly.empty or "From" not in df_weekly.columns:
         return pd.DataFrame()
@@ -1306,8 +1322,9 @@ elif app_mode == "🚀 Release Pipeline":
     st.caption("Повний цикл виробництва консольних портів • Пряма синхронізація з Google Таблицею • Контроль зриву дедлайнів")
 
     # Зчитуємо дані з Google Sheets
-    live_pipeline_df = sheet_pipeline_df.copy()
-    if live_pipeline_df.empty:
+    if 'sheet_pipeline_df' in globals() and not sheet_pipeline_df.empty:
+        live_pipeline_df = sheet_pipeline_df.copy()
+    else:
         live_pipeline_df = load_pipeline_master_data()
 
     # Збереження локальних правок поверх гугл-таблиці

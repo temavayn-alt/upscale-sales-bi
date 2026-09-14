@@ -501,6 +501,71 @@ def prepare_quarterly_data(df_weekly):
 # 🚀 4. ЗАВАНТАЖЕННЯ ДАНИХ ТА ВИЗНАЧЕННЯ ПОЛІВ
 # ==============================================================================
 raw_df = load_data(GOOGLE_SHEET_URL)
+@st.cache_data(ttl=300, show_spinner=False)
+def load_weekly_data(sheet_url):
+    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
+        return pd.DataFrame()
+    csv_url = get_export_url(sheet_url)
+    try:
+        raw_w = pd.read_csv(csv_url, header=None, dtype=str)
+        if raw_w.empty: return pd.DataFrame()
+
+        first_row_str = " ".join([str(x) for x in raw_w.iloc[0].tolist() if pd.notna(x)]).lower()
+        second_row_str = " ".join([str(x) for x in raw_w.iloc[1].tolist() if pd.notna(x)]).lower() if len(raw_w) > 1 else ""
+
+        if "from" in second_row_str or "sales" in second_row_str or "to" in second_row_str:
+            data_df = raw_w.iloc[2:].copy().reset_index(drop=True)
+        elif "from" in first_row_str or "sales" in first_row_str:
+            data_df = raw_w.iloc[1:].copy().reset_index(drop=True)
+        else:
+            data_df = raw_w.copy()
+
+        # Точна розбивка нової структури колонок
+        col_map = {
+            0: "From", 1: "To",
+            2: "Nintendo_Sales", 3: "Nintendo_Sales_Diff",
+            4: "Nintendo_Wishlists", 5: "Nintendo_Wishlists_Diff",
+            6: "Nintendo_Revenue", 7: "Nintendo_Revenue_Diff",
+            8: "PS_Sales", 9: "PS_Sales_Diff",
+            10: "PS_Wishlists", 11: "PS_Wishlists_Diff",
+            12: "PS_Revenue", 13: "PS_Revenue_Diff",
+            14: "Xbox_Sales", 15: "Xbox_Sales_Diff",
+            16: "Xbox_Wishlists", 17: "Xbox_Wishlists_Diff",
+            18: "Xbox_Revenue", 19: "Xbox_Revenue_Diff",
+            20: "Leads", 21: "Leads_Diff",
+            22: "Sequence_Started", 23: "Sequence_Started_Diff",
+            24: "Contacts", 25: "Contacts_Diff",
+            26: "Opportunities", 27: "Opportunities_Diff",
+            28: "Calls", 29: "Calls_Diff",
+            30: "Deals", 31: "Deals_Diff",
+            32: "Twitter", 33: "Twitter_Diff",
+            34: "Instagram", 35: "Instagram_Diff",
+            36: "TikTok", 37: "TikTok_Diff",
+            38: "YouTube", 39: "YouTube_Diff",
+            40: "Discord", 41: "Discord_Diff"
+        }
+
+        parsed_dict = {}
+        for col_idx, col_name in col_map.items():
+            if col_idx < data_df.shape[1]:
+                parsed_dict[col_name] = data_df.iloc[:, col_idx]
+
+        df_out = pd.DataFrame(parsed_dict)
+        for c in df_out.columns:
+            if c not in ["From", "To"]:
+                df_out[c] = df_out[c].apply(clean_num_val)
+
+        df_out = df_out[df_out["From"].astype(str).str.strip().str.lower() != 'nan']
+        df_out = df_out[df_out["From"].astype(str).str.strip() != '']
+        
+        df_out["Parsed_Date"] = df_out["From"].apply(parse_flexible_date)
+        df_out["Month_Label"] = df_out["Parsed_Date"].apply(lambda d: d.strftime("%b %Y") if pd.notna(d) else "—")
+        df_out["Total_Revenue"] = df_out.get("PS_Revenue", 0.0) + df_out.get("Nintendo_Revenue", 0.0) + df_out.get("Xbox_Revenue", 0.0)
+        df_out["Total_Sales"] = df_out.get("PS_Sales", 0.0) + df_out.get("Nintendo_Sales", 0.0) + df_out.get("Xbox_Sales", 0.0)
+        
+        return df_out.reset_index(drop=True)
+    except Exception:
+        return pd.DataFrame()
 weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
 nintendo_monthly_raw_df = load_nintendo_monthly_from_sheet(NINTENDO_MONTHLY_SHEET_URL)
 sheet_pipeline_df = load_pipeline_from_sheet(PIPELINE_SHEET_URL)

@@ -264,6 +264,17 @@ def normalize_pipeline_dataframe(df_in):
 # 📥 4. ЗАВАНТАЖУВАЧІ ТАБЛИЦЬ (ОГОЛОШЕНІ ДО ВИКЛИКІВ)
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
+def clean_num_val(val):
+    if pd.isna(val): return 0.0
+    s = str(val).strip().replace("$", "").replace("€", "").replace("%", "").replace("\xa0", "").replace(" ", "")
+    if not s or s.lower() == 'nan': return 0.0
+    if "," in s and "." in s:
+        if s.find(".") < s.find(","): s = s.replace(".", "").replace(",", ".")
+        else: s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    try: return float(s)
+    except: return 0.0
 def load_data(sheet_url):
     if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
         return pd.DataFrame()

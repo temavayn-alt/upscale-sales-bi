@@ -1321,17 +1321,45 @@ elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
     st.caption("Повний цикл виробництва консольних портів • Пряма синхронізація з Google Таблицею • Контроль зриву дедлайнів")
 
-    # Зчитуємо дані з Google Sheets
+    # Зчитуємо дані з Google Sheets або резервної бази
     if 'sheet_pipeline_df' in globals() and not sheet_pipeline_df.empty:
         live_pipeline_df = sheet_pipeline_df.copy()
     else:
         live_pipeline_df = load_pipeline_master_data()
 
-    # Збереження локальних правок поверх гугл-таблиці
     if "pipeline_live_state" not in st.session_state:
         st.session_state.pipeline_live_state = live_pipeline_df
 
-    pipeline_df = st.session_state.pipeline_live_state
+    pipeline_df = st.session_state.pipeline_live_state.copy()
+
+    # 🔄 АВТО-ПЕРЕЙМЕНУВАННЯ КОЛОНОК З БУДЬ-ЯКОЇ ТАБЛИЦІ (RU -> UA)
+    column_rename_map = {
+        "Игра": "Гра", "Разработчик": "Розробник", "Художник": "Художник",
+        "Нюансы": "Нюанси", "Дата старта": "Дата старту",
+        "Планируемая дата финиша": "Планова дата",
+        "Планируемый срок": "Плановий строк",
+        "Фактический срок (до сертификации Нинтендо)": "Факт до сабміту",
+        "Статус сертификации": "Статус Lotcheck",
+        "Nintendo Switch": "Switch", "XBox": "Xbox", "Play Station": "PlayStation"
+    }
+    for old_c, new_c in column_rename_map.items():
+        if old_c in pipeline_df.columns and new_c not in pipeline_df.columns:
+            pipeline_df.rename(columns={old_c: new_c}, inplace=True)
+
+    # 🛡️ ГАРАНТІЯ НАЯВНОСТІ ВСІХ ОБОВ'ЯЗКОВИХ КОЛОНОК (ЗАХИСТ ВІД КРАШУ)
+    required_defaults = {
+        "Гра": "Unknown", "Розробник": "Не вказано", "Художник": "",
+        "Планова дата": "", "Плановий строк": 0, "Факт до сабміту": 0,
+        "Трейлер": False, "Картинки": False, "Тексти": False,
+        "Статус Lotcheck": "In Development", "Switch": True, "Xbox": False,
+        "PlayStation": False, "Нюанси": ""
+    }
+    for col_k, def_v in required_defaults.items():
+        if col_k not in pipeline_df.columns:
+            pipeline_df[col_k] = def_v
+
+    pipeline_df["Плановий строк"] = pd.to_numeric(pipeline_df["Плановий строк"], errors="coerce").fillna(0).astype(int)
+    pipeline_df["Факт до сабміту"] = pd.to_numeric(pipeline_df["Факт до сабміту"], errors="coerce").fillna(0).astype(int)
 
     with st.expander("➕ Додати нову гру в пайплайн портінгу", expanded=False):
         with st.form("add_new_pipeline_game_form", clear_on_submit=True):
@@ -1419,8 +1447,8 @@ elif app_mode == "🚀 Release Pipeline":
         st.markdown("<br>", unsafe_allow_html=True)
         
         f_c1, f_c2 = st.columns([1, 2])
-        with f_c1:
-            dev_filter = st.multiselect("Фільтр за розробником:", options=sorted([str(x) for x in pipeline_df["Розробник"].dropna().unique() if x]), default=[])
+        dev_options = sorted([str(x) for x in pipeline_df["Розробник"].dropna().unique() if str(x).strip() and str(x).lower() != 'nan'])
+        dev_filter = st.multiselect("Фільтр за розробником:", options=dev_options, default=[])
         with f_c2:
             show_multi_only = st.checkbox("Показати тільки мультиплатформи (Switch + Xbox/PS)", value=False)
 

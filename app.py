@@ -1379,8 +1379,18 @@ elif app_mode == "🚀 Release Pipeline":
     with pipe_tab1:
         st.markdown("### 📊 Оперативний статус виробництва (Прямо з Google Sheets)")
         
-        pipeline_df["Плановий строк"] = pd.to_numeric(pipeline_df.get("Плановий строк", 0), errors="coerce").fillna(0).astype(int)
-        pipeline_df["Факт до сабміту"] = pd.to_numeric(pipeline_df.get("Факт до сабміту", 0), errors="coerce").fillna(0).astype(int)
+        if "Плановий строк" in pipeline_df.columns:
+            pipeline_df["Плановий строк"] = pd.to_numeric(pipeline_df["Плановий строк"], errors="coerce").fillna(0).astype(int)
+        else:
+            pipeline_df["Плановий строк"] = 0
+
+        if "Факт до сабміту" in pipeline_df.columns:
+            pipeline_df["Факт до сабміту"] = pd.to_numeric(pipeline_df["Факт до сабміту"], errors="coerce").fillna(0).astype(int)
+        else:
+            pipeline_df["Факт до сабміту"] = 0
+
+        if "Статус Lotcheck" not in pipeline_df.columns:
+            pipeline_df["Статус Lotcheck"] = "In Development"
         
         overrun_projects = pipeline_df[(pipeline_df["Факт до сабміту"] > pipeline_df["Плановий строк"]) & (pipeline_df["Плановий строк"] > 0)]
         overrun_count = len(overrun_projects)

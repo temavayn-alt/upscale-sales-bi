@@ -346,44 +346,8 @@ def parse_nintendo_monthly_data(df_raw):
 
 # Нормалізатор таблиці Release Pipeline (Захищений від відсутніх колонок)
 def normalize_pipeline_dataframe(df_in):
-    if df_in.empty:
-        return pd.DataFrame()
-    
-    df = df_in.copy()
-    
-    rename_rules = {
-        "Игра": "Гра", "Title": "Гра", "Game": "Гра",
-        "Разработчик": "Розробник", "Developer": "Розробник", "Dev": "Розробник",
-        "Художник": "Художник", "Artist": "Художник",
-        "Нюансы": "Нюанси", "Notes": "Нюанси",
-        "Дата старта": "Дата старту", "Start Date": "Дата старту",
-        "Планируемая дата финиша": "Планова дата", "Finish Date": "Планова дата",
-        "Планируемый срок": "Плановий строк", "Plan Days": "Плановий строк",
-        "Фактический срок (до сертификации Нинтендо)": "Факт до сабміту", "Fact Days": "Факт до сабміту",
-        "Статус сертификации": "Статус Lotcheck", "Lotcheck Status": "Статус Lotcheck",
-        "Nintendo Switch": "Switch", "Nintendo Switch релизный билд загружен Дата": "Switch Білд Дата",
-        "Nintendo Switch релизный принят, дата и с которого раза": "Прийнято Lotcheck",
-        "Длительность прохождения сертификации": "Днів у Lotcheck",
-        "С какого раза принята сертификация": "Спроби Lotcheck",
-        "XBox": "Xbox", "XBox концепт отправлен": "Xbox Концепт", "XBox TLA отправлен": "Xbox TLA",
-        "Play Station": "PlayStation", "PS продукт создан": "PS Продукт",
-        "Трейлеры все готовы": "Трейлер", "Трейлер": "Трейлер",
-        "Картинки предоставлены": "Картинки", "Картинки": "Картинки",
-        "Текстовые ресурсы предоставлены": "Тексти", "Тексти": "Тексти"
-    }
-    
-    for old_k, new_k in rename_rules.items():
-        if old_k in df.columns and new_k not in df.columns:
-            df.rename(columns={old_k: new_k}, inplace=True)
-            
-    if "Гра" not in df.columns and not df.empty:
-        df.rename(columns={df.columns[0]: "Гра"}, inplace=True)
-
-    def is_true_val(v):
-        s = str(v).strip().lower()
-        return s in ["✅", "true", "1", "yes", "да"]
-
-    defaults = {
+    # Обов'язковий список колонок за замовчуванням
+    required_defaults = {
         "Гра": "Unknown Project", "Розробник": "Не вказано", "Художник": "",
         "Нюанси": "", "Дата старту": "", "Планова дата": "",
         "Плановий строк": 0, "Факт до сабміту": 0,
@@ -394,7 +358,50 @@ def normalize_pipeline_dataframe(df_in):
         "PlayStation": False, "PS Продукт": False
     }
 
-    for col_name, def_val in defaults.items():
+    if df_in is None or df_in.empty:
+        return pd.DataFrame(columns=list(required_defaults.keys()))
+    
+    df = df_in.copy()
+    
+    # Розумний пошук та перейменування колонок незалежно від регістру та мови
+    for col in list(df.columns):
+        c_clean = str(col).strip().lower()
+        if "сертификации" in c_clean or "lotcheck" in c_clean:
+            df.rename(columns={col: "Статус Lotcheck"}, inplace=True)
+        elif c_clean in ["игра", "title", "game"]:
+            df.rename(columns={col: "Гра"}, inplace=True)
+        elif c_clean in ["разработчик", "developer", "dev"]:
+            df.rename(columns={col: "Розробник"}, inplace=True)
+        elif c_clean in ["художник", "artist"]:
+            df.rename(columns={col: "Художник"}, inplace=True)
+        elif "планируемый срок" in c_clean or "плановий строк" in c_clean:
+            df.rename(columns={col: "Плановий строк"}, inplace=True)
+        elif "фактический срок" in c_clean or "факт до сабміту" in c_clean:
+            df.rename(columns={col: "Факт до сабміту"}, inplace=True)
+        elif "планируемая дата" in c_clean or "планова дата" in c_clean:
+            df.rename(columns={col: "Планова дата"}, inplace=True)
+        elif "длительность" in c_clean or "днів у lotcheck" in c_clean:
+            df.rename(columns={col: "Днів у Lotcheck"}, inplace=True)
+        elif "с какого раза" in c_clean or "спроби lotcheck" in c_clean:
+            df.rename(columns={col: "Спроби Lotcheck"}, inplace=True)
+        elif "принят" in c_clean:
+            df.rename(columns={col: "Прийнято Lotcheck"}, inplace=True)
+        elif c_clean in ["nintendo switch", "switch"]:
+            df.rename(columns={col: "Switch"}, inplace=True)
+        elif c_clean == "xbox":
+            df.rename(columns={col: "Xbox"}, inplace=True)
+        elif c_clean in ["play station", "playstation", "ps"]:
+            df.rename(columns={col: "PlayStation"}, inplace=True)
+
+    if "Гра" not in df.columns and not df.empty:
+        df.rename(columns={df.columns[0]: "Гра"}, inplace=True)
+
+    def is_true_val(v):
+        s = str(v).strip().lower()
+        return s in ["✅", "true", "1", "yes", "да"]
+
+    # Гарантуємо наявність абсолютно кожної колонки
+    for col_name, def_val in required_defaults.items():
         if col_name not in df.columns:
             df[col_name] = def_val
 
@@ -405,6 +412,7 @@ def normalize_pipeline_dataframe(df_in):
     for bool_col in ["Трейлер", "Картинки", "Тексти", "Switch", "Xbox", "Xbox Концепт", "Xbox TLA", "PlayStation", "PS Продукт"]:
         df[bool_col] = df[bool_col].apply(is_true_val)
 
+    # Прибираємо сміттєві рядки коментарів
     df = df[df["Гра"].astype(str).str.strip() != ""]
     df = df[~df["Гра"].astype(str).str.contains("Что нужно|Резюме|Добавить треккинг|Чистка|Работа с|Горящие|Ожидающие|Коммуникация", case=False, na=False)]
     
@@ -1348,22 +1356,29 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 3: RELEASE PIPELINE (ПОВНА БЕЗПЕЧНА СИНХРОНІЗАЦІЯ)
+# ==============================================================================
+# 🚀 РОЗДІЛ: RELEASE PIPELINE (СТАБІЛЬНА ВЕРСІЯ)
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
     st.caption("Повний цикл виробництва консольних портів • Пряма синхронізація з Google Таблицею • Контроль зриву дедлайнів")
 
-    if not sheet_pipeline_df.empty:
-        live_pipeline_df = sheet_pipeline_df.copy()
+    # Зчитуємо дані: спочатку Google Sheet, якщо порожньо - локальний файл, якщо порожньо - дефолтні проекти
+    raw_source_df = pd.DataFrame()
+    if 'sheet_pipeline_df' in globals() and not sheet_pipeline_df.empty:
+        raw_source_df = sheet_pipeline_df.copy()
     else:
-        live_pipeline_df = load_pipeline_master_data()
+        raw_source_df = load_pipeline_master_data()
+
+    if raw_source_df.empty and 'SEEDED_PIPELINE_PROJECTS' in globals():
+        raw_source_df = pd.DataFrame(SEEDED_PIPELINE_PROJECTS)
 
     if "pipeline_live_state" not in st.session_state or st.session_state.pipeline_live_state.empty:
-        st.session_state.pipeline_live_state = live_pipeline_df
+        st.session_state.pipeline_live_state = raw_source_df
 
     pipeline_df = normalize_pipeline_dataframe(st.session_state.pipeline_live_state.copy())
 
+    # Форма додавання проекту
     with st.expander("➕ Додати нову гру в пайплайн портінгу", expanded=False):
         with st.form("add_new_pipeline_game_form", clear_on_submit=True):
             f_col1, f_col2, f_col3 = st.columns(3)
@@ -1410,16 +1425,16 @@ elif app_mode == "🚀 Release Pipeline":
     with pipe_tab1:
         st.markdown("### 📊 Оперативний статус виробництва")
         
-        # Повний захист від відсутності колонок
-        for col_chk in ["Плановий строк", "Факт до сабміту"]:
-            if col_chk not in pipeline_df.columns:
-                pipeline_df[col_chk] = 0
+        # Безпечна фільтрація статусів
+        lotcheck_series = pipeline_df["Статус Lotcheck"].astype(str)
+        in_dev_count = len(pipeline_df[lotcheck_series.str.contains("Development|testing", case=False, na=False)])
+        in_cert_count = len(pipeline_df[lotcheck_series.str.contains("Submitted", case=False, na=False)])
+        passed_count = len(pipeline_df[lotcheck_series.str.contains("Passed", case=False, na=False)])
+        blocked_count = len(pipeline_df[lotcheck_series.str.contains("Blocked", case=False, na=False)])
 
+        # Проекти зі зривом строків (Факт > План)
         overrun_projects = pipeline_df[(pipeline_df["Факт до сабміту"] > pipeline_df["Плановий строк"]) & (pipeline_df["Плановий строк"] > 0)]
         overrun_count = len(overrun_projects)
-        in_dev_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Development|testing", case=False)])
-        in_cert_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Submitted", case=False)])
-        passed_count = len(pipeline_df[pipeline_df["Статус Lotcheck"].astype(str).str.contains("Passed", case=False)])
 
         p_k1, p_k2, p_k3, p_k4 = st.columns(4)
         p_k1.markdown(f'<div class="kpi-card"><div class="kpi-label">🛠️ В розробці / QA</div><div class="kpi-value">{in_dev_count}</div><span class="kpi-badge badge-total">Всього: {len(pipeline_df)} проектів</span></div>', unsafe_allow_html=True)
@@ -1477,7 +1492,8 @@ elif app_mode == "🚀 Release Pipeline":
             column_config=master_cols_config,
             hide_index=True,
             use_container_width=True,
-            height=480
+            height=480,
+            key="pipeline_master_editor_key"
         )
 
         if st.button("💾 Зберегти зміни головного пайплайну на сервері", use_container_width=True):
@@ -1523,7 +1539,8 @@ elif app_mode == "🚀 Release Pipeline":
                 },
                 hide_index=True,
                 use_container_width=True,
-                height=420
+                height=420,
+                key="pipeline_sw_editor_key"
             )
 
         elif "Xbox" in cab_choice:
@@ -1541,7 +1558,8 @@ elif app_mode == "🚀 Release Pipeline":
                 },
                 hide_index=True,
                 use_container_width=True,
-                height=380
+                height=380,
+                key="pipeline_xb_editor_key"
             )
 
         else:
@@ -1556,7 +1574,7 @@ elif app_mode == "🚀 Release Pipeline":
         b_left, b_right = st.columns(2)
         with b_left:
             st.markdown("#### 🧪 Очікують перевірки QA (Антон перед сабмітом):")
-            qa_waiting = pipeline_df[pipeline_df["Нюанси"].astype(str).str.contains("Антон|тест|issue", case=False)]
+            qa_waiting = pipeline_df[pipeline_df["Нюанси"].astype(str).str.contains("Антон|тест|issue", case=False, na=False)]
             for _, q_row in qa_waiting.iterrows():
                 st.markdown(f"""
                 <div class="blocker-box">
@@ -1583,7 +1601,6 @@ elif app_mode == "🚀 Release Pipeline":
             * **🔞 Вікові рейтинги (IARC / E-rating):** Інформацію на 100% заповнює розробник, оскільки він знає всі деталі контенту.
             * **📞 Підготовка до планорок:** Статуси сертифікації у порталах перевіряються перед дзвінком, щоб одразу оголошувати результат команді.
             """)
-
 
 # ==============================================================================
 # 📋 РОЗДІЛ 4: RELEASE ACTIVITY (МИТТЄВЕ АВТОЗБЕРЕЖЕННЯ)

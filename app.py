@@ -17,11 +17,11 @@ GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
 NINTENDO_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1182691055#gid=1182691055"
 XBOX_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1981339676#gid=1981339676"  # Встав посилання на вкладку Xbox (або залиш порожнім для введення в інтерфейсі)
-PIPELINE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1Dkw9w6Cuwy5bBr9-f2xihXANr4CeHYRWrQ-HkRMEThM/edit?gid=1287937918#gid=1287937918"
+PIPELINE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
+ACTIVITY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=962012405#gid=962012405"      # Встав посилання на вкладку Release Activity в Google Sheets (з #gid=...)
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec"
-ANTHROPIC_API_KEY = ""  # Залиш порожнім або додай у Secrets
+ANTHROPIC_API_KEY = ""       # Залиш порожнім або додай у Secrets
 
-ACTIVITY_STORAGE_FILE = "release_activity_state.json"
 PIPELINE_STORAGE_FILE = "pipeline_master_state.json"
 LOGO_FILE = "up4.png"
 
@@ -46,36 +46,51 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Професійні стилі темної теми + градієнти бренду
+# 🎨 ВИПРАВЛЕНИЙ ТА ЗАХИЩЕНИЙ CSS (ІДЕАЛЬНИЙ САЙДБАР БЕЗ ЗСУВІВ)
 st.markdown("""
 <style>
-    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+    .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
     
-    section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {
-        display: none !important;
+    /* Захист сайдбару від обрізання та ідеальні відступи */
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 1rem !important;
     }
+    
+    /* Повне і безкомпромісне приховування кружечків радіо-кнопок */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child,
+    section[data-testid="stSidebar"] div[role="radiogroup"] input[type="radio"],
+    section[data-testid="stSidebar"] [data-testid="stRadioButtonCustom"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Стилізація інтерактивних плашок меню */
     section[data-testid="stSidebar"] div[role="radiogroup"] label {
         background-color: #171724 !important;
         border: 1px solid #28283c !important;
         border-radius: 9px !important;
-        padding: 9px 14px !important;
-        margin-bottom: 6px !important;
+        padding: 10px 14px !important;
+        margin-bottom: 7px !important;
         cursor: pointer !important;
         transition: all 0.2s ease !important;
         display: flex !important;
         align-items: center !important;
         width: 100% !important;
+        box-sizing: border-box !important;
     }
     section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
         background-color: #222235 !important;
         border-color: #a855f7 !important;
-        transform: translateX(2px);
+        transform: translateX(3px);
     }
     section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"],
     section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
-        background: linear-gradient(90deg, rgba(192, 38, 211, 0.22) 0%, rgba(249, 115, 22, 0.16) 100%) !important;
+        background: linear-gradient(90deg, rgba(192, 38, 211, 0.25) 0%, rgba(249, 115, 22, 0.18) 100%) !important;
         border: 1px solid #d946ef !important;
-        box-shadow: 0 2px 10px rgba(217, 70, 239, 0.15) !important;
+        box-shadow: 0 2px 10px rgba(217, 70, 239, 0.18) !important;
     }
     section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p,
     section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
@@ -131,9 +146,9 @@ st.markdown("""
     .game-poster { width: 85px; height: 105px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
     .top-podium-card { background: #181824; border: 1px solid #2b2b3f; border-radius: 10px; padding: 12px; text-align: center; }
     .sandbox-box { background: #171724; border: 1px solid #2f2f45; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
-    .report-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; color: #f8fafc; }
     .blocker-box { background: #201319; border-left: 4px solid #ef4444; border: 1px solid #3f1a24; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
     .alert-card-red { background: linear-gradient(135deg, #2d141e 0%, #1c0d13 100%); border: 1px solid #7f1d1d; border-left: 5px solid #ef4444; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .alert-card-yellow { background: linear-gradient(135deg, #2d2414 0%, #1c170d 100%); border: 1px solid #854d0e; border-left: 5px solid #eab308; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -267,6 +282,11 @@ def clean_num_val(val):
     try: return float(s)
     except: return 0.0
 
+def is_truthy(val):
+    if pd.isna(val): return False
+    s = str(val).strip().lower()
+    return s in ["true", "истина", "1", "yes", "да", "✅", "done", "t"]
+
 def contains_japanese(text):
     if not text or pd.isna(text): return False
     return bool(re.search(r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]', str(text)))
@@ -348,7 +368,7 @@ def parse_nintendo_monthly_data(df_raw):
     
     return grouped_renamed, ordered_month_labels, month_label_map
 
-# 🟢 ПАРСЕР ПОТРАНЗАКЦІЙНОГО ЗВІТУ XBOX STORE
+# Парсер потранзакційного звіту Xbox Store
 def parse_xbox_monthly_data(df_raw):
     if df_raw.empty:
         return pd.DataFrame(), []
@@ -396,7 +416,7 @@ def parse_xbox_monthly_data(df_raw):
     
     return pivot, existing_months
 
-# 🌐 ЗЛИТТЯ МАТРИЦЬ NINTENDO + XBOX
+# Злиття матриць Nintendo + Xbox
 def combine_monthly_matrices(n_matrix, x_matrix, n_months, x_months):
     if n_matrix.empty and x_matrix.empty:
         return pd.DataFrame(), []
@@ -474,10 +494,6 @@ def normalize_pipeline_dataframe(df_in):
     if "Гра" not in df.columns and not df.empty:
         df.rename(columns={df.columns[0]: "Гра"}, inplace=True)
 
-    def is_true_val(v):
-        s = str(v).strip().lower()
-        return s in ["✅", "true", "1", "yes", "да"]
-
     defaults = {
         "Гра": "Unknown Project", "Розробник": "Не вказано", "Художник": "",
         "Нюанси": "", "Дата старту": "", "Планова дата": "",
@@ -498,7 +514,7 @@ def normalize_pipeline_dataframe(df_in):
     df["Днів у Lotcheck"] = pd.to_numeric(df["Днів у Lotcheck"], errors="coerce").fillna(0).astype(int)
     
     for bool_col in ["Трейлер", "Картинки", "Тексти", "Switch", "Xbox", "Xbox Концепт", "Xbox TLA", "PlayStation", "PS Продукт"]:
-        df[bool_col] = df[bool_col].apply(is_true_val)
+        df[bool_col] = df[bool_col].apply(is_truthy)
 
     df = df[df["Гра"].astype(str).str.strip() != ""]
     df = df[~df["Гра"].astype(str).str.contains("Что нужно|Резюме|Добавить треккинг|Чистка|Работа с|Горящие|Ожидающие|Коммуникация", case=False, na=False)]
@@ -560,6 +576,17 @@ def load_pipeline_from_sheet(sheet_url):
     except Exception:
         return pd.DataFrame()
 
+@st.cache_data(ttl=300, show_spinner=False)
+def load_activity_from_sheet(sheet_url):
+    if not sheet_url or "ВСТАВ_СЮДИ" in sheet_url:
+        return pd.DataFrame()
+    csv_url = get_export_url(sheet_url)
+    try:
+        df = pd.read_csv(csv_url, dtype=str)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
 def load_pipeline_master_data():
     if os.path.exists(PIPELINE_STORAGE_FILE):
         try:
@@ -576,23 +603,6 @@ def save_pipeline_master_data(df):
             json.dump(df.to_dict(orient="records"), f, ensure_ascii=False, indent=2)
     except Exception as e:
         st.error(f"Помилка збереження пайплайну: {e}")
-
-def load_saved_activities():
-    if os.path.exists(ACTIVITY_STORAGE_FILE):
-        try:
-            with open(ACTIVITY_STORAGE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if data: return data
-        except Exception:
-            pass
-    return {}
-
-def save_activities_to_disk(data_dict):
-    try:
-        with open(ACTIVITY_STORAGE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data_dict, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        st.error(f"Помилка автозбереження: {e}")
 
 def prepare_quarterly_data(df_weekly):
     if df_weekly.empty or "From" not in df_weekly.columns:
@@ -677,6 +687,7 @@ weekly_df = load_weekly_data(WEEKLY_SHEET_URL)
 nintendo_monthly_raw_df = load_nintendo_monthly_from_sheet(NINTENDO_MONTHLY_SHEET_URL)
 xbox_monthly_raw_df = load_xbox_monthly_from_sheet(XBOX_MONTHLY_SHEET_URL)
 sheet_pipeline_df = load_pipeline_from_sheet(PIPELINE_SHEET_URL)
+activity_raw_df = load_activity_from_sheet(ACTIVITY_SHEET_URL)
 
 if raw_df.empty:
     st.info("👋 Вкажи валідне посилання на Google Таблицю у рядку `GOOGLE_SHEET_URL`.")
@@ -1315,7 +1326,7 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 
 
 # ==============================================================================
-# 📅 РОЗДІЛ 2: ПОМІСЯЧНА ДИНАМІКА (NINTENDO / XBOX / ВСІ РАЗОМ)
+# 📅 РОЗДІЛ 2: ПОМІСЯЧНА ДИНАМІКА
 # ==============================================================================
 elif app_mode == "📅 Помісячна динаміка (Monthly)":
     st.title("📅 Помісячна виручка та Cashflow портфоліо ($ USD)")
@@ -1336,7 +1347,6 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
     x_matrix_df, x_months = parse_xbox_monthly_data(active_xbox_raw)
     c_matrix_df, c_months = combine_monthly_matrices(n_matrix_df, x_matrix_df, n_months, x_months)
 
-    # 🎛️ ПЕРЕМИКАЧ ПЛАТФОРМИ
     selected_platform_mode = st.radio(
         "Оберіть консольну платформу для аналізу:",
         ["🔴 Nintendo eShop", "🟢 Xbox Store", "🌐 Всі консолі (Switch + Xbox)"],
@@ -1714,93 +1724,145 @@ elif app_mode == "🚀 Release Pipeline":
 
 
 # ==============================================================================
-# 📋 РОЗДІЛ 4: RELEASE ACTIVITY
+# 📋 РОЗДІЛ 4: RELEASE ACTIVITY (ПОВНА СИНХРОНІЗАЦІЯ З GOOGLE SHEETS)
 # ==============================================================================
 elif app_mode == "📋 Release Activity":
-    st.title("📋 Release Marketing & Launch Activity Tracker")
-    st.caption("Інтерактивний чек-лист підготовки до релізу • 🟢 Всі відмітки зберігаються автоматично")
+    st.title("📋 Release Marketing & Launch Activity Hub")
+    st.caption("Маркетинговий чек-лист підготовки до релізів • Джерело правди: Google Sheets • Автоматичний прорахунок готовності")
 
-    if "activity_state_dict" not in st.session_state:
-        st.session_state.activity_state_dict = load_saved_activities()
+    # Джерело даних: або окрема вкладка ACTIVITY_SHEET_URL, або основний аркуш
+    active_act_source = ACTIVITY_SHEET_URL if ACTIVITY_SHEET_URL else GOOGLE_SHEET_URL
 
-    for _, r in raw_df.iterrows():
-        g_name = str(r["Game_Name_Clean"]).strip()
-        if not g_name or g_name.lower() == 'nan': continue
-        if g_name not in st.session_state.activity_state_dict:
-            st.session_state.activity_state_dict[g_name] = {task: False for task in ACTIVITY_CHECKBOX_COLS}
+    with st.expander("⚙️ Налаштування джерела Google Sheets для Release Activity", expanded=False):
+        c_act_url = st.text_input("URL Таблиці з маркетинговими чекбоксами (з #gid=...):", active_act_source)
+        if st.button("🔄 Оновити дані активностей"):
+            st.cache_data.clear()
+            st.rerun()
+
+    sheet_data = load_activity_from_sheet(c_act_url) if c_act_url else pd.DataFrame()
+    base_df = sheet_data if not sheet_data.empty else raw_df.copy()
+
+    # Пошук назви гри та дати
+    act_title_col = next((c for c in base_df.columns if any(k in c.lower() for k in ["title", "гра", "game", "назва"])), base_df.columns[0])
+    act_date_col = next((c for c in base_df.columns if any(k in c.lower() for k in ["release date", "release", "date", "дата"])), None)
+    act_status_col = next((c for c in base_df.columns if "status" in c.lower() or "статус" in c.lower()), None)
 
     activity_rows = []
-    for _, r in raw_df.iterrows():
-        g_name = str(r["Game_Name_Clean"]).strip()
-        if not g_name or g_name.lower() == 'nan': continue
-        
-        r_date_val = r.get(rel_date_col, "—") if rel_date_col else "—"
-        r_status = str(r.get(status_col, "In porting")).strip() if status_col else "In porting"
+    overdue_alerts = []
+    now_date = datetime.now()
 
-        game_saved = st.session_state.activity_state_dict.get(g_name, {})
+    for _, r in base_df.iterrows():
+        g_name = str(r.get(act_title_col, "")).strip()
+        if not g_name or g_name.lower() == 'nan' or g_name.lower() == 'none':
+            continue
 
-        row_dict = {
-            "Гра (Title)": g_name,
-            "Дата релізу": str(r_date_val),
-            "Статус": "🟢 Done" if r_status.lower() == "released" else "🟡 In Progress"
+        raw_d = r.get(act_date_col, "—") if act_date_col else "—"
+        parsed_dt = parse_flexible_date(raw_d)
+        date_str = parsed_dt.strftime("%d.%m.%Y") if parsed_dt else str(raw_d)
+
+        raw_stat = str(r.get(act_status_col, "In Progress")).strip()
+        if "released" in raw_stat.lower() or "done" in raw_stat.lower():
+            status_badge = "🟢 Done"
+        else:
+            status_badge = "🟡 In Progress"
+
+        row_item = {
+            "Гра": g_name,
+            "Дата релізу": date_str,
+            "Статус": status_badge
         }
 
         checked_count = 0
         for task in ACTIVITY_CHECKBOX_COLS:
-            is_checked = bool(game_saved.get(task, False))
-            row_dict[task] = is_checked
-            if is_checked: checked_count += 1
+            is_done = is_truthy(r.get(task, False))
+            row_item[task] = is_done
+            if is_done:
+                checked_count += 1
 
-        row_dict["Готовність (%)"] = f"{int(round((checked_count / len(ACTIVITY_CHECKBOX_COLS)) * 100))}%"
-        activity_rows.append(row_dict)
+        pct_val = int(round((checked_count / len(ACTIVITY_CHECKBOX_COLS)) * 100))
+        row_item["Готовність (%)"] = pct_val
+        activity_rows.append(row_item)
 
-    activity_df = pd.DataFrame(activity_rows)
+        # Контроль тривожних релізів: якщо реліз скоро (< 14 дн.), а маркетинг < 70%
+        if parsed_dt and status_badge == "🟡 In Progress":
+            days_left = (parsed_dt - now_date).days
+            if 0 <= days_left <= 14 and pct_val < 70:
+                overdue_alerts.append((g_name, days_left, pct_val))
 
-    act_filter = st.radio("Показати ігри:", ["Всі ігри", "Тільки в розробці (In porting)", "Тільки випущені"], horizontal=True)
-    if act_filter == "Тільки в розробці (In porting)":
-        display_df = activity_df[activity_df["Статус"].str.contains("Progress")].copy()
-    elif act_filter == "Тільки випущені":
-        display_df = activity_df[activity_df["Статус"].str.contains("Done")].copy()
-    else:
-        display_df = activity_df.copy()
+    act_df = pd.DataFrame(activity_rows)
 
-    col_config = {
-        "Гра (Title)": st.column_config.TextColumn("Title", disabled=True, width="medium"),
-        "Дата релізу": st.column_config.TextColumn("Release Date", disabled=True, width="small"),
-        "Статус": st.column_config.TextColumn("Status", disabled=True, width="small"),
-        "Готовність (%)": st.column_config.TextColumn("Progress", disabled=True, width="small")
-    }
-    for task in ACTIVITY_CHECKBOX_COLS:
-        col_config[task] = st.column_config.CheckboxColumn(task, default=False)
+    if not act_df.empty:
+        # KPI Метрики
+        total_tracked = len(act_df)
+        in_progress_count = len(act_df[act_df["Статус"].str.contains("Progress")])
+        done_count = len(act_df[act_df["Статус"].str.contains("Done")])
+        avg_progress = int(round(act_df["Готовність (%)"].mean()))
 
-    edited_act_df = st.data_editor(
-        display_df,
-        column_config=col_config,
-        disabled=["Гра (Title)", "Дата релізу", "Статус", "Готовність (%)"],
-        hide_index=True,
-        use_container_width=True,
-        height=520,
-        key="release_activity_live_editor"
-    )
+        ak1, ak2, ak3, ak4 = st.columns(4)
+        ak1.markdown(f'<div class="kpi-card"><div class="kpi-label">🎮 Ігор у трекері</div><div class="kpi-value">{total_tracked}</div><span class="kpi-badge badge-total">Повний каталог</span></div>', unsafe_allow_html=True)
+        ak2.markdown(f'<div class="kpi-card"><div class="kpi-label">🛠️ В роботі (In Progress)</div><div class="kpi-value" style="color:#f59e0b !important;">{in_progress_count}</div><span class="kpi-badge badge-switch">Підготовка</span></div>', unsafe_allow_html=True)
+        ak3.markdown(f'<div class="kpi-card"><div class="kpi-label">🟢 Випущено (Done)</div><div class="kpi-value" style="color:#4ade80 !important;">{done_count}</div><span class="kpi-badge badge-xbox">100% готовність</span></div>', unsafe_allow_html=True)
+        ak4.markdown(f'<div class="kpi-card"><div class="kpi-label">📊 Середня готовність</div><div class="kpi-value" style="color:#38bdf8 !important;">{avg_progress}%</div><span class="kpi-badge badge-ps">По всій базі</span></div>', unsafe_allow_html=True)
 
-    has_changes = False
-    for _, erow in edited_act_df.iterrows():
-        g_n = erow["Гра (Title)"]
-        if g_n not in st.session_state.activity_state_dict:
-            st.session_state.activity_state_dict[g_n] = {}
+        # Сповіщення про гарячі дедлайни
+        if overdue_alerts:
+            st.markdown("<br>", unsafe_allow_html=True)
+            for g_alert, d_left, p_val in overdue_alerts:
+                st.markdown(f"""
+                <div class="alert-card-yellow">
+                    <b style="color:#fff; font-size:15px;">⏳ Увага! {g_alert}</b> ➔ 
+                    <span style="color:#fde047; font-weight:bold;">Реліз через {d_left} дн., а маркетинг готовий лише на {p_val}%!</span>
+                    <p style="margin:2px 0 0 0; font-size:12px; color:#cbd5e1;">Необхідно терміново закрити хвости по трейлерах, формах або Keymailer.</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Фільтр
+        f_c1, f_c2 = st.columns([2, 1.5])
+        with f_c1:
+            display_filter = st.radio("Показати проекти:", ["Всі проекти", "Тільки в роботі (In Progress)", "Тільки завершені (Done)"], horizontal=True)
+        with f_c2:
+            if c_act_url:
+                st.link_button("↗️ Відкрити Google Таблицю для редагування", c_act_url, use_container_width=True)
+
+        if display_filter == "Тільки в роботі (In Progress)":
+            view_act_df = act_df[act_df["Статус"].str.contains("Progress")].copy()
+        elif display_filter == "Тільки завершені (Done)":
+            view_act_df = act_df[act_df["Статус"].str.contains("Done")].copy()
+        else:
+            view_act_df = act_df.copy()
+
+        # Конфігурація колонок: красивий прогрес-бар, фіксована ширина без обрізання тексту
+        col_view_config = {
+            "Гра": st.column_config.TextColumn("Назва гри (Title)", width="medium"),
+            "Дата релізу": st.column_config.TextColumn("Дата релізу", width="small"),
+            "Статус": st.column_config.TextColumn("Статус", width="small"),
+            "Готовність (%)": st.column_config.ProgressColumn(
+                "Готовність маркетингу",
+                format="%d%%",
+                min_value=0,
+                max_value=100,
+                width="medium"
+            )
+        }
         
         for task in ACTIVITY_CHECKBOX_COLS:
-            current_val = bool(erow[task])
-            if st.session_state.activity_state_dict[g_n].get(task, False) != current_val:
-                st.session_state.activity_state_dict[g_n][task] = current_val
-                has_changes = True
+            col_view_config[task] = st.column_config.CheckboxColumn(task, width="small", disabled=True)
 
-    if has_changes:
-        save_activities_to_disk(st.session_state.activity_state_dict)
+        ordered_cols = ["Гра", "Дата релізу", "Статус", "Готовність (%)"] + ACTIVITY_CHECKBOX_COLS
+        st.dataframe(
+            view_act_df[ordered_cols],
+            column_config=col_view_config,
+            hide_index=True,
+            use_container_width=True,
+            height=520
+        )
 
-    st.caption("🟢 Усі відмітки зберігаються автоматично на сервері в реальному часі.")
-    csv_act = edited_act_df.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Експортувати активності (.CSV)", data=csv_act, file_name="upscale_release_activities.csv", mime="text/csv")
+        csv_act_out = view_act_df[ordered_cols].to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Експортувати звіт активностей (.CSV)", data=csv_act_out, file_name="release_activities_report.csv", mime="text/csv")
+    else:
+        st.info("💡 Не знайдено проектів для відображення.")
 
 
 # ==============================================================================

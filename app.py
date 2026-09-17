@@ -3,7 +3,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import calendar
 import math
 import json
 import os
@@ -16,11 +17,11 @@ from anthropic import Anthropic
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
 WEEKLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1342107748#gid=1342107748"
 NINTENDO_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1182691055#gid=1182691055"
-XBOX_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1981339676#gid=1981339676"  # Встав посилання на вкладку Xbox (або залиш порожнім для введення в інтерфейсі)
+XBOX_MONTHLY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=1981339676#gid=1981339676"  
 PIPELINE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?usp=sharing"
-ACTIVITY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=962012405#gid=962012405"      # Встав посилання на вкладку Release Activity в Google Sheets (з #gid=...)
+ACTIVITY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fUOV3bYgqMHd23lFp-dL7fkO3SxsbO0c2CCoRi8BczQ/edit?gid=962012405#gid=962012405"      
 GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrYmeab3xtC4TW9id-N60pI6UmOk6OJj7L2OebkV48omIzqD_h827g3C1mSUpt_WusyA/exec"
-ANTHROPIC_API_KEY = ""       # Залиш порожнім або додай у Secrets
+ANTHROPIC_API_KEY = ""       
 
 PIPELINE_STORAGE_FILE = "pipeline_master_state.json"
 LOGO_FILE = "up4.png"
@@ -46,34 +47,40 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🎨 ВИПРАВЛЕНИЙ ТА ЗАХИЩЕНИЙ CSS (ІДЕАЛЬНИЙ САЙДБАР БЕЗ ЗСУВІВ)
+# 🎨 ПОВНИЙ ФІКС CSS (БЕЗДОГАННИЙ САЙДБАР, КАЛЕНДАР ТА ТАБЛИЦІ)
 st.markdown("""
 <style>
-    .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
+    .block-container { padding-top: 1.5rem; padding-bottom: 2.5rem; max-width: 96% !important; }
     
-    /* Захист сайдбару від обрізання та ідеальні відступи */
+    /* Фікс відступів сайдбару */
     section[data-testid="stSidebar"] > div:first-child {
-        padding-top: 1rem !important;
+        padding-top: 1.2rem !important;
     }
     
-    /* Повне і безкомпромісне приховування кружечків радіо-кнопок */
+    /* Залізобетонне приховування радіо-кружечків на всіх версіях Streamlit */
     section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child,
     section[data-testid="stSidebar"] div[role="radiogroup"] input[type="radio"],
-    section[data-testid="stSidebar"] [data-testid="stRadioButtonCustom"] {
+    section[data-testid="stSidebar"] [data-testid="stRadioButtonCustom"],
+    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
         display: none !important;
+        visibility: hidden !important;
         width: 0 !important;
         height: 0 !important;
         margin: 0 !important;
-        padding: 0 !important;
     }
     
     /* Стилізація інтерактивних плашок меню */
+    section[data-testid="stSidebar"] div[role="radiogroup"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
     section[data-testid="stSidebar"] div[role="radiogroup"] label {
-        background-color: #171724 !important;
+        background-color: #161622 !important;
         border: 1px solid #28283c !important;
         border-radius: 9px !important;
         padding: 10px 14px !important;
-        margin-bottom: 7px !important;
+        margin: 0 !important;
         cursor: pointer !important;
         transition: all 0.2s ease !important;
         display: flex !important;
@@ -82,18 +89,24 @@ st.markdown("""
         box-sizing: border-box !important;
     }
     section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
-        background-color: #222235 !important;
+        background-color: #202033 !important;
         border-color: #a855f7 !important;
-        transform: translateX(3px);
+        transform: translateX(3px) !important;
     }
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"],
-    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
-        background: linear-gradient(90deg, rgba(192, 38, 211, 0.25) 0%, rgba(249, 115, 22, 0.18) 100%) !important;
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked),
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] {
+        background: linear-gradient(90deg, rgba(217, 70, 239, 0.22) 0%, rgba(249, 115, 22, 0.16) 100%) !important;
         border: 1px solid #d946ef !important;
-        box-shadow: 0 2px 10px rgba(217, 70, 239, 0.18) !important;
+        box-shadow: 0 3px 12px rgba(217, 70, 239, 0.18) !important;
     }
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p,
-    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
+    section[data-testid="stSidebar"] div[role="radiogroup"] label p {
+        color: #94a3b8 !important;
+        font-size: 13.5px !important;
+        font-weight: 600 !important;
+        margin: 0 !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p,
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p {
         color: #ffffff !important;
         font-weight: 700 !important;
     }
@@ -149,6 +162,22 @@ st.markdown("""
     .blocker-box { background: #201319; border-left: 4px solid #ef4444; border: 1px solid #3f1a24; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
     .alert-card-red { background: linear-gradient(135deg, #2d141e 0%, #1c0d13 100%); border: 1px solid #7f1d1d; border-left: 5px solid #ef4444; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
     .alert-card-yellow { background: linear-gradient(135deg, #2d2414 0%, #1c170d 100%); border: 1px solid #854d0e; border-left: 5px solid #eab308; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+
+    /* Стилі Google Calendar */
+    .cal-container { background: #13131e; border: 1px solid #28283c; border-radius: 12px; overflow: hidden; margin-top: 15px; }
+    .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #1a1a27; border-bottom: 1px solid #28283c; }
+    .cal-header-cell { padding: 10px; text-align: center; font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #242436; }
+    .cal-day-cell { background: #161622; min-height: 110px; padding: 6px; display: flex; flex-direction: column; transition: background 0.15s ease; }
+    .cal-day-cell:hover { background: #1c1c2b; }
+    .cal-day-cell.other-month { background: #11111a; opacity: 0.45; }
+    .cal-day-cell.today { background: #1d182b; border: 1.5px solid #d946ef; }
+    .cal-day-num { font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 5px; text-align: right; }
+    .cal-event-pill { font-size: 10px; font-weight: 600; padding: 3px 6px; border-radius: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-decoration: none; }
+    .pill-release { background: rgba(139, 92, 246, 0.25); border-left: 3px solid #a855f7; color: #e9d5ff; }
+    .pill-nintendo { background: rgba(230, 0, 18, 0.2); border-left: 3px solid #ff4d4f; color: #ffccc7; }
+    .pill-xbox { background: rgba(16, 124, 16, 0.22); border-left: 3px solid #52c41a; color: #d9f7be; }
+    .pill-deadline { background: rgba(245, 158, 11, 0.25); border-left: 3px solid #faad14; color: #ffe58f; font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -177,27 +206,27 @@ TARGETS_2026 = {
 }
 
 NINTENDO_SCHEDULE = [
-    {"name": "1. Autumn Sale", "start": "2026-09-11", "end": "2026-09-24", "status": "🔥 Найближчий", "region": "Global / EU / US"},
-    {"name": "2. Halloween Sale", "start": "2026-10-26", "end": "2026-11-15", "status": "🎃 Сезонний", "region": "Global"},
-    {"name": "3. Holiday Sale (EU)", "start": "2026-12-17", "end": "2027-01-10", "status": "🎄 Головний (EU)", "region": "Europe / Australia"},
-    {"name": "4. Holiday Sale (US)", "start": "2026-12-21", "end": "2027-01-11", "status": "🎄 Головний (US)", "region": "Americas"}
+    {"name": "Autumn Sale", "start": "2026-09-11", "end": "2026-09-24", "status": "🔥 Найближчий", "region": "Global / EU / US"},
+    {"name": "Halloween Sale", "start": "2026-10-26", "end": "2026-11-15", "status": "🎃 Сезонний", "region": "Global"},
+    {"name": "Holiday Sale (EU)", "start": "2026-12-17", "end": "2027-01-10", "status": "🎄 Головний (EU)", "region": "Europe / Australia"},
+    {"name": "Holiday Sale (US)", "start": "2026-12-21", "end": "2027-01-11", "status": "🎄 Головний (US)", "region": "Americas"}
 ]
 
 XBOX_SCHEDULE = [
     {
-        "name": "Deep Discounts Sale (ID Sale)",
+        "name": "Deep Discounts Sale (ID)",
         "start": "2026-11-05", "end": "2026-11-11", "deadline": "2026-10-01", "feedback": "2026-10-14",
         "limit": 10, "min_price": 0.0, "min_discount": 65, "type": "ID Sale (Глибокі знижки)",
         "note": "Знижка 65% або більше. Ліміт: до 10 тайтлів."
     },
     {
-        "name": "Black Friday Sale (Tentpole Store Sale)",
+        "name": "Black Friday Sale",
         "start": "2026-11-20", "end": "2026-12-02", "deadline": "2026-10-02", "feedback": "2026-10-15",
         "limit": 5, "min_price": 9.99, "min_discount": 10, "type": "Tentpole Sale",
         "note": "Базова ціна від $9.99. Ліміт: до 5 тайтлів. Кулдаун знято тільки між BF та Countdown."
     },
     {
-        "name": "Countdown Sale (Tentpole Store Sale)",
+        "name": "Countdown Sale",
         "start": "2026-12-17", "end": "2027-01-06", "deadline": "2026-10-30", "feedback": "2026-11-13",
         "limit": 5, "min_price": 9.99, "min_discount": 10, "type": "Tentpole Sale",
         "note": "Базова ціна від $9.99. Ліміт: до 5 тайтлів."
@@ -549,8 +578,7 @@ def load_nintendo_monthly_from_sheet(sheet_url):
         return pd.DataFrame()
     csv_url = get_export_url(sheet_url)
     try:
-        df = pd.read_csv(csv_url, dtype=str)
-        return df
+        return pd.read_csv(csv_url, dtype=str)
     except Exception:
         return pd.DataFrame()
 
@@ -560,8 +588,7 @@ def load_xbox_monthly_from_sheet(sheet_url):
         return pd.DataFrame()
     csv_url = get_export_url(sheet_url)
     try:
-        df = pd.read_csv(csv_url, dtype=str)
-        return df
+        return pd.read_csv(csv_url, dtype=str)
     except Exception:
         return pd.DataFrame()
 
@@ -582,8 +609,7 @@ def load_activity_from_sheet(sheet_url):
         return pd.DataFrame()
     csv_url = get_export_url(sheet_url)
     try:
-        df = pd.read_csv(csv_url, dtype=str)
-        return df
+        return pd.read_csv(csv_url, dtype=str)
     except Exception:
         return pd.DataFrame()
 
@@ -708,7 +734,7 @@ if "scouted_leads" not in st.session_state:
     st.session_state.scouted_leads = []
 
 # ==============================================================================
-# 🧭 5. САЙДБАР
+# 🧭 5. САЙДБАР (БЕЗДОГАННЕ МЕНЮ)
 # ==============================================================================
 with st.sidebar:
     col_logo, col_title = st.columns([1, 2.8])
@@ -731,6 +757,7 @@ with st.sidebar:
         "Навігація:",
         [
             "🎮 Наші ігри", 
+            "📅 Календар релізів і сейлів",  # 🌟 НОВИЙ РОЗДІЛ
             "📅 Помісячна динаміка (Monthly)",
             "🚀 Release Pipeline",
             "📋 Release Activity",
@@ -1050,7 +1077,7 @@ alert("🎉 Заповнено цін для обраних ігор: "+updatedC
             deadline_badge = f"⏳ Залишилось {days_to_deadline} дн." if days_to_deadline > 0 else "🚨 Дедлайн СЬОГОДНІ!"
 
             xc1, xc2, xc3, xc4 = st.columns(4)
-            xc1.metric("🎯 Цільовий розпродаж", cur_xb_sale["name"].split(" (")[0])
+            xc1.metric("🎯 Цільовий розпродаж", cur_xb_sale["name"])
             xc2.metric("⏰ Дедлайн подачі", cur_xb_sale["deadline"], deadline_badge)
             xc3.metric("🔒 Ліміт тайтлів", f"до {cur_xb_sale['limit']} ігор")
             xc4.metric("📩 Approval Feedback", cur_xb_sale["feedback"])
@@ -1326,7 +1353,235 @@ body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, s
 
 
 # ==============================================================================
-# 📅 РОЗДІЛ 2: ПОМІСЯЧНА ДИНАМІКА
+# 📅 РОЗДІЛ 2: ГОЛОВНИЙ КАЛЕНДАР (GOOGLE CALENDAR STYLE + AGENDA)
+# ==============================================================================
+elif app_mode == "📅 Календар релізів і сейлів":
+    st.title("📅 Консольний календар релізів та розпродажів")
+    st.caption("Повна синхронізація дат релізів портфоліо, дедлайнів та офіційних розпродажів Nintendo й Xbox")
+
+    # Збір усіх подій (Релізи + Сейли + Дедлайни)
+    events_list = []
+
+    # 1. Релізи з основного каталогу (raw_df)
+    for _, r in raw_df.iterrows():
+        g_name = str(r["Game_Name_Clean"]).strip()
+        r_dt = parse_flexible_date(r.get(rel_date_col)) if rel_date_col else None
+        if r_dt:
+            events_list.append({
+                "date": r_dt.date(),
+                "title": f"🎮 Реліз: {g_name}",
+                "type": "release",
+                "desc": f"Вихід гри {g_name} на консолях",
+                "badge": "🎮 Реліз"
+            })
+
+    # 2. Релізи з пайплайну (sheet_pipeline_df)
+    live_p = sheet_pipeline_df if not sheet_pipeline_df.empty else load_pipeline_master_data()
+    for _, pr in live_p.iterrows():
+        p_name = str(pr.get("Гра", "")).strip()
+        p_dt = parse_flexible_date(pr.get("Планова дата"))
+        if p_dt and p_name:
+            # Уникаємо точних дублікатів
+            if not any(e["title"] == f"🎮 Реліз: {p_name}" and e["date"] == p_dt.date() for e in events_list):
+                events_list.append({
+                    "date": p_dt.date(),
+                    "title": f"🚀 Дедлайн: {p_name}",
+                    "type": "release",
+                    "desc": f"Плановий вихід порту {p_name} (Розробник: {pr.get('Розробник')})",
+                    "badge": "🚀 Пайплайн"
+                })
+
+    # 3. Розпродажі Nintendo
+    for ns in NINTENDO_SCHEDULE:
+        s_dt = datetime.strptime(ns["start"], "%Y-%m-%d").date()
+        e_dt = datetime.strptime(ns["end"], "%Y-%m-%d").date()
+        
+        # Додаємо кожен день сейлу або маркери початку/кінця
+        cur_d = s_dt
+        while cur_d <= e_dt:
+            is_start = (cur_d == s_dt)
+            is_end = (cur_d == e_dt)
+            lbl = f"🔴 NSW: {ns['name']}"
+            if is_start: lbl += " (Старт 🔥)"
+            elif is_end: lbl += " (Фініш 🏁)"
+            
+            events_list.append({
+                "date": cur_d,
+                "title": lbl,
+                "type": "nintendo",
+                "desc": f"Розпродаж Nintendo eShop ({ns['region']})",
+                "badge": "🔴 Nintendo Sale"
+            })
+            cur_d += timedelta(days=1)
+
+    # 4. Розпродажі та Дедлайни Xbox
+    for xs in XBOX_SCHEDULE:
+        x_start = datetime.strptime(xs["start"], "%Y-%m-%d").date()
+        x_end = datetime.strptime(xs["end"], "%Y-%m-%d").date()
+        x_dead = datetime.strptime(xs["deadline"], "%Y-%m-%d").date()
+
+        # Дедлайн подачі заявки в ID@Xbox
+        events_list.append({
+            "date": x_dead,
+            "title": f"⏰ ДЕДЛАЙН: {xs['name']}",
+            "type": "deadline",
+            "desc": f"Крайній строк подачі заявок у Microsoft на {xs['name']}. {xs['note']}",
+            "badge": "🚨 Дедлайн Xbox"
+        })
+
+        # Дні самого сейлу
+        cur_xd = x_start
+        while cur_xd <= x_end:
+            lbl_x = f"🟢 XB: {xs['name']}"
+            if cur_xd == x_start: lbl_x += " (Старт 🔥)"
+            elif cur_xd == x_end: lbl_x += " (Фініш 🏁)"
+            events_list.append({
+                "date": cur_xd,
+                "title": lbl_x,
+                "type": "xbox",
+                "desc": f"Xbox Sale: {xs['note']}",
+                "badge": "🟢 Xbox Sale"
+            })
+            cur_xd += timedelta(days=1)
+
+    # 🎛️ ЕЛЕМЕНТИ УПРАВЛІННЯ КАЛЕНДАРЕМ
+    c_ctl1, c_ctl2, c_ctl3 = st.columns([1.5, 1.5, 2])
+    
+    current_today = date(2026, 9, 17) # Актуальний робочий контекст 2026 року
+    
+    month_options = [
+        (2026, 8, "Серпень 2026"),
+        (2026, 9, "Вересень 2026"),
+        (2026, 10, "Жовтень 2026"),
+        (2026, 11, "Листопад 2026"),
+        (2026, 12, "Грудень 2026"),
+        (2027, 1, "Січень 2027")
+    ]
+    
+    with c_ctl1:
+        sel_m_idx = c_ctl1.selectbox("🗓️ Оберіть місяць:", options=range(len(month_options)), format_func=lambda i: month_options[i][2], index=1)
+        sel_year, sel_month, sel_label = month_options[sel_m_idx]
+    
+    with c_ctl2:
+        cal_filter = c_ctl2.radio("Фільтр подій:", ["Всі події", "🎮 Тільки релізи", "🏷️ Тільки розпродажі"], horizontal=True)
+
+    with c_ctl3:
+        cal_view_mode = c_ctl3.radio("Формат перегляду:", ["📅 Google Calendar (Місяць)", "📋 Хронологічний список (Agenda)"], horizontal=True)
+
+    filtered_events = []
+    for ev in events_list:
+        if cal_filter == "🎮 Тільки релізи" and ev["type"] != "release": continue
+        if cal_filter == "🏷️ Тільки розпродажі" and ev["type"] == "release": continue
+        filtered_events.append(ev)
+
+    # ==========================================
+    # РЕЖИМ 1: GOOGLE CALENDAR MONTH GRID
+    # ==========================================
+    if cal_view_mode == "📅 Google Calendar (Місяць)":
+        cal_obj = calendar.Calendar(firstweekday=0) # Починаємо з Понеділка
+        month_weeks = cal_obj.monthdatescalendar(sel_year, sel_month)
+
+        cal_html = f"""
+        <div class="cal-container">
+            <div style="padding: 14px 20px; background: #1a1a27; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #28283c;">
+                <h3 style="margin: 0; color: #fff; font-size: 18px; font-weight: 800;">{sel_label}</h3>
+                <div style="font-size: 12px; color: #94a3b8; display: flex; gap: 14px;">
+                    <span><span style="color:#a855f7;">●</span> Релізи</span>
+                    <span><span style="color:#ff4d4f;">●</span> Nintendo сейли</span>
+                    <span><span style="color:#52c41a;">●</span> Xbox сейли</span>
+                    <span><span style="color:#faad14;">●</span> Дедлайни подачі</span>
+                </div>
+            </div>
+            <div class="cal-header">
+                <div class="cal-header-cell">Пн</div>
+                <div class="cal-header-cell">Вт</div>
+                <div class="cal-header-cell">Ср</div>
+                <div class="cal-header-cell">Чт</div>
+                <div class="cal-header-cell">Пт</div>
+                <div class="cal-header-cell" style="color:#ff6b6b;">Сб</div>
+                <div class="cal-header-cell" style="color:#ff6b6b;">Нд</div>
+            </div>
+            <div class="cal-grid">
+        """
+
+        for week in month_weeks:
+            for day in week:
+                is_current_month = (day.month == sel_month)
+                is_today = (day == current_today)
+                cell_classes = ["cal-day-cell"]
+                if not is_current_month: cell_classes.append("other-month")
+                if is_today: cell_classes.append("today")
+
+                day_events = [e for e in filtered_events if e["date"] == day]
+
+                events_html = ""
+                # Показуємо до 3 подій прямо в комірці, щоб не розривати сітку
+                for dev in day_events[:3]:
+                    p_class = "pill-release"
+                    if dev["type"] == "nintendo": p_class = "pill-nintendo"
+                    elif dev["type"] == "xbox": p_class = "pill-xbox"
+                    elif dev["type"] == "deadline": p_class = "pill-deadline"
+                    events_html += f'<div class="cal-event-pill {p_class}" title="{dev["desc"]}">{dev["title"]}</div>'
+
+                if len(day_events) > 3:
+                    events_html += f'<div style="font-size:9.5px; color:#94a3b8; font-weight:bold; margin-top:2px;">+ ще {len(day_events)-3} подій</div>'
+
+                cal_html += f"""
+                <div class="{' '.join(cell_classes)}">
+                    <div class="cal-day-num">{day.day}</div>
+                    {events_html}
+                </div>
+                """
+
+        cal_html += "</div></div>"
+        st.markdown(cal_html, unsafe_allow_html=True)
+
+    # ==========================================
+    # РЕЖИМ 2: AGENDA TIMELINE
+    # ==========================================
+    else:
+        st.markdown("### 📋 Хронологічний розклад подій")
+        agenda_events = sorted([e for e in filtered_events if e["date"].year == sel_year and e["date"].month == sel_month], key=lambda x: x["date"])
+
+        if agenda_events:
+            # Унікалізуємо події для аженди
+            seen_titles = set()
+            clean_agenda = []
+            for ev in agenda_events:
+                k = (ev["date"], ev["title"])
+                if k not in seen_titles:
+                    seen_titles.add(k)
+                    clean_agenda.append(ev)
+
+            for a_ev in clean_agenda:
+                diff_days = (a_ev["date"] - current_today).days
+                if diff_days == 0: countdown_str = "🔥 СЬОГОДНІ"
+                elif diff_days > 0: countdown_str = f"⏳ Через {diff_days} дн."
+                else: countdown_str = f"Пройшло {-diff_days} дн. тому"
+
+                border_color = "#a855f7"
+                if a_ev["type"] == "nintendo": border_color = "#e60012"
+                elif a_ev["type"] == "xbox": border_color = "#107c10"
+                elif a_ev["type"] == "deadline": border_color = "#f59e0b"
+
+                st.markdown(f"""
+                <div style="background:#171724; border-left: 5px solid {border_color}; border: 1px solid #28283c; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <b style="color:#fff; font-size:15px;">{a_ev["title"]}</b>
+                        <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">{a_ev["desc"]}</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:14px; font-weight:700; color:#fff;">{a_ev["date"].strftime('%d.%m.%Y')}</span><br>
+                        <span style="font-size:11px; font-weight:bold; color:{'#34d399' if diff_days>=0 else '#64748b'};">{countdown_str}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("💡 У цьому місяці немає запланованих подій за обраним фільтром.")
+
+
+# ==============================================================================
+# 📅 РОЗДІЛ 3: ПОМІСЯЧНА ДИНАМІКА
 # ==============================================================================
 elif app_mode == "📅 Помісячна динаміка (Monthly)":
     st.title("📅 Помісячна виручка та Cashflow портфоліо ($ USD)")
@@ -1488,7 +1743,7 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
 
 
 # ==============================================================================
-# 🚀 РОЗДІЛ 3: RELEASE PIPELINE
+# 🚀 РОЗДІЛ 4: RELEASE PIPELINE
 # ==============================================================================
 elif app_mode == "🚀 Release Pipeline":
     st.title("🚀 Console Release Pipeline & Lotcheck Tracker")
@@ -1724,13 +1979,12 @@ elif app_mode == "🚀 Release Pipeline":
 
 
 # ==============================================================================
-# 📋 РОЗДІЛ 4: RELEASE ACTIVITY (ПОВНА СИНХРОНІЗАЦІЯ З GOOGLE SHEETS)
+# 📋 РОЗДІЛ 5: RELEASE ACTIVITY
 # ==============================================================================
 elif app_mode == "📋 Release Activity":
     st.title("📋 Release Marketing & Launch Activity Hub")
     st.caption("Маркетинговий чек-лист підготовки до релізів • Джерело правди: Google Sheets • Автоматичний прорахунок готовності")
 
-    # Джерело даних: або окрема вкладка ACTIVITY_SHEET_URL, або основний аркуш
     active_act_source = ACTIVITY_SHEET_URL if ACTIVITY_SHEET_URL else GOOGLE_SHEET_URL
 
     with st.expander("⚙️ Налаштування джерела Google Sheets для Release Activity", expanded=False):
@@ -1742,7 +1996,6 @@ elif app_mode == "📋 Release Activity":
     sheet_data = load_activity_from_sheet(c_act_url) if c_act_url else pd.DataFrame()
     base_df = sheet_data if not sheet_data.empty else raw_df.copy()
 
-    # Пошук назви гри та дати
     act_title_col = next((c for c in base_df.columns if any(k in c.lower() for k in ["title", "гра", "game", "назва"])), base_df.columns[0])
     act_date_col = next((c for c in base_df.columns if any(k in c.lower() for k in ["release date", "release", "date", "дата"])), None)
     act_status_col = next((c for c in base_df.columns if "status" in c.lower() or "статус" in c.lower()), None)
@@ -1783,7 +2036,6 @@ elif app_mode == "📋 Release Activity":
         row_item["Готовність (%)"] = pct_val
         activity_rows.append(row_item)
 
-        # Контроль тривожних релізів: якщо реліз скоро (< 14 дн.), а маркетинг < 70%
         if parsed_dt and status_badge == "🟡 In Progress":
             days_left = (parsed_dt - now_date).days
             if 0 <= days_left <= 14 and pct_val < 70:
@@ -1792,7 +2044,6 @@ elif app_mode == "📋 Release Activity":
     act_df = pd.DataFrame(activity_rows)
 
     if not act_df.empty:
-        # KPI Метрики
         total_tracked = len(act_df)
         in_progress_count = len(act_df[act_df["Статус"].str.contains("Progress")])
         done_count = len(act_df[act_df["Статус"].str.contains("Done")])
@@ -1804,7 +2055,6 @@ elif app_mode == "📋 Release Activity":
         ak3.markdown(f'<div class="kpi-card"><div class="kpi-label">🟢 Випущено (Done)</div><div class="kpi-value" style="color:#4ade80 !important;">{done_count}</div><span class="kpi-badge badge-xbox">100% готовність</span></div>', unsafe_allow_html=True)
         ak4.markdown(f'<div class="kpi-card"><div class="kpi-label">📊 Середня готовність</div><div class="kpi-value" style="color:#38bdf8 !important;">{avg_progress}%</div><span class="kpi-badge badge-ps">По всій базі</span></div>', unsafe_allow_html=True)
 
-        # Сповіщення про гарячі дедлайни
         if overdue_alerts:
             st.markdown("<br>", unsafe_allow_html=True)
             for g_alert, d_left, p_val in overdue_alerts:
@@ -1818,7 +2068,6 @@ elif app_mode == "📋 Release Activity":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Фільтр
         f_c1, f_c2 = st.columns([2, 1.5])
         with f_c1:
             display_filter = st.radio("Показати проекти:", ["Всі проекти", "Тільки в роботі (In Progress)", "Тільки завершені (Done)"], horizontal=True)
@@ -1833,7 +2082,6 @@ elif app_mode == "📋 Release Activity":
         else:
             view_act_df = act_df.copy()
 
-        # Конфігурація колонок: красивий прогрес-бар, фіксована ширина без обрізання тексту
         col_view_config = {
             "Гра": st.column_config.TextColumn("Назва гри (Title)", width="medium"),
             "Дата релізу": st.column_config.TextColumn("Дата релізу", width="small"),
@@ -1866,7 +2114,7 @@ elif app_mode == "📋 Release Activity":
 
 
 # ==============================================================================
-# 🎯 РОЗДІЛ 5: ЦІЛІ ТА KPI 2026
+# 🎯 РОЗДІЛ 6: ЦІЛІ ТА KPI 2026
 # ==============================================================================
 elif app_mode == "🎯 Цілі та KPI 2026":
     st.title("🎯 Виконання річного та квартальних планів (2026)")
@@ -1970,7 +2218,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
 
 
 # ==============================================================================
-# 📈 РОЗДІЛ 6: ТИЖНЕВА ДИНАМІКА
+# 📈 РОЗДІЛ 7: ТИЖНЕВА ДИНАМІКА
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
@@ -2112,7 +2360,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.subheader("📊 Тижнева динаміка воронки (Leads ➔ Deals)")
         bd_cols_chart = [c for c in ["Leads", "Sequence_Started", "Contacts", "Opportunities", "Calls", "Deals"] if c in active_weekly_df.columns]
         fig_bd_bar = px.bar(active_weekly_df, x="From", y=bd_cols_chart, barmode="group", color_discrete_sequence=["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#f59e0b", "#10b981"])
-        fig_bd_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Кількість")
+        fig_bd_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=380, margin=dict(t=20, b=20, l=10, r=10))
         st.plotly_chart(fig_bd_bar, use_container_width=True)
 
     with w_tab3:
@@ -2120,7 +2368,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         social_cols = [c for c in ["Twitter", "TikTok", "YouTube", "Discord", "Instagram"] if c in active_weekly_df.columns]
         if social_cols:
             fig_social = px.line(active_weekly_df, x="From", y=social_cols, markers=True)
-            fig_social.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), xaxis_title="Тиждень", yaxis_title="Підписників")
+            fig_social.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=380, margin=dict(t=20, b=20, l=10, r=10))
             st.plotly_chart(fig_social, use_container_width=True)
 
     with w_tab4:
@@ -2131,7 +2379,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
 
 
 # ==============================================================================
-# 🧮 РОЗДІЛ 7: КАЛЬКУЛЯТОР ПРОГНОЗІВ
+# 🧮 РОЗДІЛ 8: КАЛЬКУЛЯТОР ПРОГНОЗІВ
 # ==============================================================================
 elif app_mode == "🧮 Калькулятор прогнозів":
     st.title("🧮 Sourcing & Lead Forecasting Hub")

@@ -1475,34 +1475,28 @@ elif app_mode == "📅 Календар релізів і сейлів":
         filtered_events.append(ev)
 
     # ==========================================
-    # РЕЖИМ 1: GOOGLE CALENDAR MONTH GRID
+    # ==========================================
+    # РЕЖИМ 1: GOOGLE CALENDAR MONTH GRID (FIXED)
     # ==========================================
     if cal_view_mode == "📅 Google Calendar (Місяць)":
         cal_obj = calendar.Calendar(firstweekday=0) # Починаємо з Понеділка
         month_weeks = cal_obj.monthdatescalendar(sel_year, sel_month)
 
-        cal_html = f"""
-        <div class="cal-container">
-            <div style="padding: 14px 20px; background: #1a1a27; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #28283c;">
-                <h3 style="margin: 0; color: #fff; font-size: 18px; font-weight: 800;">{sel_label}</h3>
-                <div style="font-size: 12px; color: #94a3b8; display: flex; gap: 14px;">
-                    <span><span style="color:#a855f7;">●</span> Релізи</span>
-                    <span><span style="color:#ff4d4f;">●</span> Nintendo сейли</span>
-                    <span><span style="color:#52c41a;">●</span> Xbox сейли</span>
-                    <span><span style="color:#faad14;">●</span> Дедлайни подачі</span>
-                </div>
+        cal_parts = []
+        cal_parts.append('<div class="cal-container">')
+        cal_parts.append(f'''<div style="padding: 14px 20px; background: #1a1a27; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #28283c;">
+            <h3 style="margin: 0; color: #fff; font-size: 18px; font-weight: 800;">{sel_label}</h3>
+            <div style="font-size: 12px; color: #94a3b8; display: flex; gap: 14px;">
+                <span><span style="color:#a855f7;">●</span> Релізи</span>
+                <span><span style="color:#ff4d4f;">●</span> Nintendo сейли</span>
+                <span><span style="color:#52c41a;">●</span> Xbox сейли</span>
+                <span><span style="color:#faad14;">●</span> Дедлайни подачі</span>
             </div>
-            <div class="cal-header">
-                <div class="cal-header-cell">Пн</div>
-                <div class="cal-header-cell">Вт</div>
-                <div class="cal-header-cell">Ср</div>
-                <div class="cal-header-cell">Чт</div>
-                <div class="cal-header-cell">Пт</div>
-                <div class="cal-header-cell" style="color:#ff6b6b;">Сб</div>
-                <div class="cal-header-cell" style="color:#ff6b6b;">Нд</div>
-            </div>
-            <div class="cal-grid">
-        """
+        </div>''')
+        cal_parts.append('<div class="cal-header">')
+        cal_parts.append('<div class="cal-header-cell">Пн</div><div class="cal-header-cell">Вт</div><div class="cal-header-cell">Ср</div><div class="cal-header-cell">Чт</div><div class="cal-header-cell">Пт</div><div class="cal-header-cell" style="color:#ff6b6b;">Сб</div><div class="cal-header-cell" style="color:#ff6b6b;">Нд</div>')
+        cal_parts.append('</div>')
+        cal_parts.append('<div class="cal-grid">')
 
         for week in month_weeks:
             for day in week:
@@ -1514,27 +1508,25 @@ elif app_mode == "📅 Календар релізів і сейлів":
 
                 day_events = [e for e in filtered_events if e["date"] == day]
 
-                events_html = ""
-                # Показуємо до 3 подій прямо в комірці, щоб не розривати сітку
+                events_html = []
                 for dev in day_events[:3]:
                     p_class = "pill-release"
                     if dev["type"] == "nintendo": p_class = "pill-nintendo"
                     elif dev["type"] == "xbox": p_class = "pill-xbox"
                     elif dev["type"] == "deadline": p_class = "pill-deadline"
-                    events_html += f'<div class="cal-event-pill {p_class}" title="{dev["desc"]}">{dev["title"]}</div>'
+                    events_html.append(f'<div class="cal-event-pill {p_class}" title="{dev["desc"]}">{dev["title"]}</div>')
 
                 if len(day_events) > 3:
-                    events_html += f'<div style="font-size:9.5px; color:#94a3b8; font-weight:bold; margin-top:2px;">+ ще {len(day_events)-3} подій</div>'
+                    events_html.append(f'<div style="font-size:9.5px; color:#94a3b8; font-weight:bold; margin-top:2px;">+ ще {len(day_events)-3} подій</div>')
 
-                cal_html += f"""
-                <div class="{' '.join(cell_classes)}">
-                    <div class="cal-day-num">{day.day}</div>
-                    {events_html}
-                </div>
-                """
+                joined_events = "".join(events_html)
+                cal_parts.append(f'<div class="{" ".join(cell_classes)}"><div class="cal-day-num">{day.day}</div>{joined_events}</div>')
 
-        cal_html += "</div></div>"
-        st.markdown(cal_html, unsafe_allow_html=True)
+        cal_parts.append('</div></div>')
+        
+        # Гарантоване очищення відступів, щоб Markdown не сприймав HTML за код!
+        raw_html_str = "".join(cal_parts)
+        st.markdown(raw_html_str, unsafe_allow_html=True)
 
     # ==========================================
     # РЕЖИМ 2: AGENDA TIMELINE

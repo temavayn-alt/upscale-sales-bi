@@ -525,6 +525,7 @@ def load_certification_sheet(sheet_url, tab_name="Certification"):
         return df
     except:
         return pd.DataFrame()
+
 def normalize_dev_name(raw_name):
     if pd.isna(raw_name) or not str(raw_name).strip():
         return "Не призначено"
@@ -536,6 +537,7 @@ def normalize_dev_name(raw_name):
     if "дим" in n.lower() or "дмитр" in n.lower(): return "Дмитро"
     if "влад" in n.lower(): return "Влад"
     return n
+    
 def process_certification_table(df_raw):
     """Обробляє та розраховує строки сертифікації Nintendo та KPI девелоперів."""
     if df_raw.empty:
@@ -558,7 +560,7 @@ def process_certification_table(df_raw):
         g_name = str(r.get(c_game, "")).strip()
         if not g_name or g_name.lower() in ['nan', 'none', '']: continue
 
-        dev = normalize_dev_name(r.get(c_dev, ""))
+        dev = str(r.get(c_dev, "Не призначено")).strip() or "Не призначено"
         raw_status = str(r.get(c_status, "")).strip()
         if raw_status.lower() in ['nan', 'none']: raw_status = ""
 

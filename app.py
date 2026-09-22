@@ -525,7 +525,17 @@ def load_certification_sheet(sheet_url, tab_name="Certification"):
         return df
     except:
         return pd.DataFrame()
-
+def normalize_dev_name(raw_name):
+    if pd.isna(raw_name) or not str(raw_name).strip():
+        return "Не призначено"
+    n = str(raw_name).strip().replace("i", "і").replace("I", "І")
+    if "серг" in n.lower(): return "Сергій"
+    if "ігор" in n.lower() or "игор" in n.lower(): return "Ігор"
+    if "іван" in n.lower() or "иван" in n.lower(): return "Іван"
+    if "максим" in n.lower(): return "Максим"
+    if "дим" in n.lower() or "дмитр" in n.lower(): return "Дмитро"
+    if "влад" in n.lower(): return "Влад"
+    return n
 def process_certification_table(df_raw):
     """Обробляє та розраховує строки сертифікації Nintendo та KPI девелоперів."""
     if df_raw.empty:

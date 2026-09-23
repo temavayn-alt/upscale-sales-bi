@@ -1658,7 +1658,11 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
         p_c1, p_c2, p_c3, p_c4 = st.columns(4)
         p_c1.markdown(f'<div class="kpi-card"><div class="kpi-label">Виторг ({period_label_display})</div><div class="kpi-value">${total_period_rev:,.2f}</div><span class="kpi-badge badge-total">{len(active_selected_months)} міс. вибрано</span></div>', unsafe_allow_html=True)
         p_c2.markdown(f'<div class="kpi-card"><div class="kpi-label">Активних тайтлів</div><div class="kpi-value">{len(display_period_df)}</div><span class="kpi-badge badge-ps">З продажами</span></div>', unsafe_allow_html=True)
-        p_c3.markdown(f'<div class="kpi-card"><div class="kpi-label">Лідер періоду</div><div class="kpi-value" style="font-size:16px; color:#38bdf8 !important;">{display_period_df.iloc[0]["Назва гри / DLC"] if not display_period_df.empty else "—"}</div><span class="kpi-badge badge-xbox">${display_period_df.iloc[0]["Виторг за період ($)"]:,.2f}</span></div>', unsafe_allow_html=True)
+        
+        leader_name = display_period_df.iloc[0]["Назва гри / DLC"] if not display_period_df.empty else "—"
+        leader_rev = display_period_df.iloc[0]["Виторг за період ($)"] if not display_period_df.empty else 0.0
+        
+        p_c3.markdown(f'<div class="kpi-card"><div class="kpi-label">Лідер періоду</div><div class="kpi-value" style="font-size:16px; color:#38bdf8 !important;">{leader_name}</div><span class="kpi-badge badge-xbox">${leader_rev:,.2f}</span></div>', unsafe_allow_html=True)
         p_c4.markdown(f'<div class="kpi-card"><div class="kpi-label">Каса платформи All-Time</div><div class="kpi-value">${active_matrix_df["Всього ($)"].sum():,.2f}</div><span class="kpi-badge badge-switch">Повна база</span></div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)

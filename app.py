@@ -323,7 +323,8 @@ def contains_japanese(text):
 
 # Парсер щомісячних звітів Nintendo eShop з авто-злиттям японських тайтлів
 def parse_nintendo_monthly_data(df_raw):
-    date_cols = [c for c in df_raw.columns if re.match(r"^\d{2}/\d{2}/\d{2}$", str(c).strip())]
+    # Шукаємо колонки дат як з 2-значним, так і з 4-значним роком
+    date_cols = [c for c in df_raw.columns if re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}$", str(c).strip())]
     if not date_cols:
         return pd.DataFrame(), [], {}
     
@@ -341,16 +342,15 @@ def parse_nintendo_monthly_data(df_raw):
             raw_name = str(r.get(target_name_col, "")).strip()
             if t_code and raw_name and not contains_japanese(raw_name) and raw_name.lower() != 'nan':
                 base_code = t_code[:9] if len(t_code) >= 9 else t_code
-                if base_code not in code_to_english_map:
-                    code_to_english_map[base_code] = raw_name
-                if t_code not in code_to_english_map:
-                    code_to_english_map[t_code] = raw_name
+                if base_code not in code_to_english_map: code_to_english_map[base_code] = raw_name
+                if t_code not in code_to_english_map: code_to_english_map[t_code] = raw_name
 
     def format_month_label(c_str):
         try:
             parts = c_str.split("/")
             m = int(parts[0])
-            y = 2000 + int(parts[2])
+            raw_y = int(parts[2])
+            y = raw_y if raw_y >= 2000 else 2000 + raw_y
             if 1 <= m <= 12:
                 return f"{UKR_MONTH_NAMES[m]} {y}"
         except:
@@ -358,8 +358,8 @@ def parse_nintendo_monthly_data(df_raw):
         return c_str
 
     month_label_map = {c: format_month_label(c) for c in date_cols}
-    
     processed_records = []
+    
     for _, row in df_raw.iterrows():
         raw_name = str(row.get(target_name_col, "Unknown")).strip()
         if not raw_name or raw_name.lower() == 'nan': continue
@@ -369,10 +369,8 @@ def parse_nintendo_monthly_data(df_raw):
         
         final_item_name = raw_name
         if contains_japanese(raw_name):
-            if t_code in code_to_english_map:
-                final_item_name = code_to_english_map[t_code]
-            elif base_code in code_to_english_map:
-                final_item_name = code_to_english_map[base_code]
+            if t_code in code_to_english_map: final_item_name = code_to_english_map[t_code]
+            elif base_code in code_to_english_map: final_item_name = code_to_english_map[base_code]
 
         curr = str(row.get(curr_col, "USD")).strip().upper()
         fx = FX_RATES.get(curr, 1.0)
@@ -381,22 +379,19 @@ def parse_nintendo_monthly_data(df_raw):
         row_dict = {"Назва гри / DLC": final_item_name}
         for d_col in date_cols:
             units = clean_num_val(row.get(d_col, 0.0))
-            rev_usd = units * cost * fx
-            row_dict[d_col] = rev_usd
+            row_dict[d_col] = units * cost * fx
         processed_records.append(row_dict)
         
     proc_df = pd.DataFrame(processed_records)
-    if proc_df.empty:
-        return pd.DataFrame(), [], {}
-        
+    if proc_df.empty: return pd.DataFrame(), [], {}
+    
     grouped = proc_df.groupby("Назва гри / DLC")[date_cols].sum().reset_index()
     grouped["Всього ($)"] = grouped[date_cols].sum(axis=1)
     grouped = grouped.sort_values(by="Всього ($)", ascending=False).reset_index(drop=True)
-    
     grouped_renamed = grouped.rename(columns=month_label_map)
-    ordered_month_labels = [month_label_map[c] for c in date_cols]
+    ordered_labels = [month_label_map[c] for c in date_cols]
     
-    return grouped_renamed, ordered_month_labels, month_label_map
+    return grouped_renamed, ordered_labels, month_label_map
 
 # Парсер потранзакційного звіту Xbox Store
 def parse_xbox_monthly_data(df_raw):

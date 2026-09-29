@@ -1613,7 +1613,16 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
         with f_mode_col:
             filter_mode = st.radio(
                 "Режим фільтрації періоду:",
-                ["🗓️ Один місяць", "↔️ Діапазон місяців (Слайдер)", "🎯 Довільний вибір (Мультиселект)", "📅 Всі місяці"],
+                [
+                    "🗓️ Один місяць",
+                    "Q1 2026",
+                    "Q2 2026",
+                    "Q3 2026",
+                    "2026 (Весь рік)",
+                    "↔️ Діапазон місяців (Слайдер)",
+                    "🎯 Довільний вибір (Мультиселект)",
+                    "📅 Всі місяці"
+                ],
                 index=0
             )
         
@@ -1621,6 +1630,34 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
             if filter_mode == "🗓️ Один місяць":
                 selected_single_m = st.selectbox("Оберіть місяць:", options=active_month_labels, index=len(active_month_labels)-1)
                 active_selected_months = [selected_single_m]
+            elif filter_mode == "Q1 2026":
+                active_selected_months = [m for m in active_month_labels if "2026" in m and any(m.startswith(p) for p in ["Січ", "Лют", "Бер"])]
+                if not active_selected_months:
+                    st.warning("У вигрузці немає колонок за Q1 2026.")
+                    active_selected_months = [active_month_labels[-1]]
+                else:
+                    st.caption(f"🗓️ Активні місяці Q1: **{', '.join(active_selected_months)}**")
+            elif filter_mode == "Q2 2026":
+                active_selected_months = [m for m in active_month_labels if "2026" in m and any(m.startswith(p) for p in ["Кві", "Тра", "Чер"])]
+                if not active_selected_months:
+                    st.warning("У вигрузці немає колонок за Q2 2026.")
+                    active_selected_months = [active_month_labels[-1]]
+                else:
+                    st.caption(f"🗓️ Активні місяці Q2: **{', '.join(active_selected_months)}**")
+            elif filter_mode == "Q3 2026":
+                active_selected_months = [m for m in active_month_labels if "2026" in m and any(m.startswith(p) for p in ["Лип", "Сер", "Вер"])]
+                if not active_selected_months:
+                    st.warning("У вигрузці немає колонок за Q3 2026.")
+                    active_selected_months = [active_month_labels[-1]]
+                else:
+                    st.caption(f"🗓️ Активні місяці Q3: **{', '.join(active_selected_months)}**")
+            elif filter_mode == "2026 (Весь рік)":
+                active_selected_months = [m for m in active_month_labels if "2026" in m]
+                if not active_selected_months:
+                    st.warning("У вигрузці немає колонок за 2026 рік.")
+                    active_selected_months = [active_month_labels[-1]]
+                else:
+                    st.caption(f"🗓️ Всі місяці 2026 року: **{', '.join(active_selected_months)}**")
             elif filter_mode == "↔️ Діапазон місяців (Слайдер)":
                 start_m, end_m = st.select_slider(
                     "Оберіть часовий діапазон місяців:",

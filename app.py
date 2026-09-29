@@ -2082,7 +2082,7 @@ elif app_mode == "🎯 Цілі та KPI 2026":
         st.dataframe(pd.DataFrame(q_summary), use_container_width=True, hide_index=True)
 
 # ==============================================================================
-# 📈 РОЗДІЛ 7: ТИЖНЕВА ДИНАМІКА
+# 📈 РОЗДІЛ 7: ТИЖНЕВА ДИНАМІКА (WOW)
 # ==============================================================================
 elif app_mode == "📈 Тижнева динаміка (WoW)":
     st.title("📈 Тижневий пульс видавництва (Week-over-Week)")
@@ -2093,36 +2093,73 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.stop()
 
     st.markdown("---")
-    w_f_col1, w_f_col2 = st.columns([1.2, 2.8])
-    with w_f_col1:
-        w_period_mode = st.radio("Період аналізу тижнів:", ["📅 Весь період", "🗓️ Діапазон дат (Start / End)"], index=0)
+    
+    # 🎛️ НОВИЙ СЕЛЕКТОР ПЕРІОДУ: ЗА ЗАМОВЧУВАННЯМ ОСТАННІЙ ТИЖДЕНЬ + КВАРТАЛИ
+    w_period_mode = st.radio(
+        "Період аналізу тижнів:",
+        [
+            "⚡ Попередній тиждень",
+            "Q1 2026",
+            "Q2 2026",
+            "Q3 2026",
+            "2026 (Весь рік)",
+            "📅 Весь період",
+            "🗓️ Діапазон дат (Start / End)"
+        ],
+        index=0,
+        horizontal=True
+    )
 
-    valid_dates = weekly_df["Parsed_Date"].dropna()
-    min_d = valid_dates.min().date() if not valid_dates.empty else datetime.now().date() - timedelta(days=90)
-    max_d = valid_dates.max().date() if not valid_dates.empty else datetime.now().date()
+    valid_df = weekly_df.dropna(subset=["Parsed_Date"]).copy()
 
-    with w_f_col2:
-        if w_period_mode == "🗓️ Діапазон дат (Start / End)":
-            date_range = st.date_input("Оберіть діапазон:", value=(min_d, max_d), min_value=min_d, max_value=max_d + timedelta(days=365))
-            if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
-                start_val, end_val = date_range
-                active_weekly_df = weekly_df[(weekly_df["Parsed_Date"].dt.date >= start_val) & (weekly_df["Parsed_Date"].dt.date <= end_val)].copy()
-            else:
-                active_weekly_df = weekly_df.copy()
+    # Логіка фільтрації
+    if w_period_mode == "⚡ Попередній тиждень":
+        active_weekly_df = weekly_df.tail(1).copy()
+    elif w_period_mode == "Q1 2026":
+        active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == 2026) & (valid_df["Parsed_Date"].dt.month.isin([1, 2, 3]))].copy()
+    elif w_period_mode == "Q2 2026":
+        active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == 2026) & (valid_df["Parsed_Date"].dt.month.isin([4, 5, 6]))].copy()
+    elif w_period_mode == "Q3 2026":
+        active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == 2026) & (valid_df["Parsed_Date"].dt.month.isin([7, 8, 9]))].copy()
+    elif w_period_mode == "2026 (Весь рік)":
+        active_weekly_df = valid_df[valid_df["Parsed_Date"].dt.year == 2026].copy()
+    elif w_period_mode == "🗓️ Діапазон дат (Start / End)":
+        min_d = valid_df["Parsed_Date"].min().date() if not valid_df.empty else date.today() - timedelta(days=90)
+        max_d = valid_df["Parsed_Date"].max().date() if not valid_df.empty else date.today()
+        date_range = st.date_input("Оберіть діапазон (Start Date ➔ End Date):", value=(min_d, max_d), min_value=min_d, max_value=max_d + timedelta(days=365))
+        if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+            start_val, end_val = date_range
+            active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.date >= start_val) & (valid_df["Parsed_Date"].dt.date <= end_val)].copy()
         else:
             active_weekly_df = weekly_df.copy()
+    else:
+        active_weekly_df = weekly_df.copy()
+
+    if active_weekly_df.empty:
+        st.info(f"💡 Немає даних за обраний період '{w_period_mode}'. Показуємо останній тиждень.")
+        active_weekly_df = weekly_df.tail(1).copy()
 
     st.markdown("<br>", unsafe_allow_html=True)
-    last_week = active_weekly_df.iloc[-1] if not active_weekly_df.empty else weekly_df.iloc[-1]
-    prev_week = active_weekly_df.iloc[-2] if len(active_weekly_df) > 1 else last_week
+
+    # Розрахунок метрик та WoW динаміки
+    last_week = active_weekly_df.iloc[-1]
+    last_idx_in_all = weekly_df[weekly_df["From"] == last_week["From"]].index
+    if not last_idx_in_all.empty and last_idx_in_all[0] > 0:
+        prev_week = weekly_df.iloc[last_idx_in_all[0] - 1]
+    else:
+        prev_week = last_week
 
     tot_w_rev = active_weekly_df["Total_Revenue"].sum()
-    last_w_total_rev = last_week.get("Total_Revenue", 0.0)
-    prev_w_total_rev = prev_week.get("Total_Revenue", 0.0)
+    tot_w_sales = active_weekly_df["Total_Sales"].sum()
+    last_w_total_rev = clean_num_val(last_week.get("Total_Revenue", 0.0))
+    prev_w_total_rev = clean_num_val(prev_week.get("Total_Revenue", 0.0))
+    
     wow_delta = ((last_w_total_rev - prev_w_total_rev) / max(prev_w_total_rev, 1.0)) * 100
 
+    period_desc = f"{last_week['From']}" if w_period_mode == "⚡ Попередній тиждень" else f"{len(active_weekly_df)} тиж."
+
     wk1, wk2, wk3, wk4 = st.columns(4)
-    wk1.metric(f"Виторг за обраний період ({len(active_weekly_df)} тиж.)", f"${tot_w_rev:,.2f}", f"{wow_delta:+.1f}% останній тиждень")
+    wk1.metric(f"Виторг ({period_desc})", f"${tot_w_rev:,.2f}", f"{wow_delta:+.1f}% WoW динаміка")
     wk2.metric("PlayStation виторг", f"${active_weekly_df['PS_Revenue'].sum():,.2f}")
     wk3.metric("Nintendo Switch виторг", f"${active_weekly_df['Nintendo_Revenue'].sum():,.2f}")
     wk4.metric("Xbox виторг", f"${active_weekly_df['Xbox_Revenue'].sum():,.2f}")

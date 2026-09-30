@@ -1877,12 +1877,17 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
                 index=0
             )
 
-        # Логіка визначення кварталу для кожної гри
+        # Логіка визначення кварталу для кожної гри (з захистом від ігор без дат)
         def get_project_quarter(row):
-            d_target = row["_d_plan"] if pd.notna(row["_d_plan"]) else (row["_d_upload"] if pd.notna(row["_d_upload"]) else row["_d_start"])
-            if d_target:
-                q_num = math.ceil(d_target.month / 3)
-                return f"Q{q_num} {d_target.year}", str(d_target.year)
+            for candidate in [row.get("_d_plan"), row.get("_d_upload"), row.get("_d_start")]:
+                if pd.notna(candidate) and hasattr(candidate, "month"):
+                    try:
+                        m = int(candidate.month)
+                        y = int(candidate.year)
+                        q_num = math.ceil(m / 3)
+                        return f"Q{q_num} {y}", str(y)
+                    except (ValueError, TypeError):
+                        continue
             return "Без дати", "Без дати"
 
         q_records = []

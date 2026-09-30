@@ -1670,7 +1670,7 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
                     st.warning(f"У вигрузці немає даних за {sel_q_preset}.")
                     active_selected_months = [active_month_labels[-1]]
                 else:
-                    st.caption(f"🗓️ Активні місяці ({sel_q_preset}): **{', '.join(active_selected_months)}**")
+                    st.caption(f"🗓️ Активні місяці ({sel_q} {sel_y}): **{', '.join(active_selected_months)}**")
 
             elif filter_mode == "↔️ Діапазон місяців (Слайдер)":
                 start_m, end_m = st.select_slider(

@@ -2218,10 +2218,8 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
         st.stop()
 
     st.markdown("---")
-    
-    # 🎛️ НОВИЙ СЕЛЕКТОР ПЕРІОДУ: ЗА ЗАМОВЧУВАННЯМ ОСТАННІЙ ТИЖДЕНЬ + КВАРТАЛИ
-    w_period_mode = st.radio(
-        w_col1, w_col2 = st.columns([1.5, 2.5])
+
+    w_col1, w_col2 = st.columns([1.5, 2.5])
     with w_col1:
         w_main_filter = st.radio(
             "Формат вибору періоду:",
@@ -2288,7 +2286,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
     tot_w_sales = active_weekly_df["Total_Sales"].sum()
     last_w_total_rev = clean_num_val(last_week.get("Total_Revenue", 0.0))
     prev_w_total_rev = clean_num_val(prev_week.get("Total_Revenue", 0.0))
-    
+
     wow_delta = ((last_w_total_rev - prev_w_total_rev) / max(prev_w_total_rev, 1.0)) * 100
 
     period_desc = f"{last_week['From']}" if w_period_mode == "⚡ Попередній тиждень" else f"{len(active_weekly_df)} тиж."

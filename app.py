@@ -1655,13 +1655,13 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
                 
                 # Авто-фільтрація колонок під обраний квартал
                 q_year = sel_y
-                if "Q1" in sel_q_preset:
+                if "Q1" in sel_q:
                     active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Січ", "Лют", "Бер"])]
-                elif "Q2" in sel_q_preset:
+                elif "Q2" in sel_q:
                     active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Кві", "Тра", "Чер"])]
-                elif "Q3" in sel_q_preset:
+                elif "Q3" in sel_q:
                     active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Лип", "Сер", "Вер"])]
-                elif "Q4" in sel_q_preset:
+                elif "Q4" in sel_q:
                     active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Жов", "Лис", "Гру"])]
                 else: # Весь рік
                     active_selected_months = [m for m in active_month_labels if q_year in m]

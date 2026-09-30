@@ -1654,7 +1654,7 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
                     st.caption(f"🗓️ Активні місяці ({q_label_full}): **{', '.join(active_selected_months)}**")
                 
                 # Авто-фільтрація колонок під обраний квартал
-                q_year = sel_q_preset.split(" ")[-1]
+                q_year = sel_y
                 if "Q1" in sel_q_preset:
                     active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Січ", "Лют", "Бер"])]
                 elif "Q2" in sel_q_preset:
@@ -2275,7 +2275,7 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
                 active_weekly_df = weekly_df.tail(1).copy()
             else:
                 st.caption(f"Обрано: **{lbl_full}** ({len(active_weekly_df)} звітних тижнів)")
-            q_y = int(sel_wow_q.split(" ")[-1])
+            q_y = int(sel_wow_y)
             if "Q1" in sel_wow_q:
                 active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([1, 2, 3]))].copy()
             elif "Q2" in sel_wow_q:

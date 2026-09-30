@@ -1615,12 +1615,9 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
                 "Режим фільтрації періоду:",
                 [
                     "🗓️ Один місяць",
-                    "Q1 2026",
-                    "Q2 2026",
-                    "Q3 2026",
-                    "2026 (Весь рік)",
+                    "🎯 Квартал або рік (Випадаючий список)",
                     "↔️ Діапазон місяців (Слайдер)",
-                    "🎯 Довільний вибір (Мультиселект)",
+                    "📋 Довільний вибір (Мультиселект)",
                     "📅 Всі місяці"
                 ],
                 index=0
@@ -1630,34 +1627,35 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
             if filter_mode == "🗓️ Один місяць":
                 selected_single_m = st.selectbox("Оберіть місяць:", options=active_month_labels, index=len(active_month_labels)-1)
                 active_selected_months = [selected_single_m]
-            elif filter_mode == "Q1 2026":
-                active_selected_months = [m for m in active_month_labels if "2026" in m and any(m.startswith(p) for p in ["Січ", "Лют", "Бер"])]
+            elif filter_mode == "🎯 Квартал або рік (Випадаючий список)":
+                sel_q_preset = st.selectbox(
+                    "Оберіть квартал або рік:",
+                    [
+                        "Q3 2026", "Q4 2026", "Q1 2026", "Q2 2026", "2026 (Весь рік)",
+                        "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "2025 (Весь рік)"
+                    ],
+                    index=0
+                )
+                
+                # Авто-фільтрація колонок під обраний квартал
+                q_year = sel_q_preset.split(" ")[-1]
+                if "Q1" in sel_q_preset:
+                    active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Січ", "Лют", "Бер"])]
+                elif "Q2" in sel_q_preset:
+                    active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Кві", "Тра", "Чер"])]
+                elif "Q3" in sel_q_preset:
+                    active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Лип", "Сер", "Вер"])]
+                elif "Q4" in sel_q_preset:
+                    active_selected_months = [m for m in active_month_labels if q_year in m and any(m.startswith(p) for p in ["Жов", "Лис", "Гру"])]
+                else: # Весь рік
+                    active_selected_months = [m for m in active_month_labels if q_year in m]
+
                 if not active_selected_months:
-                    st.warning("У вигрузці немає колонок за Q1 2026.")
+                    st.warning(f"У вигрузці немає даних за {sel_q_preset}.")
                     active_selected_months = [active_month_labels[-1]]
                 else:
-                    st.caption(f"🗓️ Активні місяці Q1: **{', '.join(active_selected_months)}**")
-            elif filter_mode == "Q2 2026":
-                active_selected_months = [m for m in active_month_labels if "2026" in m and any(m.startswith(p) for p in ["Кві", "Тра", "Чер"])]
-                if not active_selected_months:
-                    st.warning("У вигрузці немає колонок за Q2 2026.")
-                    active_selected_months = [active_month_labels[-1]]
-                else:
-                    st.caption(f"🗓️ Активні місяці Q2: **{', '.join(active_selected_months)}**")
-            elif filter_mode == "Q3 2026":
-                active_selected_months = [m for m in active_month_labels if "2026" in m and any(m.startswith(p) for p in ["Лип", "Сер", "Вер"])]
-                if not active_selected_months:
-                    st.warning("У вигрузці немає колонок за Q3 2026.")
-                    active_selected_months = [active_month_labels[-1]]
-                else:
-                    st.caption(f"🗓️ Активні місяці Q3: **{', '.join(active_selected_months)}**")
-            elif filter_mode == "2026 (Весь рік)":
-                active_selected_months = [m for m in active_month_labels if "2026" in m]
-                if not active_selected_months:
-                    st.warning("У вигрузці немає колонок за 2026 рік.")
-                    active_selected_months = [active_month_labels[-1]]
-                else:
-                    st.caption(f"🗓️ Всі місяці 2026 року: **{', '.join(active_selected_months)}**")
+                    st.caption(f"🗓️ Активні місяці ({sel_q_preset}): **{', '.join(active_selected_months)}**")
+
             elif filter_mode == "↔️ Діапазон місяців (Слайдер)":
                 start_m, end_m = st.select_slider(
                     "Оберіть часовий діапазон місяців:",
@@ -1667,7 +1665,7 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
                 s_idx = active_month_labels.index(start_m)
                 e_idx = active_month_labels.index(end_m)
                 active_selected_months = active_month_labels[min(s_idx, e_idx):max(s_idx, e_idx)+1]
-            elif filter_mode == "🎯 Довільний вибір (Мультиселект)":
+            elif filter_mode == "📋 Довільний вибір (Мультиселект)":
                 active_selected_months = st.multiselect(
                     "Оберіть конкретні місяці:",
                     options=active_month_labels,
@@ -1798,9 +1796,10 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
             """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    tab_summary, tab_devs, tab_bottlenecks = st.tabs([
+    tab_summary, tab_devs, tab_kpi_quarter, tab_bottlenecks = st.tabs([
         "📋 Головний трекер сертифікації", 
         "👨‍💻 Ефективність та швидкість розробників", 
+        "🎯 KPI розробників (Квартали)",
         "⏳ Порівняння: План vs Факт"
     ])
 
@@ -1827,19 +1826,15 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
         st.download_button("📥 Експортувати реєстр сертифікації (.CSV)", data=csv_pipe_data, file_name="nintendo_certification_pipeline.csv", mime="text/csv")
 
     with tab_devs:
-        st.subheader("👨‍💻 Рейтинг продуктивності та надійності розробників")
-        st.caption("Швидкість здачі портів, дотримання дедлайнів та загальний обсяг виконаних робіт")
-
+        st.subheader("👨‍💻 Загальний рейтинг розробників (All-Time)")
         dev_stats = []
         for dev_name, group in pipe_df[pipe_df["Розробник"] != "Не призначено"].groupby("Розробник"):
             tot = len(group)
             uploaded = len(group[group["Етап"] == "Uploaded / In Cert"])
             in_prog = len(group[group["Етап"] == "In Porting"])
             backlog = len(group[group["Етап"] == "Backlog"])
-            
             valid_facts = group[group["Факт (дн)"] != "—"]["Факт (дн)"].astype(float)
             avg_fact_days = round(valid_facts.mean(), 1) if not valid_facts.empty else None
-
             valid_deltas = group[group["_delta"].notna()]
             on_time = len(valid_deltas[valid_deltas["_delta"] <= 0])
             on_time_pct = round((on_time / len(valid_deltas)) * 100, 1) if not valid_deltas.empty else None
@@ -1850,66 +1845,159 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
                 "Сер. строк портування (дн)": avg_fact_days if avg_fact_days else "—",
                 "% Здачі вчасно": f"{on_time_pct:.0f}%" if on_time_pct is not None else "—",
                 "Сер. відхилення (дн)": f"{avg_overrun:+.1f} дн" if not valid_deltas.empty else "—",
-                "_on_time_raw": on_time_pct if on_time_pct is not None else -1, "_uploaded_raw": uploaded
+                "_uploaded_raw": uploaded, "_on_time_raw": on_time_pct if on_time_pct is not None else -1
             })
 
         if dev_stats:
             dev_df = pd.DataFrame(dev_stats).sort_values(by=["_uploaded_raw", "_on_time_raw"], ascending=[False, False]).reset_index(drop=True)
-            d_col1, d_col2 = st.columns([1.5, 1])
-            with d_col1:
-                fig_dev_bar = go.Figure()
-                fig_dev_bar.add_trace(go.Bar(x=dev_df["Розробник"], y=dev_df["Здано білдів"], name="Здано білдів", marker_color="#10b981"))
-                fig_dev_bar.add_trace(go.Bar(x=dev_df["Розробник"], y=dev_df["В роботі"], name="Зараз у роботі", marker_color="#38bdf8"))
-                fig_dev_bar.add_trace(go.Bar(x=dev_df["Розробник"], y=dev_df["В черзі"], name="В черзі (Backlog)", marker_color="#64748b"))
-                fig_dev_bar.update_layout(barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=340, margin=dict(t=20, b=20, l=10, r=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                st.plotly_chart(fig_dev_bar, use_container_width=True)
+            st.dataframe(dev_df[["Розробник", "Всього ігор", "Здано білдів", "В роботі", "В черзі", "Сер. строк портування (дн)", "% Здачі вчасно", "Сер. відхилення (дн)"]], hide_index=True, use_container_width=True)
 
-            with d_col2:
-                top_dev = dev_df.iloc[0]
-                st.markdown(f"""
-                <div style="background:#181824; border:1px solid #28283c; border-left:4px solid #10b981; border-radius:10px; padding:18px;">
-                    <h3 style="margin:0; color:#fff;">🥇 {top_dev['Розробник']}</h3>
-                    <p style="margin:4px 0 12px 0; font-size:13px; color:#94a3b8;">Найбільше готових білдів у базі</p>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <div><b>Здано білдів:</b> <span style="color:#10b981;">{top_dev['Здано білдів']}</span></div>
-                        <div><b>В роботі:</b> <span style="color:#38bdf8;">{top_dev['В роботі']}</span></div>
-                        <div><b>Вчасність:</b> <span>{top_dev['% Здачі вчасно']}</span></div>
-                        <div><b>Сер. строк:</b> <span>{top_dev['Сер. строк портування (дн)']} дн</span></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+    # 🌟 НОВА ВКЛАДКА: KPI РОЗРОБНИКІВ З ФІЛЬТРОМ КВАРТАЛІВ
+    with tab_kpi_quarter:
+        st.subheader("🎯 Квартальний KPI та завантаження розробників")
+        st.caption("Автоматичний перерахунок метрик команди за обраний період із листа 'Certification'")
 
-            table_cols = ["Розробник", "Всього ігор", "Здано білдів", "В роботі", "В черзі", "Сер. строк портування (дн)", "% Здачі вчасно", "Сер. відхилення (дн)"]
-            st.dataframe(dev_df[table_cols], hide_index=True, use_container_width=True)
+        col_q_sel, _ = st.columns([1.5, 2.5])
+        with col_q_sel:
+            sel_kpi_period = st.selectbox(
+                "🗓️ Оберіть квартал або рік для аналізу KPI:",
+                [
+                    "Q3 2026",
+                    "Q4 2026",
+                    "Q1 2026",
+                    "Q2 2026",
+                    "2026 (Весь рік)",
+                    "Q1 2025",
+                    "Q2 2025",
+                    "Q3 2025",
+                    "Q4 2025",
+                    "2025 (Весь рік)",
+                    "📅 Всі періоди (All-Time)"
+                ],
+                index=0
+            )
+
+        # Логіка визначення кварталу для кожної гри
+        def get_project_quarter(row):
+            d_target = row["_d_plan"] if pd.notna(row["_d_plan"]) else (row["_d_upload"] if pd.notna(row["_d_upload"]) else row["_d_start"])
+            if d_target:
+                q_num = math.ceil(d_target.month / 3)
+                return f"Q{q_num} {d_target.year}", str(d_target.year)
+            return "Без дати", "Без дати"
+
+        q_records = []
+        for _, pr_row in pipe_df.iterrows():
+            q_lbl, y_lbl = get_project_quarter(pr_row)
+            pr_dict = pr_row.to_dict()
+            pr_dict["_quarter_label"] = q_lbl
+            pr_dict["_year_label"] = y_lbl
+            q_records.append(pr_dict)
+
+        q_pipe_df = pd.DataFrame(q_records)
+
+        # Фільтрація проектів під обраний квартал
+        if sel_kpi_period == "📅 Всі періоди (All-Time)":
+            active_q_df = q_pipe_df.copy()
+        elif "Весь рік" in sel_kpi_period:
+            y_filter = sel_kpi_period.split(" ")[0]
+            active_q_df = q_pipe_df[q_pipe_df["_year_label"] == y_filter].copy()
         else:
-            st.info("Немає даних по розробниках.")
+            active_q_df = q_pipe_df[q_pipe_df["_quarter_label"] == sel_kpi_period].copy()
+
+        # Формування зведеної KPI таблиці розробників за обраний період
+        kpi_dev_rows = []
+        all_unique_devs = sorted([d for d in pipe_df["Розробник"].unique() if d != "Не призначено"])
+
+        for dev_name in all_unique_devs:
+            dev_sub = active_q_df[active_q_df["Розробник"] == dev_name]
+            tot_p = len(dev_sub)
+            done_p = len(dev_sub[dev_sub["Етап"] == "Uploaded / In Cert"])
+            in_prog_p = len(dev_sub[dev_sub["Етап"] == "In Porting"])
+            backlog_p = len(dev_sub[dev_sub["Етап"] == "Backlog"])
+
+            # Середні строки
+            valid_p_days = pd.to_numeric(dev_sub[dev_sub["План (дн)"] != "—"]["План (дн)"], errors="coerce").dropna()
+            valid_f_days = pd.to_numeric(dev_sub[dev_sub["Факт (дн)"] != "—"]["Факт (дн)"], errors="coerce").dropna()
+            valid_deltas = dev_sub[dev_sub["_delta"].notna()]["_delta"].astype(float)
+
+            avg_p = round(valid_p_days.mean(), 1) if not valid_p_days.empty else None
+            avg_f = round(valid_f_days.mean(), 1) if not valid_f_days.empty else None
+            avg_delay = round(valid_deltas.mean(), 1) if not valid_deltas.empty else None
+
+            # % Вчасних здач
+            if not valid_deltas.empty:
+                on_time_cnt = len(valid_deltas[valid_deltas <= 0])
+                on_time_pct = round((on_time_cnt / len(valid_deltas)) * 100, 1)
+            else:
+                on_time_pct = None
+
+            # Розрахунок підсумкового KPI індексу (0-100)
+            if tot_p > 0:
+                scope_score = (done_p / tot_p) * 45
+                on_time_score = (on_time_pct * 0.35) if on_time_pct is not None else 25.0
+                delay_penalty = max(0, (avg_delay * 2)) if (avg_delay and avg_delay > 0) else 0
+                kpi_index = round(min(100.0, max(0.0, scope_score + on_time_score + 20.0 - delay_penalty)), 1)
+            else:
+                kpi_index = None
+
+            # Статус перформансу
+            if kpi_index is None:
+                status_lbl = "⚪ Немає проєктів"
+            elif kpi_index >= 80:
+                status_lbl = "🟢 Топ-перформер"
+            elif kpi_index >= 65:
+                status_lbl = "🟡 Норма"
+            else:
+                status_lbl = "🔴 Зона ботлнеку"
+
+            kpi_dev_rows.append({
+                "Розробник": dev_name,
+                "Всього проєктів": tot_p,
+                "Здано білдів": done_p,
+                "В роботі": in_prog_p,
+                "В черзі": backlog_p,
+                "Сер. план (дн)": avg_p if avg_p else "—",
+                "Сер. факт (дн)": avg_f if avg_f else "—",
+                "Сер. затримка (дн)": f"{avg_delay:+.1f} дн" if avg_delay is not None else "—",
+                "% Вчасних здач": f"{on_time_pct:.0f}%" if on_time_pct is not None else "—",
+                "Індекс KPI (0-100)": kpi_index if kpi_index is not None else "—",
+                "Статус перформансу": status_lbl,
+                "_raw_done": done_p
+            })
+
+        kpi_summary_df = pd.DataFrame(kpi_dev_rows).sort_values(by=["Всього проєктів", "_raw_done"], ascending=[False, False]).reset_index(drop=True)
+
+        # 📊 ВІЗУАЛІЗАЦІЯ КВАРТАЛУ (STACKED BAR CHART)
+        st.markdown(f"##### 📊 Завантаження та статус ігор команди ({sel_kpi_period}):")
+        fig_q_bar = go.Figure()
+        fig_q_bar.add_trace(go.Bar(x=kpi_summary_df["Розробник"], y=kpi_summary_df["Здано білдів"], name="Здано білдів (Ready)", marker_color="#10b981"))
+        fig_q_bar.add_trace(go.Bar(x=kpi_summary_df["Розробник"], y=kpi_summary_df["В роботі"], name="В роботі (In Progress)", marker_color="#38bdf8"))
+        fig_q_bar.add_trace(go.Bar(x=kpi_summary_df["Розробник"], y=kpi_summary_df["В черзі"], name="В черзі (Backlog)", marker_color="#64748b"))
+        fig_q_bar.update_layout(
+            barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color="#e2e8f0"), height=330, margin=dict(t=20, b=20, l=10, r=10),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_q_bar, use_container_width=True)
+
+        # 📑 ПОВНА ТАБЛИЦЯ KPI РОЗРОБНИКІВ ЗА КВАРТАЛ
+        st.markdown(f"##### 📋 Зведена таблиця KPI розробників ({sel_kpi_period}):")
+        kpi_table_cols = [
+            "Розробник", "Всього проєктів", "Здано білдів", "В роботі", "В черзі", 
+            "Сер. план (дн)", "Сер. факт (дн)", "Сер. затримка (дн)", "% Вчасних здач", 
+            "Індекс KPI (0-100)", "Статус перформансу"
+        ]
+        st.dataframe(kpi_summary_df[kpi_table_cols], hide_index=True, use_container_width=True)
 
     with tab_bottlenecks:
         st.subheader("⏳ Порівняльний аудит строків: План vs Факт")
         st.caption("Червоне = затримка здачі, Зелене = вчасно або раніше графіка")
-
         overrun_list = pipe_df[pipe_df["_delta"].notna()].sort_values(by="_delta", ascending=False)
         if not overrun_list.empty:
             fig_delta = px.bar(overrun_list, x="Гра", y="_delta", color="_delta", color_continuous_scale=["#10b981", "#eab308", "#ef4444"], labels={"_delta": "Відхилення (днів)"}, text="_delta")
             fig_delta.update_traces(texttemplate='%{text:+} дн', textposition='outside')
             fig_delta.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=360, margin=dict(t=20, b=20, l=10, r=10))
             st.plotly_chart(fig_delta, use_container_width=True)
-
-            st.markdown("#### 🚨 Проекти з найбільшими затримками:")
-            top_delays = overrun_list[overrun_list["_delta"] > 0].head(5)
-            for _, tr in top_delays.iterrows():
-                st.markdown(f"""
-                <div style="background:#171724; border-left:4px solid #ef4444; border:1px solid #28283c; border-radius:8px; padding:12px 16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <b style="color:#fff; font-size:15px;">🎮 {tr['Гра']}</b> ➔ Розробник: <span style="color:#d946ef;">{tr['Розробник']}</span>
-                        <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">План здачі: {tr['План здачі білда']} | Фактично завантажено: {tr['Дата завантаження білда']}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="font-size:16px; font-weight:800; color:#ef4444;">+{int(tr['_delta'])} ДНІВ</span><br>
-                        <span style="font-size:11px; color:#94a3b8;">План: {tr['План (дн)']}дн ➔ Факт: {tr['Факт (дн)']}дн</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
 
 # ==============================================================================
 # 📋 РОЗДІЛ 5: RELEASE ACTIVITY
@@ -2133,48 +2221,58 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
     
     # 🎛️ НОВИЙ СЕЛЕКТОР ПЕРІОДУ: ЗА ЗАМОВЧУВАННЯМ ОСТАННІЙ ТИЖДЕНЬ + КВАРТАЛИ
     w_period_mode = st.radio(
-        "Період аналізу тижнів:",
-        [
-            "⚡ Попередній тиждень",
-            "Q1 2026",
-            "Q2 2026",
-            "Q3 2026",
-            "2026 (Весь рік)",
-            "📅 Весь період",
-            "🗓️ Діапазон дат (Start / End)"
-        ],
-        index=0,
-        horizontal=True
-    )
+        w_col1, w_col2 = st.columns([1.5, 2.5])
+    with w_col1:
+        w_main_filter = st.radio(
+            "Формат вибору періоду:",
+            ["⚡ Попередній тиждень", "🎯 Квартал або рік", "📅 Весь період", "🗓️ Довільні дати (Start / End)"],
+            index=0,
+            horizontal=False
+        )
 
     valid_df = weekly_df.dropna(subset=["Parsed_Date"]).copy()
 
-    # Логіка фільтрації
-    if w_period_mode == "⚡ Попередній тиждень":
-        active_weekly_df = weekly_df.tail(1).copy()
-    elif w_period_mode == "Q1 2026":
-        active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == 2026) & (valid_df["Parsed_Date"].dt.month.isin([1, 2, 3]))].copy()
-    elif w_period_mode == "Q2 2026":
-        active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == 2026) & (valid_df["Parsed_Date"].dt.month.isin([4, 5, 6]))].copy()
-    elif w_period_mode == "Q3 2026":
-        active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == 2026) & (valid_df["Parsed_Date"].dt.month.isin([7, 8, 9]))].copy()
-    elif w_period_mode == "2026 (Весь рік)":
-        active_weekly_df = valid_df[valid_df["Parsed_Date"].dt.year == 2026].copy()
-    elif w_period_mode == "🗓️ Діапазон дат (Start / End)":
-        min_d = valid_df["Parsed_Date"].min().date() if not valid_df.empty else date.today() - timedelta(days=90)
-        max_d = valid_df["Parsed_Date"].max().date() if not valid_df.empty else date.today()
-        date_range = st.date_input("Оберіть діапазон (Start Date ➔ End Date):", value=(min_d, max_d), min_value=min_d, max_value=max_d + timedelta(days=365))
-        if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
-            start_val, end_val = date_range
-            active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.date >= start_val) & (valid_df["Parsed_Date"].dt.date <= end_val)].copy()
+    with w_col2:
+        if w_main_filter == "⚡ Попередній тиждень":
+            active_weekly_df = weekly_df.tail(1).copy()
+            st.caption(f"Показуємо останній звітний тиждень: **{active_weekly_df.iloc[-1]['From']}**")
+        elif w_main_filter == "🎯 Квартал або рік":
+            sel_wow_q = st.selectbox(
+                "Оберіть цільовий квартал або рік:",
+                [
+                    "Q3 2026", "Q4 2026", "Q1 2026", "Q2 2026", "2026 (Весь рік)",
+                    "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "2025 (Весь рік)"
+                ],
+                index=0
+            )
+            q_y = int(sel_wow_q.split(" ")[-1])
+            if "Q1" in sel_wow_q:
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([1, 2, 3]))].copy()
+            elif "Q2" in sel_wow_q:
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([4, 5, 6]))].copy()
+            elif "Q3" in sel_wow_q:
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([7, 8, 9]))].copy()
+            elif "Q4" in sel_wow_q:
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([10, 11, 12]))].copy()
+            else:
+                active_weekly_df = valid_df[valid_df["Parsed_Date"].dt.year == q_y].copy()
+
+            if active_weekly_df.empty:
+                st.warning(f"Немає тижневих даних за {sel_wow_q}.")
+                active_weekly_df = weekly_df.tail(1).copy()
+        elif w_main_filter == "🗓️ Довільні дати (Start / End)":
+            min_d = valid_df["Parsed_Date"].min().date() if not valid_df.empty else date.today() - timedelta(days=90)
+            max_d = valid_df["Parsed_Date"].max().date() if not valid_df.empty else date.today()
+            date_range = st.date_input("Оберіть діапазон:", value=(min_d, max_d), min_value=min_d, max_value=max_d + timedelta(days=365))
+            if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+                start_val, end_val = date_range
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.date >= start_val) & (valid_df["Parsed_Date"].dt.date <= end_val)].copy()
+            else:
+                active_weekly_df = weekly_df.copy()
         else:
             active_weekly_df = weekly_df.copy()
-    else:
-        active_weekly_df = weekly_df.copy()
 
-    if active_weekly_df.empty:
-        st.info(f"💡 Немає даних за обраний період '{w_period_mode}'. Показуємо останній тиждень.")
-        active_weekly_df = weekly_df.tail(1).copy()
+    w_period_mode = w_main_filter
 
     st.markdown("<br>", unsafe_allow_html=True)
 

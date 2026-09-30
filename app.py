@@ -1628,14 +1628,30 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
                 selected_single_m = st.selectbox("Оберіть місяць:", options=active_month_labels, index=len(active_month_labels)-1)
                 active_selected_months = [selected_single_m]
             elif filter_mode == "🎯 Квартал або рік (Випадаючий список)":
-                sel_q_preset = st.selectbox(
-                    "Оберіть квартал або рік:",
-                    [
-                        "Q3 2026", "Q4 2026", "Q1 2026", "Q2 2026", "2026 (Весь рік)",
-                        "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "2025 (Весь рік)"
-                    ],
-                    index=0
-                )
+                col_mq, col_my = st.columns(2)
+                with col_mq:
+                    sel_q = st.selectbox("Квартал:", ["Q3", "Q4", "Q1", "Q2", "Весь рік"], index=0)
+                with col_my:
+                    sel_y = st.selectbox("Рік:", ["2026", "2025", "2024", "2027"], index=0)
+
+                q_label_full = f"{sel_q} {sel_y}" if sel_q != "Весь рік" else f"{sel_y} (Весь рік)"
+
+                if sel_q == "Q1":
+                    active_selected_months = [m for m in active_month_labels if sel_y in m and any(m.startswith(p) for p in ["Січ", "Лют", "Бер"])]
+                elif sel_q == "Q2":
+                    active_selected_months = [m for m in active_month_labels if sel_y in m and any(m.startswith(p) for p in ["Кві", "Тра", "Чер"])]
+                elif sel_q == "Q3":
+                    active_selected_months = [m for m in active_month_labels if sel_y in m and any(m.startswith(p) for p in ["Лип", "Сер", "Вер"])]
+                elif sel_q == "Q4":
+                    active_selected_months = [m for m in active_month_labels if sel_y in m and any(m.startswith(p) for p in ["Жов", "Лис", "Гру"])]
+                else: # Весь рік
+                    active_selected_months = [m for m in active_month_labels if sel_y in m]
+
+                if not active_selected_months:
+                    st.warning(f"У вигрузці немає даних за {q_label_full}.")
+                    active_selected_months = [active_month_labels[-1]]
+                else:
+                    st.caption(f"🗓️ Активні місяці ({q_label_full}): **{', '.join(active_selected_months)}**")
                 
                 # Авто-фільтрація колонок під обраний квартал
                 q_year = sel_q_preset.split(" ")[-1]
@@ -1857,26 +1873,20 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
         st.subheader("🎯 Квартальний KPI та завантаження розробників")
         st.caption("Автоматичний перерахунок метрик команди за обраний період із листа 'Certification'")
 
-        col_q_sel, _ = st.columns([1.5, 2.5])
-        with col_q_sel:
-            sel_kpi_period = st.selectbox(
-                "🗓️ Оберіть квартал або рік для аналізу KPI:",
-                [
-                    "Q3 2026",
-                    "Q4 2026",
-                    "Q1 2026",
-                    "Q2 2026",
-                    "2026 (Весь рік)",
-                    "Q1 2025",
-                    "Q2 2025",
-                    "Q3 2025",
-                    "Q4 2025",
-                    "2025 (Весь рік)",
-                    "📅 Всі періоди (All-Time)"
-                ],
-                index=0
-            )
+        col_q, col_y, _ = st.columns([1.2, 1.2, 2])
+        with col_q:
+            sel_kpi_q = st.selectbox("Квартал:", ["Q3", "Q4", "Q1", "Q2", "Весь рік", "Всі періоди"], index=0)
+        with col_y:
+            sel_kpi_y = st.selectbox("Рік:", ["2026", "2025", "2024", "2027", "Всі роки"], index=0)
 
+        # Автоматичне формування мітки вибору
+        if sel_kpi_q == "Всі періоди" or sel_kpi_y == "Всі роки":
+            sel_kpi_period = "📅 Всі періоди (All-Time)"
+        elif sel_kpi_q == "Весь рік":
+            sel_kpi_period = f"{sel_kpi_y} (Весь рік)"
+        else:
+            sel_kpi_period = f"{sel_kpi_q} {sel_kpi_y}"
+            
         # Логіка визначення кварталу для кожної гри (з захистом від ігор без дат)
         def get_project_quarter(row):
             for candidate in [row.get("_d_plan"), row.get("_d_upload"), row.get("_d_start")]:
@@ -2240,14 +2250,31 @@ elif app_mode == "📈 Тижнева динаміка (WoW)":
             active_weekly_df = weekly_df.tail(1).copy()
             st.caption(f"Показуємо останній звітний тиждень: **{active_weekly_df.iloc[-1]['From']}**")
         elif w_main_filter == "🎯 Квартал або рік":
-            sel_wow_q = st.selectbox(
-                "Оберіть цільовий квартал або рік:",
-                [
-                    "Q3 2026", "Q4 2026", "Q1 2026", "Q2 2026", "2026 (Весь рік)",
-                    "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "2025 (Весь рік)"
-                ],
-                index=0
-            )
+            col_wq, col_wy = st.columns(2)
+            with col_wq:
+                sel_wow_q = st.selectbox("Квартал:", ["Q3", "Q4", "Q1", "Q2", "Весь рік"], index=0)
+            with col_wy:
+                sel_wow_y = st.selectbox("Рік:", ["2026", "2025", "2024", "2027"], index=0)
+
+            q_y = int(sel_wow_y)
+            lbl_full = f"{sel_wow_q} {sel_wow_y}" if sel_wow_q != "Весь рік" else f"{sel_wow_y} (Весь рік)"
+
+            if sel_wow_q == "Q1":
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([1, 2, 3]))].copy()
+            elif sel_wow_q == "Q2":
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([4, 5, 6]))].copy()
+            elif sel_wow_q == "Q3":
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([7, 8, 9]))].copy()
+            elif sel_wow_q == "Q4":
+                active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([10, 11, 12]))].copy()
+            else: # Весь рік
+                active_weekly_df = valid_df[valid_df["Parsed_Date"].dt.year == q_y].copy()
+
+            if active_weekly_df.empty:
+                st.warning(f"Немає тижневих даних за {lbl_full}.")
+                active_weekly_df = weekly_df.tail(1).copy()
+            else:
+                st.caption(f"Обрано: **{lbl_full}** ({len(active_weekly_df)} звітних тижнів)")
             q_y = int(sel_wow_q.split(" ")[-1])
             if "Q1" in sel_wow_q:
                 active_weekly_df = valid_df[(valid_df["Parsed_Date"].dt.year == q_y) & (valid_df["Parsed_Date"].dt.month.isin([1, 2, 3]))].copy()

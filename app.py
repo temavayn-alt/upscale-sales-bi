@@ -1456,18 +1456,29 @@ elif app_mode == "📅 Календар релізів і сейлів":
             cur_xd += timedelta(days=1)
 
     c_ctl1, c_ctl2, c_ctl3 = st.columns([1.5, 1.5, 2])
-    current_today = date(2026, 9, 22)
+    # ⚡ Дата тепер завжди підтягується системно на сьогоднішній день
+    current_today = date.today()
+    
     month_options = [
         (2026, 8, "Серпень 2026"),
         (2026, 9, "Вересень 2026"),
         (2026, 10, "Жовтень 2026"),
         (2026, 11, "Листопад 2026"),
         (2026, 12, "Грудень 2026"),
-        (2027, 1, "Січень 2027")
+        (2027, 1, "Січень 2027"),
+        (2027, 2, "Лютий 2027"),
+        (2027, 3, "Березень 2027")
     ]
-    
+
+    # Автоматично визначаємо індекс поточного місяця, щоб відкривався саме він
+    default_m_idx = 2  # Жовтень за замовчуванням
+    for m_i, (m_y, m_m, _) in enumerate(month_options):
+        if m_y == current_today.year and m_m == current_today.month:
+            default_m_idx = m_i
+            break
+
     with c_ctl1:
-        sel_m_idx = c_ctl1.selectbox("🗓️ Оберіть місяць:", options=range(len(month_options)), format_func=lambda i: month_options[i][2], index=1)
+        sel_m_idx = c_ctl1.selectbox("🗓️ Оберіть місяць:", options=range(len(month_options)), format_func=lambda i: month_options[i][2], index=default_m_idx)
         sel_year, sel_month, sel_label = month_options[sel_m_idx]
     
     with c_ctl2:
@@ -1812,13 +1823,129 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
             """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    tab_summary, tab_devs, tab_kpi_quarter, tab_bottlenecks = st.tabs([
+    tab_summary, tab_devs, tab_kpi_quarter, tab_gantt, tab_bottlenecks = st.tabs([
         "📋 Головний трекер сертифікації", 
         "👨‍💻 Ефективність та швидкість розробників", 
         "🎯 KPI розробників (Квартали)",
+        "📅 Таймлайн розробників (Roadmap)",
         "⏳ Порівняння: План vs Факт"
     ])
 
+    # 🌟 НОВА ВКЛАДКА: ІНТЕРАКТИВНИЙ РОАДМАП ЗАВАНТАЖЕННЯ РОЗРОБНИКІВ
+    with tab_gantt:
+        st.subheader("📅 Графік зайнятості та план здачі ігор (Roadmap)")
+        st.caption("Візуалізація термінів розробки на базі дат із листа 'Certification' • Жовта лінія показує поточний день")
+
+        gantt_records = []
+        today_date = date.today()
+
+        for _, r in pipe_df.iterrows():
+            dev = r.get("Розробник")
+            if not dev or dev == "Не призначено":
+                continue
+
+            d_s = r.get("_d_start")
+            d_p = r.get("_d_plan")
+            d_u = r.get("_d_upload")
+
+            # Якщо немає жодної дати — пропускаємо
+            if pd.isna(d_s) and pd.isna(d_p):
+                continue
+
+            # Визначаємо межі відрізка
+            start_d = d_s if pd.notna(d_s) else (d_p - timedelta(days=14))
+            end_d = d_p if pd.notna(d_p) else (d_s + timedelta(days=14))
+
+            if start_d > end_d:
+                start_d, end_d = end_d, start_d
+
+            # Статус для кольорового кодування смужки
+            if pd.notna(d_u):
+                if pd.notna(d_p) and d_u.date() <= d_p.date():
+                    status_lbl = "🟢 Здано вчасно"
+                else:
+                    status_lbl = "🔴 Здано з затримкою"
+            elif pd.notna(d_s):
+                if pd.notna(d_p) and today_date > d_p.date():
+                    status_lbl = "🚨 Прострочено"
+                else:
+                    status_lbl = "🔵 В роботі (In porting)"
+            else:
+                status_lbl = "🟣 Заплановано (Signed)"
+
+            gantt_records.append({
+                "Гра": r["Гра"],
+                "Розробник": dev,
+                "Start": start_d,
+                "End": end_d,
+                "Статус": status_lbl,
+                "Старт": r["Дата старту"],
+                "План": r["План здачі білда"],
+                "Факт": r["Дата завантаження білда"]
+            })
+
+        if gantt_records:
+            gantt_df = pd.DataFrame(gantt_records)
+
+            # Карта кольорів статусів
+            status_colors = {
+                "🟢 Здано вчасно": "#10b981",
+                "🔴 Здано з затримкою": "#ef4444",
+                "🚨 Прострочено": "#f43f5e",
+                "🔵 В роботі (In porting)": "#38bdf8",
+                "🟣 Заплановано (Signed)": "#a855f7"
+            }
+
+            fig_gantt = px.timeline(
+                gantt_df,
+                x_start="Start",
+                x_end="End",
+                y="Розробник",
+                color="Статус",
+                text="Гра",
+                color_discrete_map=status_colors,
+                hover_data=["Гра", "Старт", "План", "Факт"]
+            )
+            # Розробники відображаються зверху вниз
+            fig_gantt.update_yaxes(autorange="reversed")
+
+            # 📍 ДОДАЄМО ЖОВТУ ПУНКТИРНУ ЛІНІЮ "СЬОГОДНІ"
+            fig_gantt.add_vline(
+                x=datetime.combine(today_date, datetime.min.time()).timestamp() * 1000,
+                line_width=2.5,
+                line_dash="dash",
+                line_color="#fbbf24",
+                annotation_text=f"СЬОГОДНІ ({today_date.strftime('%d.%m')})",
+                annotation_position="top left",
+                annotation_font_color="#fbbf24",
+                annotation_font_size=11
+            )
+
+            fig_gantt.update_traces(textposition='inside', insidetextanchor='middle')
+            fig_gantt.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color="#e2e8f0"),
+                height=480,
+                xaxis=dict(gridcolor="#28283c", title="Шкала часу (Календарні дати)", type="date"),
+                yaxis=dict(gridcolor="#28283c", title=""),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_gantt, use_container_width=True)
+
+            # Легенда-підказка
+            st.markdown("""
+            <div style="font-size:12px; color:#94a3b8; display:flex; gap:16px; margin-top:-10px;">
+                <span><span style="color:#10b981;">●</span> Здано вчасно</span>
+                <span><span style="color:#ef4444;">●</span> Здано з затримкою</span>
+                <span><span style="color:#f43f5e;">●</span> Прострочено зараз</span>
+                <span><span style="color:#38bdf8;">●</span> В активній розробці</span>
+                <span><span style="color:#a855f7;">●</span> Підписано / Черга (Signed)</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("Немає даних із датами для побудови графіка.")
+            
     with tab_summary:
         st.subheader("📋 Реєстр проектів у розробці та сертифікації")
         c_f1, c_f2 = st.columns([1.5, 2.5])

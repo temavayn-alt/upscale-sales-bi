@@ -997,7 +997,6 @@ if app_mode == "🎮 Наші ігри":
             found = False
             for col_name in row_s.index:
                 cl = str(col_name).lower()
-                # Шукаємо колонки 1st month для PS, Xbox, Switch
                 if ("1st" in cl or "month 1" in cl or "m1" in cl) and not any(x in cl for x in ["pred", "forecast", "план", "target"]):
                     val = clean_num_val(row_s[col_name])
                     if val > 0:
@@ -1005,7 +1004,7 @@ if app_mode == "🎮 Наші ігри":
                         found = True
             return m1_total if found else 0.0
 
-        # Підготовка даних та сортування (спочатку релізнуті з касою)
+        # Формуємо список у ПРИРОДНОМУ порядку таблиці (від найновіших до старих)
         insights_data = []
         for _, r in filtered_df.iterrows():
             g_name = str(r["Game_Name_Clean"]).strip()
@@ -1024,10 +1023,7 @@ if app_mode == "🎮 Наші ігри":
                 "row": r
             })
 
-        # Сортуємо: спочатку за спаданням факту M1, потім решта
-        insights_data.sort(key=lambda x: x["m1"], reverse=True)
-
-        # Фільтр відображення
+        # Фільтр без порушення сортування таблиці
         show_only_released = st.checkbox("Показати тільки ігри з зафіксованим фактом M1", value=False)
         if show_only_released:
             insights_data = [item for item in insights_data if item["m1"] > 0]
@@ -1039,12 +1035,10 @@ if app_mode == "🎮 Наші ігри":
             price_tag = f"${item['price']:.2f}" if item['price'] > 0 else "—"
 
             if m1 > 0:
-                # 🧮 Єдина емпірична формула
                 m3_est = m1 * 1.35
                 m6_est = m1 * 1.70
                 y1_est = m1 * 2.15
 
-                # Автоматичний інсайт
                 if m1 >= 3000:
                     badge_status = '<span style="background:rgba(16,185,129,0.2); color:#34d399; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">🔥 Сильний старт</span>'
                     insight_text = (
@@ -1067,46 +1061,39 @@ if app_mode == "🎮 Наші ігри":
                         "щоб зайти в топ-чарти 'Great Deals' та активувати алгоритми стору."
                     )
 
-                projections_html = f"""
-                <div style="display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0;">
-                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
-                        <span style="color:#94a3b8;">Факт M1:</span> <b style="color:#34d399; font-size:13px;">${m1:,.2f}</b>
-                    </div>
-                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
-                        <span style="color:#94a3b8;">Прогноз M3 (1.35x):</span> <b style="color:#38bdf8;">${m3_est:,.0f}</b>
-                    </div>
-                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
-                        <span style="color:#94a3b8;">Прогноз M6 (1.70x):</span> <b style="color:#a855f7;">${m6_est:,.0f}</b>
-                    </div>
-                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
-                        <span style="color:#94a3b8;">Річний LTV (2.15x):</span> <b style="color:#d946ef; font-size:13px;">${y1_est:,.0f}</b>
-                    </div>
-                </div>
-                """
+                projections_html = (
+                    '<div style="display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;">'
+                    '<div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">'
+                    f'<span style="color:#94a3b8;">Факт M1:</span> <b style="color:#34d399; font-size:13px;">${m1:,.2f}</b></div>'
+                    '<div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">'
+                    f'<span style="color:#94a3b8;">Прогноз M3 (1.35x):</span> <b style="color:#38bdf8;">${m3_est:,.0f}</b></div>'
+                    '<div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">'
+                    f'<span style="color:#94a3b8;">Прогноз M6 (1.70x):</span> <b style="color:#a855f7;">${m6_est:,.0f}</b></div>'
+                    '<div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">'
+                    f'<span style="color:#94a3b8;">Річний LTV (2.15x):</span> <b style="color:#d946ef; font-size:13px;">${y1_est:,.0f}</b></div>'
+                    '</div>'
+                )
             else:
                 badge_status = '<span style="background:rgba(100,116,139,0.2); color:#94a3b8; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">⏳ Очікує релізу / Немає M1</span>'
-                projections_html = """
-                <div style="margin: 8px 0; font-size:12px; color:#64748b;">
-                    <i>Прогноз життєвого циклу розрахується автоматично після появи продажів за перший місяць.</i>
-                </div>
-                """
+                projections_html = '<div style="margin:8px 0; font-size:12px; color:#64748b;"><i>Прогноз життєвого циклу розрахується автоматично після появи продажів за перший місяць.</i></div>'
                 insight_text = "Тайтл перебуває в розробці, на сертифікації або ще не накопичив звітних даних першого місяця."
 
-            st.markdown(f"""
-            <div style="display:flex; gap:16px; background:#161622; border:1px solid #28283c; border-radius:12px; padding:16px; margin-bottom:12px; align-items:flex-start;">
-                <img src="{img_url}" style="width:85px; height:105px; object-fit:cover; border-radius:8px; flex-shrink:0;" onerror="this.src='{DEFAULT_IMAGE}'">
-                <div style="flex-grow:1;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                        <h4 style="margin:0; color:#fff; font-size:16px;">🎮 {g_name} <span style="font-size:12px; color:#94a3b8; font-weight:normal;">(Ціна: {price_tag})</span></h4>
-                        {badge_status}
-                    </div>
-                    {projections_html}
-                    <div style="background:#0f0f17; border-left:3px solid #d946ef; border-radius:4px; padding:8px 12px; font-size:12px; color:#cbd5e1; line-height:1.4;">
-                        💡 <b>Інсайт та рекомендація:</b> {insight_text}
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            card_html = (
+                '<div style="display:flex; gap:16px; background:#161622; border:1px solid #28283c; border-radius:12px; padding:16px; margin-bottom:12px; align-items:flex-start;">'
+                f'<img src="{img_url}" style="width:85px; height:105px; object-fit:cover; border-radius:8px; flex-shrink:0;" onerror="this.src=\'{DEFAULT_IMAGE}\'">'
+                '<div style="flex-grow:1;">'
+                '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">'
+                f'<h4 style="margin:0; color:#fff; font-size:16px;">🎮 {g_name} <span style="font-size:12px; color:#94a3b8; font-weight:normal;">(Ціна: {price_tag})</span></h4>'
+                f'{badge_status}'
+                '</div>'
+                f'{projections_html}'
+                '<div style="background:#0f0f17; border-left:3px solid #d946ef; border-radius:4px; padding:8px 12px; font-size:12px; color:#cbd5e1; line-height:1.4;">'
+                f'💡 <b>Інсайт та рекомендація:</b> {insight_text}'
+                '</div>'
+                '</div>'
+                '</div>'
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
 
     with tab_sales_tracker:
         st.subheader("📅 Центр управління консольними розпродажами")

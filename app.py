@@ -933,7 +933,7 @@ if app_mode == "🎮 Наші ігри":
 
     tab_analytics, tab_insights, tab_sales_tracker, tab_forecast_review, tab_pnl_royalty, tab_table_report = st.tabs([
         "📈 Аналітика та Динаміка", 
-        "🧠 Інсайти та Постери", 
+        "🧠 Інсайти", 
         "📅 Розпродажі (Nintendo & Xbox)",
         "🎯 План vs Факт (Точність)",
         "💵 P&L, Зарплати та Роялті",

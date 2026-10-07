@@ -1831,10 +1831,10 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
         "⏳ Порівняння: План vs Факт"
     ])
 
-    # 🌟 НОВА ВКЛАДКА: ІНТЕРАКТИВНИЙ РОАДМАП ЗАВАНТАЖЕННЯ РОЗРОБНИКІВ
+    # 🌟 ОНОВЛЕНА ВКЛАДКА: ІНТЕРАКТИВНИЙ РОАДМАП З ПОВЗУНКОМ ТА СМУГАМИ РОЗРОБНИКІВ
     with tab_gantt:
         st.subheader("📅 Графік зайнятості та план здачі ігор (Roadmap)")
-        st.caption("Візуалізація термінів розробки на базі дат із листа 'Certification' • Жовта лінія показує поточний день")
+        st.caption("Інтерактивний таймлайн розробки • Жовта лінія — поточний день • Використовуй повзунок унизу для масштабування")
 
         gantt_records = []
         today_date = date.today()
@@ -1848,18 +1848,16 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
             d_p = r.get("_d_plan")
             d_u = r.get("_d_upload")
 
-            # Якщо немає жодної дати — пропускаємо
             if pd.isna(d_s) and pd.isna(d_p):
                 continue
 
-            # Визначаємо межі відрізка
             start_d = d_s if pd.notna(d_s) else (d_p - timedelta(days=14))
             end_d = d_p if pd.notna(d_p) else (d_s + timedelta(days=14))
 
             if start_d > end_d:
                 start_d, end_d = end_d, start_d
 
-            # Статус для кольорового кодування смужки
+            # Визначаємо статус для кольору
             if pd.notna(d_u):
                 if pd.notna(d_p) and d_u.date() <= d_p.date():
                     status_lbl = "🟢 Здано вчасно"
@@ -1873,21 +1871,24 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
             else:
                 status_lbl = "🟣 Заплановано (Signed)"
 
+            # Розрахунок тривалості для тултіпа
+            duration_days = (end_d.date() - start_d.date()).days if hasattr(start_d, 'date') and hasattr(end_d, 'date') else 0
+
             gantt_records.append({
                 "Гра": r["Гра"],
-                "Розробник": dev,
+                "Розробник": f"👨‍💻 {dev}",
                 "Start": start_d,
                 "End": end_d,
                 "Статус": status_lbl,
                 "Старт": r["Дата старту"],
                 "План": r["План здачі білда"],
-                "Факт": r["Дата завантаження білда"]
+                "Факт": r["Дата завантаження білда"],
+                "Тривалість": f"{duration_days} дн."
             })
 
         if gantt_records:
             gantt_df = pd.DataFrame(gantt_records)
 
-            # Карта кольорів статусів
             status_colors = {
                 "🟢 Здано вчасно": "#10b981",
                 "🔴 Здано з затримкою": "#ef4444",
@@ -1904,12 +1905,28 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
                 color="Статус",
                 text="Гра",
                 color_discrete_map=status_colors,
-                hover_data=["Гра", "Старт", "План", "Факт"]
+                hover_data={
+                    "Гра": True,
+                    "Розробник": True,
+                    "Статус": True,
+                    "Старт": True,
+                    "План": True,
+                    "Факт": True,
+                    "Тривалість": True,
+                    "Start": False,
+                    "End": False
+                }
             )
-            # Розробники відображаються зверху вниз
-            fig_gantt.update_yaxes(autorange="reversed")
 
-            # 📍 ДОДАЄМО ЖОВТУ ПУНКТИРНУ ЛІНІЮ "СЬОГОДНІ"
+            fig_gantt.update_yaxes(
+                autorange="reversed",
+                showgrid=True,
+                gridcolor="rgba(255, 255, 255, 0.12)",
+                gridwidth=1.5,
+                tickfont=dict(size=14, color="#ffffff", family="Plus Jakarta Sans, sans-serif")
+            )
+
+            # 📍 ЖОВТА ПУНКТИРНА ЛІНІЯ "СЬОГОДНІ"
             fig_gantt.add_vline(
                 x=datetime.combine(today_date, datetime.min.time()).timestamp() * 1000,
                 line_width=2.5,
@@ -1921,26 +1938,46 @@ elif app_mode == "🚀 Release Pipeline (Сертифікація)":
                 annotation_font_size=11
             )
 
-            fig_gantt.update_traces(textposition='inside', insidetextanchor='middle')
+            fig_gantt.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(color="#ffffff", size=11.5, family="Plus Jakarta Sans, sans-serif")
+            )
+
+            # Стартове вікно фокусу: від тижня тому до середини січня 2027
+            default_start = today_date - timedelta(days=10)
+            default_end = date(2027, 1, 20)
+
             fig_gantt.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color="#e2e8f0"),
-                height=480,
-                xaxis=dict(gridcolor="#28283c", title="Шкала часу (Календарні дати)", type="date"),
-                yaxis=dict(gridcolor="#28283c", title=""),
+                height=580,
+                xaxis=dict(
+                    gridcolor="#28283c",
+                    title="Шкала часу (використовуй повзунок знизу для навігації)",
+                    type="date",
+                    range=[default_start, default_end],
+                    rangeslider=dict(
+                        visible=True,
+                        thickness=0.07,
+                        bgcolor="#161622",
+                        bordercolor="#28283c"
+                    )
+                ),
+                yaxis=dict(title=""),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
+
             st.plotly_chart(fig_gantt, use_container_width=True)
 
-            # Легенда-підказка
             st.markdown("""
-            <div style="font-size:12px; color:#94a3b8; display:flex; gap:16px; margin-top:-10px;">
+            <div style="font-size:12px; color:#94a3b8; display:flex; gap:16px; margin-top:-8px;">
                 <span><span style="color:#10b981;">●</span> Здано вчасно</span>
                 <span><span style="color:#ef4444;">●</span> Здано з затримкою</span>
                 <span><span style="color:#f43f5e;">●</span> Прострочено зараз</span>
                 <span><span style="color:#38bdf8;">●</span> В активній розробці</span>
-                <span><span style="color:#a855f7;">●</span> Підписано / Черга (Signed)</span>
+                <span><span style="color:#a855f7;">●</span> Заплановано (Signed)</span>
             </div>
             """, unsafe_allow_html=True)
         else:

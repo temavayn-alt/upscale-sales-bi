@@ -988,23 +988,122 @@ if app_mode == "🎮 Наші ігри":
             st.plotly_chart(fig_line, use_container_width=True)
 
     with tab_insights:
-        st.subheader("Стратегічні висновки та постери тайтлів")
-        formula_col = next((c for c in filtered_df.columns if "formula" in c.lower()), None)
-        ai_col = next((c for c in filtered_df.columns if "ai" in c.lower()), None)
-        actual_total_col = total_col if total_col else filtered_df.columns[0]
-        for _, row in filtered_df.iterrows():
-            g_name = row["Game_Name_Clean"]
-            rev_val = row[actual_total_col]
-            f_text = row[formula_col] if formula_col and pd.notna(row[formula_col]) else "—"
-            ai_text = row[ai_col] if ai_col and pd.notna(row[ai_col]) else "—"
-            img_url = row[cover_col] if cover_col and pd.notna(row[cover_col]) and str(row[cover_col]).startswith("http") else DEFAULT_IMAGE
+        st.subheader("🧠 Життєвий цикл та LTV портфоліо (M1 ➔ M3 ➔ M6 ➔ 1Y)")
+        st.caption("Емпірична модель добірання виручки на базі факту 1-го місяця: M3 (+35%) • M6 (+70%) • 1Y LTV (+115%)")
+
+        # Функція вилучення реального факту 1-го місяця по всіх консолях
+        def extract_m1_fact(row_s):
+            m1_total = 0.0
+            found = False
+            for col_name in row_s.index:
+                cl = str(col_name).lower()
+                # Шукаємо колонки 1st month для PS, Xbox, Switch
+                if ("1st" in cl or "month 1" in cl or "m1" in cl) and not any(x in cl for x in ["pred", "forecast", "план", "target"]):
+                    val = clean_num_val(row_s[col_name])
+                    if val > 0:
+                        m1_total += val
+                        found = True
+            return m1_total if found else 0.0
+
+        # Підготовка даних та сортування (спочатку релізнуті з касою)
+        insights_data = []
+        for _, r in filtered_df.iterrows():
+            g_name = str(r["Game_Name_Clean"]).strip()
+            if not g_name or g_name.lower() == 'nan':
+                continue
+            
+            m1_val = extract_m1_fact(r)
+            img_url = r[cover_col] if cover_col and pd.notna(r[cover_col]) and str(r[cover_col]).startswith("http") else DEFAULT_IMAGE
+            g_price = clean_num_val(r.get("Price consoles, $", r.get("Price consoles", 0.0)))
+
+            insights_data.append({
+                "name": g_name,
+                "m1": m1_val,
+                "price": g_price,
+                "img": img_url,
+                "row": r
+            })
+
+        # Сортуємо: спочатку за спаданням факту M1, потім решта
+        insights_data.sort(key=lambda x: x["m1"], reverse=True)
+
+        # Фільтр відображення
+        show_only_released = st.checkbox("Показати тільки ігри з зафіксованим фактом M1", value=False)
+        if show_only_released:
+            insights_data = [item for item in insights_data if item["m1"] > 0]
+
+        for item in insights_data:
+            g_name = item["name"]
+            m1 = item["m1"]
+            img_url = item["img"]
+            price_tag = f"${item['price']:.2f}" if item['price'] > 0 else "—"
+
+            if m1 > 0:
+                # 🧮 Єдина емпірична формула
+                m3_est = m1 * 1.35
+                m6_est = m1 * 1.70
+                y1_est = m1 * 2.15
+
+                # Автоматичний інсайт
+                if m1 >= 3000:
+                    badge_status = '<span style="background:rgba(16,185,129,0.2); color:#34d399; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">🔥 Сильний старт</span>'
+                    insight_text = (
+                        f"Високий органічний попит. Очікуваний річний LTV: <b>~${y1_est:,.0f}</b>. "
+                        "Рекомендовано тримати планку знижок не глибше 30–45% у перші 6 місяців, "
+                        "щоб зібрати максимум маржі до переходу на глибокий дисконт."
+                    )
+                elif m1 >= 1000:
+                    badge_status = '<span style="background:rgba(56,189,248,0.2); color:#38bdf8; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">🟡 Стабільна динаміка</span>'
+                    insight_text = (
+                        f"Збалансований темп. Очікуваний річний LTV: <b>~${y1_est:,.0f}</b>. "
+                        "Основний добір каси відбудеться між 3-м та 6-м місяцями завдяки регулярним "
+                        "сезонним розпродажам зі знижками 60–70% за графіком кулдаунів."
+                    )
+                else:
+                    badge_status = '<span style="background:rgba(245,158,11,0.2); color:#fbbf24; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">⚠️ Слабкий M1</span>'
+                    insight_text = (
+                        f"Органіки за фулпрайс недостатньо. Очікуваний річний LTV: <b>~${y1_est:,.0f}</b>. "
+                        "Рекомендовано прискорений вихід на агресивну імпульсну ціну ($1.99–$2.49 у Nintendo eShop), "
+                        "щоб зайти в топ-чарти 'Great Deals' та активувати алгоритми стору."
+                    )
+
+                projections_html = f"""
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0;">
+                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
+                        <span style="color:#94a3b8;">Факт M1:</span> <b style="color:#34d399; font-size:13px;">${m1:,.2f}</b>
+                    </div>
+                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
+                        <span style="color:#94a3b8;">Прогноз M3 (1.35x):</span> <b style="color:#38bdf8;">${m3_est:,.0f}</b>
+                    </div>
+                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
+                        <span style="color:#94a3b8;">Прогноз M6 (1.70x):</span> <b style="color:#a855f7;">${m6_est:,.0f}</b>
+                    </div>
+                    <div style="background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px;">
+                        <span style="color:#94a3b8;">Річний LTV (2.15x):</span> <b style="color:#d946ef; font-size:13px;">${y1_est:,.0f}</b>
+                    </div>
+                </div>
+                """
+            else:
+                badge_status = '<span style="background:rgba(100,116,139,0.2); color:#94a3b8; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">⏳ Очікує релізу / Немає M1</span>'
+                projections_html = """
+                <div style="margin: 8px 0; font-size:12px; color:#64748b;">
+                    <i>Прогноз життєвого циклу розрахується автоматично після появи продажів за перший місяць.</i>
+                </div>
+                """
+                insight_text = "Тайтл перебуває в розробці, на сертифікації або ще не накопичив звітних даних першого місяця."
+
             st.markdown(f"""
-            <div class="insight-card-flex">
-                <img src="{img_url}" class="game-poster" onerror="this.src='{DEFAULT_IMAGE}'">
-                <div style="flex-grow: 1;">
-                    <h4 style="margin:0 0 6px 0; color:#ffffff; font-size:16px;">🎮 {g_name} — <span style="color:#34d399; font-weight:bold;">${rev_val:,.2f}</span></h4>
-                    <p style="margin:0 0 4px 0; font-size:13px; color:#a5b4fc;"><b>📐 Формула/Динаміка:</b> {f_text}</p>
-                    <p style="margin:0; font-size:13px; color:#cbd5e1; line-height:1.5;"><b>💡 AI Аналіз:</b> {ai_text}</p>
+            <div style="display:flex; gap:16px; background:#161622; border:1px solid #28283c; border-radius:12px; padding:16px; margin-bottom:12px; align-items:flex-start;">
+                <img src="{img_url}" style="width:85px; height:105px; object-fit:cover; border-radius:8px; flex-shrink:0;" onerror="this.src='{DEFAULT_IMAGE}'">
+                <div style="flex-grow:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <h4 style="margin:0; color:#fff; font-size:16px;">🎮 {g_name} <span style="font-size:12px; color:#94a3b8; font-weight:normal;">(Ціна: {price_tag})</span></h4>
+                        {badge_status}
+                    </div>
+                    {projections_html}
+                    <div style="background:#0f0f17; border-left:3px solid #d946ef; border-radius:4px; padding:8px 12px; font-size:12px; color:#cbd5e1; line-height:1.4;">
+                        💡 <b>Інсайт та рекомендація:</b> {insight_text}
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)

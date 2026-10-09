@@ -995,7 +995,7 @@ if app_mode == "🎮 Наші ігри":
     with tab_insights:
         st.subheader("🧠 Життєвий цикл та LTV портфоліо (M1 ➔ M3 ➔ M6 ➔ 1Y)")
         st.caption("Модель: M3 = 1.35×M1 • M6 = 1.70×M1 • 1Y = 2.15×M1 • Факт порівнюється з прогнозом лише за періоди, які вже повністю минули від дати релізу")
-
+ 
         # ---------------- Налаштування моделі ----------------
         LTV_MULT = {"M3": 1.35, "M6": 1.70, "1Y": 2.15}
         PERIOD_DAYS = {"M1": 30, "M3": 90, "M6": 180, "1Y": 365}
@@ -1005,7 +1005,7 @@ if app_mode == "🎮 Наші ігри":
         PERIOD_COLS_ARE_CUMULATIVE = True
         DEV_OK_BAND = 15  # ±% — вважаємо «в межах моделі»
         today_d = date.today()
-
+ 
         def match_period(col_lower):
             """Визначає, до якого періоду (M1/M3/M6/1Y) належить колонка фактичних продажів."""
             if any(x in col_lower for x in ["pred", "forecast", "план", "target", "прогноз", "all"]):
@@ -1019,13 +1019,13 @@ if app_mode == "🎮 Наші ігри":
             if "1st" in col_lower or "month 1" in col_lower or "m1" in col_lower:
                 return "M1"
             return None
-
+ 
         period_cols = {p: [] for p in PERIODS}
         for c in filtered_df.columns:
             p = match_period(str(c).lower())
             if p:
                 period_cols[p].append(c)
-
+ 
         def read_facts(row_s):
             raw = {}
             for p in PERIODS:
@@ -1039,15 +1039,15 @@ if app_mode == "🎮 Наші ігри":
                         running += raw[p]
                         raw[p] = running
             return raw
-
+ 
         def period_state(p, days_live):
             if days_live is None: return "unknown"
             if days_live < 0: return "future"
             return "done" if days_live >= PERIOD_DAYS[p] else "running"
-
+ 
         def fmt_usd(v):
             return f"${v:,.0f}" if v >= 100 else f"${v:,.2f}"
-
+ 
         def dev_badge(dev):
             if dev is None:
                 return ""
@@ -1055,19 +1055,19 @@ if app_mode == "🎮 Наші ігри":
             elif dev <= -DEV_OK_BAND: color, bg = "#f87171", "rgba(239,68,68,0.18)"
             else: color, bg = "#fbbf24", "rgba(245,158,11,0.16)"
             return f'<span style="background:{bg}; color:{color}; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:4px;">{dev:+.0f}%</span>'
-
+ 
         # ---------------- Збір даних по іграх ----------------
         items = []
         for _, r in filtered_df.iterrows():
             g_name = str(r["Game_Name_Clean"]).strip()
             if not g_name or g_name.lower() == "nan":
                 continue
-
+ 
             facts = read_facts(r)
             m1 = facts["M1"] or 0.0
             rel_dt = parse_flexible_date(r.get(rel_date_col)) if rel_date_col else None
             days_live = (today_d - rel_dt.date()).days if rel_dt else None
-
+ 
             forecasts, states, devs = {}, {}, {}
             for p in PERIODS:
                 states[p] = period_state(p, days_live)
@@ -1079,9 +1079,9 @@ if app_mode == "🎮 Наші ігри":
                     devs[p] = (fact_v - forecasts[p]) / forecasts[p] * 100
                 else:
                     devs[p] = None
-
+ 
             last_dev_p = next((p for p in ["1Y", "M6", "M3"] if devs.get(p) is not None), None)
-
+ 
             items.append({
                 "name": g_name,
                 "img": r[cover_col] if cover_col and pd.notna(r[cover_col]) and str(r[cover_col]).startswith("http") else DEFAULT_IMAGE,
@@ -1096,7 +1096,7 @@ if app_mode == "🎮 Наші ігри":
                 "last_dev_p": last_dev_p,
                 "last_dev": devs.get(last_dev_p) if last_dev_p else None,
             })
-
+ 
         # ---------------- 📊 Портфоліо: прогноз vs факт ----------------
         dev_rows = []
         for it in items:
@@ -1107,25 +1107,25 @@ if app_mode == "🎮 Наші ігри":
                         "Прогноз": it["forecasts"][p], "Факт": it["facts"][p],
                         "Відхилення (%)": round(it["devs"][p], 1),
                     })
-
+ 
         if dev_rows:
             dev_df = pd.DataFrame(dev_rows)
             st.markdown("##### 📊 Точність моделі: прогноз vs факт")
             avail_p = [p for p in ["M3", "M6", "1Y"] if p in dev_df["Період"].unique()]
             sel_p = st.radio("Період для порівняння:", avail_p, horizontal=True, key="ltv_dev_period")
             sub = dev_df[dev_df["Період"] == sel_p].sort_values("Відхилення (%)").reset_index(drop=True)
-
+ 
             real_mult = float((sub["Факт"] / sub["M1"]).median())
             above = int((sub["Відхилення (%)"] >= DEV_OK_BAND).sum())
             inside = int(sub["Відхилення (%)"].abs().lt(DEV_OK_BAND).sum())
             below = int((sub["Відхилення (%)"] <= -DEV_OK_BAND).sum())
-
+ 
             d1, d2, d3, d4 = st.columns(4)
             d1.metric("Ігор із фактом", len(sub))
             d2.metric("Медіанне відхилення", f"{sub['Відхилення (%)'].median():+.0f}%")
             d3.metric(f"Реальний множник {sel_p}", f"{real_mult:.2f}x", f"модель {LTV_MULT[sel_p]:.2f}x", delta_color="off")
             d4.metric("Вище / в межах / нижче", f"{above} / {inside} / {below}", f"поріг ±{DEV_OK_BAND}%", delta_color="off")
-
+ 
             ch_left, ch_right = st.columns([1.6, 1])
             with ch_left:
                 sub["Колір"] = sub["Відхилення (%)"].apply(
@@ -1147,7 +1147,7 @@ if app_mode == "🎮 Наші ігри":
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=""),
                 )
                 st.plotly_chart(fig_dev, use_container_width=True)
-
+ 
             with ch_right:
                 max_v = float(max(sub["Прогноз"].max(), sub["Факт"].max())) * 1.08
                 fig_sc = px.scatter(sub, x="Прогноз", y="Факт", hover_name="Гра", color="Колір",
@@ -1165,7 +1165,7 @@ if app_mode == "🎮 Наші ігри":
             st.markdown("---")
         else:
             st.info("Поки немає ігор, у яких минув M3 і є фактичні продажі за цей період, тож порівнювати ще нічого.")
-
+ 
         # ---------------- Фільтри карток ----------------
         f_c1, f_c2 = st.columns([1.3, 1])
         with f_c1:
@@ -1173,7 +1173,7 @@ if app_mode == "🎮 Наші ігри":
         with f_c2:
             sort_mode = st.selectbox("Сортування:", ["Як у таблиці", "Найбільше відхилення від прогнозу", "Найновіші релізи", "Найбільший M1"],
                                      label_visibility="collapsed")
-
+ 
         cards = [it for it in items if it["m1"] > 0] if show_only_released else list(items)
         if sort_mode == "Найбільше відхилення від прогнозу":
             cards.sort(key=lambda it: abs(it["last_dev"]) if it["last_dev"] is not None else -1, reverse=True)
@@ -1181,7 +1181,7 @@ if app_mode == "🎮 Наші ігри":
             cards.sort(key=lambda it: it["rel_dt"] or datetime(1900, 1, 1), reverse=True)
         elif sort_mode == "Найбільший M1":
             cards.sort(key=lambda it: it["m1"], reverse=True)
-
+ 
         # ---------------- Міні-графік траєкторії (inline SVG) ----------------
         def trajectory_svg(it):
             w, h, pad_x, pad_top, pad_bot = 190, 78, 14, 10, 18
@@ -1193,7 +1193,7 @@ if app_mode == "🎮 Наші ігри":
             top = max(all_v) * 1.05
             xs = [pad_x + i * (w - 2 * pad_x) / 3 for i in range(4)]
             y = lambda v: pad_top + (1 - v / top) * (h - pad_top - pad_bot)
-
+ 
             fc_pts = " ".join(f"{xs[i]:.1f},{y(v):.1f}" for i, v in enumerate(fc_vals) if v)
             fact_idx = [i for i, v in enumerate(fact_vals) if v]
             fact_pts = " ".join(f"{xs[i]:.1f},{y(fact_vals[i]):.1f}" for i in fact_idx)
@@ -1211,11 +1211,11 @@ if app_mode == "🎮 Наші ігри":
                 '<div style="font-size:10px; color:#94a3b8; text-align:center; margin-top:2px;">'
                 '<span style="color:#d946ef;">┅</span> прогноз &nbsp; <span style="color:#34d399;">━</span> факт</div>'
             )
-
+ 
         # ---------------- Картки ігор ----------------
         chip_style = "background:#13131e; border:1px solid #28283c; border-radius:6px; padding:6px 10px; font-size:12px; min-width:150px;"
         period_color = {"M3": "#38bdf8", "M6": "#a855f7", "1Y": "#d946ef"}
-
+ 
         for it in cards:
             m1 = it["m1"]
             price_tag = f"${it['price']:.2f}" if it["price"] > 0 else "—"
@@ -1224,7 +1224,7 @@ if app_mode == "🎮 Наші ігри":
                 rel_tag = f"Реліз: {it['rel_dt'].strftime('%d.%m.%Y')}{live_txt}"
             else:
                 rel_tag = "Реліз: —"
-
+ 
             if m1 > 0:
                 if m1 >= 3000:
                     badge_status = '<span style="background:rgba(16,185,129,0.2); color:#34d399; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">🔥 Сильний старт</span>'
@@ -1235,7 +1235,7 @@ if app_mode == "🎮 Наші ігри":
                 else:
                     badge_status = '<span style="background:rgba(245,158,11,0.2); color:#fbbf24; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:5px;">⚠️ Слабкий M1</span>'
                     base_text = "Органіки за фулпрайс недостатньо. Рекомендовано швидше виходити на імпульсну ціну ($1.99–$2.49) для потрапляння в 'Great Deals'."
-
+ 
                 # Чипи: M1 + прогноз/факт по кожному періоду
                 chips = [
                     f'<div style="{chip_style}"><div style="color:#94a3b8;">Факт M1</div>'
@@ -1262,7 +1262,7 @@ if app_mode == "🎮 Наші ігри":
                         f'<div style="font-size:11px; color:#94a3b8; margin-top:2px;">{fact_line}</div></div>'
                     )
                 projections_html = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;">' + "".join(chips) + "</div>"
-
+ 
                 # Інсайт з урахуванням фактичного відхилення
                 if it["last_dev"] is not None:
                     p, d = it["last_dev_p"], it["last_dev"]
@@ -1281,7 +1281,7 @@ if app_mode == "🎮 Наші ігри":
                 projections_html = '<div style="margin:8px 0; font-size:12px; color:#64748b;"><i>Прогноз життєвого циклу розрахується автоматично після появи продажів за перший місяць.</i></div>'
                 insight_text = "Тайтл перебуває в розробці, на сертифікації або ще не накопичив звітних даних першого місяця."
                 svg_html = ""
-
+ 
             card_html = (
                 '<div style="display:flex; gap:16px; background:#161622; border:1px solid #28283c; border-radius:12px; padding:16px; margin-bottom:12px; align-items:flex-start;">'
                 f'<img src="{it["img"]}" style="width:85px; height:105px; object-fit:cover; border-radius:8px; flex-shrink:0;" onerror="this.src=\'{DEFAULT_IMAGE}\'">'

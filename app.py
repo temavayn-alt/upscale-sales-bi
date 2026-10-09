@@ -522,22 +522,25 @@ def load_certification_sheet(sheet_url, tab_name="Certification"):
         return pd.DataFrame()
 
 def normalize_dev_name(raw_name):
-    if pd.isna(raw_name) or not str(raw_name).strip():
+    if pd.isna(raw_name):
         return "Не призначено"
-    n = str(raw_name).strip().replace("i", "і").replace("I", "І")
-    if "серг" in n.lower(): return "Сергій"
-    if "ігор" in n.lower() or "игор" in n.lower(): return "Ігор"
-    if "іван" in n.lower() or "иван" in n.lower(): return "Іван"
-    if "максим" in n.lower(): return "Максим"
-    if "дим" in n.lower() or "дмитр" in n.lower(): return "Дмитро"
-    if "влад" in n.lower(): return "Влад"
+    n = str(raw_name).strip()
+    if not n or n.lower() in ["nan", "none", "null", "-", "—"]:
+        return "Не призначено"
+    nl = n.lower()
+    if "серг" in nl: return "Сергій"
+    if "ігор" in nl or "игор" in nl: return "Ігор"
+    if "іван" in nl or "иван" in nl: return "Іван"
+    if "максим" in nl: return "Максим"
+    if "дим" in nl or "дмитр" in nl: return "Дмитро"
+    if "влад" in nl: return "Влад"
     return n
     
 def process_certification_table(df_raw):
     """Обробляє та розраховує строки сертифікації Nintendo та KPI девелоперів."""
     if df_raw.empty:
         return pd.DataFrame()
-
+ 
     c_game = next((c for c in df_raw.columns if any(k in str(c).lower() for k in ["game name", "игра", "назва", "title"])), df_raw.columns[0])
     c_status = next((c for c in df_raw.columns if "status" in str(c).lower() or "статус" in str(c).lower()), "Status")
     c_dev = next((c for c in df_raw.columns if any(k in str(c).lower() for k in ["developer", "разработчик", "розробник", "dev"])), "Developer")
@@ -547,37 +550,39 @@ def process_certification_table(df_raw):
     c_upload = next((c for c in df_raw.columns if "загружен" in str(c).lower() or "uploaded" in str(c).lower()), "Nintendo Switch релизный билд загружен")
     c_plan_days = next((c for c in df_raw.columns if "планируемый срок" in str(c).lower() or "plan days" in str(c).lower()), "Планируемый срок")
     c_fact_days = next((c for c in df_raw.columns if "фактический срок" in str(c).lower() or "fact days" in str(c).lower()), "Фактический срок (до сертификации Нинтендо)")
-
-    today = date(2026, 9, 22)
-
+ 
+    today = date.today()  # було жорстко 22.09.2026 — через це прострочки рахувались неправильно
+ 
     records = []
     for _, r in df_raw.iterrows():
         g_name = str(r.get(c_game, "")).strip()
-        if not g_name or g_name.lower() in ['nan', 'none', '']: continue
-
-        dev = str(r.get(c_dev, "Не призначено")).strip() or "Не призначено"
+        if not g_name or g_name.lower() in ["nan", "none", ""]:
+            continue
+ 
+        dev = normalize_dev_name(r.get(c_dev))  # прибирає рядок "nan" з рейтингів
         raw_status = str(r.get(c_status, "")).strip()
-        if raw_status.lower() in ['nan', 'none']: raw_status = ""
-
+        if raw_status.lower() in ["nan", "none"]:
+            raw_status = ""
+ 
         d_start = parse_flexible_date(r.get(c_start))
         d_plan = parse_flexible_date(r.get(c_plan_finish))
         d_upload = parse_flexible_date(r.get(c_upload))
         d_release = parse_flexible_date(r.get(c_reldate))
-
+ 
         p_days = clean_num_val(r.get(c_plan_days, 0))
         if p_days == 0 and d_start and d_plan:
             p_days = max(1, (d_plan - d_start).days)
-
+ 
         f_days = clean_num_val(r.get(c_fact_days, 0))
         if f_days == 0 and d_start and d_upload:
             f_days = max(1, (d_upload - d_start).days)
-
+ 
         delta_days = None
         if f_days > 0 and p_days > 0:
             delta_days = int(f_days - p_days)
         elif d_upload and d_plan:
             delta_days = (d_upload - d_plan).days
-
+ 
         if d_upload:
             if delta_days is not None and delta_days <= 0: verdict = "🟢 Вчасно здано"
             elif delta_days is not None and delta_days > 0: verdict = f"🔴 Затримка (+{delta_days} дн)"
@@ -594,7 +599,7 @@ def process_certification_table(df_raw):
         else:
             verdict = "⚪ В черзі"
             stage = "Backlog"
-
+ 
         records.append({
             "Гра": g_name,
             "Розробник": dev,
@@ -614,7 +619,7 @@ def process_certification_table(df_raw):
             "_d_release": d_release,
             "_delta": delta_days
         })
-
+ 
     return pd.DataFrame(records)
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -1875,394 +1880,305 @@ elif app_mode == "📅 Помісячна динаміка (Monthly)":
 elif app_mode == "🚀 Release Pipeline (Сертифікація)":
     st.title("🚀 Console Release Pipeline & Developer Velocity Hub")
     st.caption(f"Пряма синхронізація з листом **'{CERTIFICATION_SHEET_NAME}'** • Контроль швидкості проходження сертифікації Nintendo")
-
+ 
     if pipe_df.empty:
         st.warning(f"⚠️ Не вдалося завантажити дані з листа **'{CERTIFICATION_SHEET_NAME}'**. Перевір, чи створено лист саме з такою назвою у твоїй Google Таблиці.")
         st.stop()
-
+ 
+    STAGE_DONE, STAGE_WIP, STAGE_OVERDUE, STAGE_BACKLOG = "Uploaded / In Cert", "In Porting", "Overdue Dev", "Backlog"
+    today_date = date.today()
+ 
+    # ---------- спільні хелпери ----------
+    def project_period(row):
+        """Квартал/рік проєкту: за планом здачі, інакше за датою завантаження або старту."""
+        for cand in (row.get("_d_plan"), row.get("_d_upload"), row.get("_d_start")):
+            if cand is not None and pd.notna(cand):
+                return f"Q{math.ceil(cand.month / 3)} {cand.year}", str(cand.year)
+        return "Без дати", "Без дати"
+ 
+    def build_dev_kpi(df_sub, devs):
+        """Одна таблиця KPI замість двох старих (All-Time + квартальна)."""
+        rows = []
+        for dev in devs:
+            g = df_sub[df_sub["Розробник"] == dev]
+            tot = len(g)
+            done = int((g["Етап"] == STAGE_DONE).sum())
+            wip = int((g["Етап"] == STAGE_WIP).sum())
+            overdue = int((g["Етап"] == STAGE_OVERDUE).sum())
+            backlog = int((g["Етап"] == STAGE_BACKLOG).sum())
+ 
+            plan_d = pd.to_numeric(g["План (дн)"], errors="coerce").dropna()
+            fact_d = pd.to_numeric(g["Факт (дн)"], errors="coerce").dropna()
+            deltas = pd.to_numeric(g["_delta"], errors="coerce").dropna()
+ 
+            on_time_pct = float((deltas <= 0).mean() * 100) if not deltas.empty else None
+            avg_delay = float(deltas.mean()) if not deltas.empty else None
+ 
+            if tot > 0:
+                score = (done / tot) * 45
+                score += on_time_pct * 0.35 if on_time_pct is not None else 25.0
+                score += 20.0
+                score -= max(0.0, (avg_delay or 0.0) * 2)
+                score -= overdue * 5  # нове: активна прострочка теж знижує KPI
+                kpi = round(min(100.0, max(0.0, score)), 1)
+            else:
+                kpi = None
+ 
+            if kpi is None: status = "⚪ Немає проєктів"
+            elif kpi >= 80: status = "🟢 Топ-перформер"
+            elif kpi >= 65: status = "🟡 Норма"
+            else: status = "🔴 Зона ботлнеку"
+ 
+            rows.append({
+                "Розробник": dev,
+                "Всього ігор": tot,
+                "Здано білдів": done,
+                "В роботі": wip,
+                "Прострочено": overdue,
+                "В черзі": backlog,
+                "Сер. план (дн)": round(plan_d.mean(), 1) if not plan_d.empty else None,
+                "Сер. факт (дн)": round(fact_d.mean(), 1) if not fact_d.empty else None,
+                "Сер. відхилення (дн)": round(avg_delay, 1) if avg_delay is not None else None,
+                "% вчасно": round(on_time_pct) if on_time_pct is not None else None,
+                "KPI (0-100)": kpi,
+                "Статус": status,
+            })
+        out = pd.DataFrame(rows)
+        if out.empty:
+            return out
+        return out.sort_values(by=["Всього ігор", "KPI (0-100)"], ascending=[False, False], na_position="last").reset_index(drop=True)
+ 
+    period_cols = pipe_df.apply(project_period, axis=1, result_type="expand")
+    pipe_q = pipe_df.assign(_quarter=period_cols[0], _year=period_cols[1])
+    all_devs = sorted(d for d in pipe_df["Розробник"].unique() if d != "Не призначено")
+ 
+    # ---------- KPI-картки ----------
     total_projects = len(pipe_df)
-    uploaded_count = len(pipe_df[pipe_df["Етап"] == "Uploaded / In Cert"])
-    in_porting_count = len(pipe_df[pipe_df["Етап"] == "In Porting"])
-    overdue_count = len(pipe_df[pipe_df["Вердикт"].str.contains("Прострочено|Затримка")])
-    
-    completed_with_plan = pipe_df[pipe_df["_delta"].notna()]
-    on_time_count = len(completed_with_plan[completed_with_plan["_delta"] <= 0])
-    on_time_rate = (on_time_count / max(len(completed_with_plan), 1)) * 100 if not completed_with_plan.empty else 0
-
+    uploaded_count = int((pipe_df["Етап"] == STAGE_DONE).sum())
+    in_work_count = int(pipe_df["Етап"].isin([STAGE_WIP, STAGE_OVERDUE]).sum())
+    missed_count = int(pipe_df["Вердикт"].str.contains("Прострочено|Затримка").sum())
+    with_delta = pd.to_numeric(pipe_df["_delta"], errors="coerce").dropna()
+    on_time_rate = float((with_delta <= 0).mean() * 100) if not with_delta.empty else 0.0
+ 
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.markdown(f'<div class="kpi-card"><div class="kpi-label">Всього тайтлів</div><div class="kpi-value">{total_projects}</div><span class="kpi-badge badge-total">Лист Certification</span></div>', unsafe_allow_html=True)
     k2.markdown(f'<div class="kpi-card"><div class="kpi-label">Білдів завантажено</div><div class="kpi-value" style="color:#4ade80 !important;">{uploaded_count}</div><span class="kpi-badge badge-xbox">Готові до сабміту</span></div>', unsafe_allow_html=True)
-    k3.markdown(f'<div class="kpi-card"><div class="kpi-label">Зараз у роботі</div><div class="kpi-value" style="color:#38bdf8 !important;">{in_porting_count}</div><span class="kpi-badge badge-ps">In porting</span></div>', unsafe_allow_html=True)
-    k4.markdown(f'<div class="kpi-card"><div class="kpi-label">Зриви дедлайнів</div><div class="kpi-value" style="color:#ef4444 !important;">{overdue_count}</div><span class="kpi-badge badge-switch">Затримка / Прострочено</span></div>', unsafe_allow_html=True)
-    k5.markdown(f'<div class="kpi-card"><div class="kpi-label">Вчасність здачі</div><div class="kpi-value" style="color:{"#10b981" if on_time_rate>=70 else "#f59e0b"} !important;">{on_time_rate:.0f}%</div><span class="kpi-badge badge-total">On-Time Rate</span></div>', unsafe_allow_html=True)
-
-    critical_overdue = pipe_df[pipe_df["Вердикт"].str.contains("Прострочено")]
+    k3.markdown(f'<div class="kpi-card"><div class="kpi-label">Зараз у роботі</div><div class="kpi-value" style="color:#38bdf8 !important;">{in_work_count}</div><span class="kpi-badge badge-ps">Включно з простроченими</span></div>', unsafe_allow_html=True)
+    k4.markdown(f'<div class="kpi-card"><div class="kpi-label">Зриви дедлайнів</div><div class="kpi-value" style="color:#ef4444 !important;">{missed_count}</div><span class="kpi-badge badge-switch">Затримка / Прострочено</span></div>', unsafe_allow_html=True)
+    k5.markdown(f'<div class="kpi-card"><div class="kpi-label">Вчасність здачі</div><div class="kpi-value" style="color:{"#10b981" if on_time_rate >= 70 else "#f59e0b"} !important;">{on_time_rate:.0f}%</div><span class="kpi-badge badge-total">On-Time Rate</span></div>', unsafe_allow_html=True)
+ 
+    # ---------- Критичні зриви (згорнуті в один блок) ----------
+    critical_overdue = pipe_df[pipe_df["Етап"] == STAGE_OVERDUE]
     if not critical_overdue.empty:
         st.markdown("<br>", unsafe_allow_html=True)
-        for _, cr in critical_overdue.iterrows():
-            st.markdown(f"""
-            <div class="alert-card-red">
-                <b style="color:#fff; font-size:15px;">🚨 КРИТИЧНИЙ ЗРИВ: {cr['Гра']} (Розробник: {cr['Розробник']})</b> ➔ 
-                <span style="color:#fca5a5; font-weight:bold;">План фінішу був {cr['План здачі білда']} — білд ДОСІ НЕ ЗАВАНТАЖЕНИЙ!</span>
-                <p style="margin:3px 0 0 0; font-size:12px; color:#cbd5e1;">Старт: {cr['Дата старту']} • Вердикт: {cr['Вердикт']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
+        with st.expander(f"🚨 Критичні зриви: {len(critical_overdue)} білд(ів) прострочено й досі не завантажено", expanded=True):
+            for _, cr in critical_overdue.iterrows():
+                st.markdown(f"""
+                <div class="alert-card-red">
+                    <b style="color:#fff; font-size:15px;">{cr['Гра']} (Розробник: {cr['Розробник']})</b> ➔
+                    <span style="color:#fca5a5; font-weight:bold;">План фінішу був {cr['План здачі білда']}</span>
+                    <p style="margin:3px 0 0 0; font-size:12px; color:#cbd5e1;">Старт: {cr['Дата старту']} • Вердикт: {cr['Вердикт']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+ 
     st.markdown("<br>", unsafe_allow_html=True)
-    tab_summary, tab_devs, tab_kpi_quarter, tab_gantt, tab_bottlenecks = st.tabs([
-        "📋 Головний трекер сертифікації", 
-        "👨‍💻 Ефективність та швидкість розробників", 
-        "🎯 KPI розробників (Квартали)",
-        "📅 Таймлайн розробників (Roadmap)",
-        "⏳ Порівняння: План vs Факт"
+    tab_tracker, tab_team, tab_roadmap = st.tabs([
+        "📋 Трекер і дедлайни",
+        "👨‍💻 Команда: KPI та швидкість",
+        "📅 Roadmap",
     ])
-
-    # 🌟 ОНОВЛЕНА ВКЛАДКА: ІНТЕРАКТИВНИЙ РОАДМАП З ПОВЗУНКОМ ТА СМУГАМИ РОЗРОБНИКІВ
-    with tab_gantt:
-        st.subheader("📅 Графік зайнятості та план здачі ігор (Roadmap)")
-        st.caption("Інтерактивний таймлайн розробки • Жовта лінія — поточний день • Використовуй повзунок унизу для масштабування")
-
+ 
+    # ==========================================================================
+    # TAB 1: Трекер + План vs Факт (раніше дві окремі вкладки)
+    # ==========================================================================
+    with tab_tracker:
+        c_f1, c_f2 = st.columns([1.5, 2.5])
+        with c_f1:
+            sel_dev = st.selectbox("Розробник:", ["Всі розробники"] + all_devs + ["Не призначено"], key="pipe_dev")
+        with c_f2:
+            sel_status = st.radio(
+                "Етап:",
+                ["Всі", "🟢 Завантажені", "⏳ В роботі", "🚨 Затримка / прострочка", "⚪ В черзі"],
+                horizontal=True, key="pipe_stage",
+            )
+ 
+        view = pipe_df.copy()
+        if sel_dev != "Всі розробники":
+            view = view[view["Розробник"] == sel_dev]
+        if sel_status == "🟢 Завантажені":
+            view = view[view["Етап"] == STAGE_DONE]
+        elif sel_status == "⏳ В роботі":
+            view = view[view["Етап"].isin([STAGE_WIP, STAGE_OVERDUE])]
+        elif sel_status == "🚨 Затримка / прострочка":
+            view = view[view["Вердикт"].str.contains("Затримка|Прострочено")]
+        elif sel_status == "⚪ В черзі":
+            view = view[view["Етап"] == STAGE_BACKLOG]
+ 
+        display_cols = ["Гра", "Розробник", "Вердикт", "Дата старту", "План здачі білда", "Дата завантаження білда",
+                        "Реліз Nintendo", "План (дн)", "Факт (дн)", "Відхилення (дн)"]
+        st.dataframe(view[display_cols], hide_index=True, use_container_width=True, height=420)
+        st.download_button(
+            "📥 Експортувати реєстр (.CSV)",
+            data=view[display_cols].to_csv(index=False).encode("utf-8"),
+            file_name="nintendo_certification_pipeline.csv", mime="text/csv",
+        )
+ 
+        st.markdown("---")
+        st.subheader("⏳ План vs Факт по здачі білдів")
+        st.caption("Враховує ті самі фільтри, що й таблиця вище • Червоне = затримка, зелене = вчасно або раніше")
+        delta_view = view[pd.to_numeric(view["_delta"], errors="coerce").notna()].copy()
+        if not delta_view.empty:
+            delta_view["_delta"] = delta_view["_delta"].astype(float)
+            delta_view = delta_view.sort_values("_delta", ascending=False)
+            fig_delta = px.bar(
+                delta_view, x="Гра", y="_delta", color="_delta", text="_delta",
+                color_continuous_scale=["#10b981", "#eab308", "#ef4444"],
+                labels={"_delta": "Відхилення (днів)"}, hover_data={"Розробник": True},
+            )
+            fig_delta.update_traces(texttemplate="%{text:+.0f} дн", textposition="outside")
+            fig_delta.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                    font=dict(color="#e2e8f0"), height=360, margin=dict(t=20, b=20, l=10, r=10))
+            st.plotly_chart(fig_delta, use_container_width=True)
+        else:
+            st.info("Для обраного фільтра ще немає зданих білдів із планом і фактом.")
+ 
+    # ==========================================================================
+    # TAB 2: Команда — одна вкладка замість "Ефективність (All-Time)" + "KPI (Квартали)"
+    # ==========================================================================
+    with tab_team:
+        quarters = sorted(
+            [q for q in pipe_q["_quarter"].unique() if q != "Без дати"],
+            key=lambda q: (int(q.split(" ")[1]), int(q[1])),
+        )
+        years = sorted({q.split(" ")[1] for q in quarters})
+        period_options = ["📅 Всі періоди (All-Time)"] + [f"{y} (Весь рік)" for y in years] + quarters
+ 
+        cur_q = f"Q{math.ceil(today_date.month / 3)} {today_date.year}"
+        default_idx = period_options.index(cur_q) if cur_q in period_options else 0
+ 
+        c_p, _ = st.columns([1.2, 3])
+        with c_p:
+            sel_period = st.selectbox("Період:", period_options, index=default_idx, key="team_period")
+ 
+        if sel_period.startswith("📅"):
+            period_df = pipe_q
+        elif "Весь рік" in sel_period:
+            period_df = pipe_q[pipe_q["_year"] == sel_period.split(" ")[0]]
+        else:
+            period_df = pipe_q[pipe_q["_quarter"] == sel_period]
+ 
+        st.caption(f"Проєкти прив'язані до періоду за датою плану здачі (або завантаження / старту) • У вибірці: **{len(period_df)}** ігор")
+ 
+        kpi_df = build_dev_kpi(period_df, all_devs)
+        active_kpi = kpi_df[kpi_df["Всього ігор"] > 0] if not kpi_df.empty else kpi_df
+ 
+        if active_kpi.empty:
+            st.info("За цей період немає проєктів із призначеним розробником.")
+        else:
+            st.markdown(f"##### 📊 Завантаження команди ({sel_period})")
+            fig_load = go.Figure()
+            for col, name, color in [
+                ("Здано білдів", "Здано", "#10b981"),
+                ("В роботі", "В роботі", "#38bdf8"),
+                ("Прострочено", "Прострочено", "#ef4444"),
+                ("В черзі", "В черзі", "#64748b"),
+            ]:
+                fig_load.add_trace(go.Bar(x=active_kpi["Розробник"], y=active_kpi[col], name=name, marker_color=color))
+            fig_load.update_layout(
+                barmode="stack", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e2e8f0"), height=330, margin=dict(t=20, b=20, l=10, r=10),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                yaxis=dict(gridcolor="#28283c", dtick=1),
+            )
+            st.plotly_chart(fig_load, use_container_width=True)
+ 
+            st.markdown(f"##### 📋 KPI розробників ({sel_period})")
+            st.dataframe(
+                kpi_df,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "Сер. план (дн)": st.column_config.NumberColumn(format="%.1f"),
+                    "Сер. факт (дн)": st.column_config.NumberColumn(format="%.1f"),
+                    "Сер. відхилення (дн)": st.column_config.NumberColumn(format="%+.1f дн"),
+                    "% вчасно": st.column_config.NumberColumn(format="%d%%"),
+                    "KPI (0-100)": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.0f"),
+                },
+            )
+            with st.expander("ℹ️ Як рахується KPI"):
+                st.markdown(
+                    "- **45 балів** — частка зданих білдів від усіх ігор розробника за період\n"
+                    "- **35 балів** — % здач вчасно (якщо зданих ще немає — нейтральні 25)\n"
+                    "- **+20** базових балів\n"
+                    "- **−2** за кожен день середньої затримки, **−5** за кожну гру, що прострочена зараз\n\n"
+                    "🟢 ≥ 80 • 🟡 65–79 • 🔴 < 65"
+                )
+ 
+    # ==========================================================================
+    # TAB 3: Roadmap (без змін по суті)
+    # ==========================================================================
+    with tab_roadmap:
+        st.subheader("📅 Графік зайнятості та план здачі ігор")
+        st.caption("Жовта лінія — сьогодні • Використовуй повзунок унизу для масштабування")
+ 
         gantt_records = []
-        today_date = date.today()
-
         for _, r in pipe_df.iterrows():
             dev = r.get("Розробник")
             if not dev or dev == "Не призначено":
                 continue
-
-            d_s = r.get("_d_start")
-            d_p = r.get("_d_plan")
-            d_u = r.get("_d_upload")
-
+            d_s, d_p, d_u = r.get("_d_start"), r.get("_d_plan"), r.get("_d_upload")
             if pd.isna(d_s) and pd.isna(d_p):
                 continue
-
+ 
             start_d = d_s if pd.notna(d_s) else (d_p - timedelta(days=14))
             end_d = d_p if pd.notna(d_p) else (d_s + timedelta(days=14))
-
             if start_d > end_d:
                 start_d, end_d = end_d, start_d
-
-            # Визначаємо статус для кольору
+ 
             if pd.notna(d_u):
-                if pd.notna(d_p) and d_u.date() <= d_p.date():
-                    status_lbl = "🟢 Здано вчасно"
-                else:
-                    status_lbl = "🔴 Здано з затримкою"
+                status_lbl = "🟢 Здано вчасно" if (pd.notna(d_p) and d_u.date() <= d_p.date()) else "🔴 Здано з затримкою"
             elif pd.notna(d_s):
-                if pd.notna(d_p) and today_date > d_p.date():
-                    status_lbl = "🚨 Прострочено"
-                else:
-                    status_lbl = "🔵 В роботі (In porting)"
+                status_lbl = "🚨 Прострочено" if (pd.notna(d_p) and today_date > d_p.date()) else "🔵 В роботі"
             else:
-                status_lbl = "🟣 Заплановано (Signed)"
-
-            # Розрахунок тривалості для тултіпа
-            duration_days = (end_d.date() - start_d.date()).days if hasattr(start_d, 'date') and hasattr(end_d, 'date') else 0
-
+                status_lbl = "🟣 Заплановано"
+ 
             gantt_records.append({
-                "Гра": r["Гра"],
-                "Розробник": f"👨‍💻 {dev}",
-                "Start": start_d,
-                "End": end_d,
-                "Статус": status_lbl,
-                "Старт": r["Дата старту"],
-                "План": r["План здачі білда"],
-                "Факт": r["Дата завантаження білда"],
-                "Тривалість": f"{duration_days} дн."
+                "Гра": r["Гра"], "Розробник": f"👨‍💻 {dev}", "Start": start_d, "End": end_d, "Статус": status_lbl,
+                "Старт": r["Дата старту"], "План": r["План здачі білда"], "Факт": r["Дата завантаження білда"],
+                "Тривалість": f"{(end_d.date() - start_d.date()).days} дн.",
             })
-
+ 
         if gantt_records:
             gantt_df = pd.DataFrame(gantt_records)
-
-            status_colors = {
-                "🟢 Здано вчасно": "#10b981",
-                "🔴 Здано з затримкою": "#ef4444",
-                "🚨 Прострочено": "#f43f5e",
-                "🔵 В роботі (In porting)": "#38bdf8",
-                "🟣 Заплановано (Signed)": "#a855f7"
-            }
-
             fig_gantt = px.timeline(
-                gantt_df,
-                x_start="Start",
-                x_end="End",
-                y="Розробник",
-                color="Статус",
-                text="Гра",
-                color_discrete_map=status_colors,
-                hover_data={
-                    "Гра": True,
-                    "Розробник": True,
-                    "Статус": True,
-                    "Старт": True,
-                    "План": True,
-                    "Факт": True,
-                    "Тривалість": True,
-                    "Start": False,
-                    "End": False
-                }
+                gantt_df, x_start="Start", x_end="End", y="Розробник", color="Статус", text="Гра",
+                color_discrete_map={
+                    "🟢 Здано вчасно": "#10b981", "🔴 Здано з затримкою": "#ef4444", "🚨 Прострочено": "#f43f5e",
+                    "🔵 В роботі": "#38bdf8", "🟣 Заплановано": "#a855f7",
+                },
+                hover_data={"Гра": True, "Статус": True, "Старт": True, "План": True, "Факт": True,
+                            "Тривалість": True, "Start": False, "End": False, "Розробник": False},
             )
-
-            fig_gantt.update_yaxes(
-                autorange="reversed",
-                showgrid=True,
-                gridcolor="rgba(255, 255, 255, 0.12)",
-                gridwidth=1.5,
-                tickfont=dict(size=14, color="#ffffff", family="Plus Jakarta Sans, sans-serif")
-            )
-
-            # 📍 ЖОВТА ПУНКТИРНА ЛІНІЯ "СЬОГОДНІ"
+            fig_gantt.update_yaxes(autorange="reversed", showgrid=True, gridcolor="rgba(255,255,255,0.12)",
+                                   tickfont=dict(size=14, color="#ffffff"))
             fig_gantt.add_vline(
                 x=datetime.combine(today_date, datetime.min.time()).timestamp() * 1000,
-                line_width=2.5,
-                line_dash="dash",
-                line_color="#fbbf24",
-                annotation_text=f"СЬОГОДНІ ({today_date.strftime('%d.%m')})",
-                annotation_position="top left",
-                annotation_font_color="#fbbf24",
-                annotation_font_size=11
+                line_width=2.5, line_dash="dash", line_color="#fbbf24",
+                annotation_text=f"СЬОГОДНІ ({today_date.strftime('%d.%m')})", annotation_position="top left",
+                annotation_font_color="#fbbf24", annotation_font_size=11,
             )
-
-            fig_gantt.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(color="#ffffff", size=11.5, family="Plus Jakarta Sans, sans-serif")
-            )
-
-            # Стартове вікно фокусу: від тижня тому до середини січня 2027
-            default_start = today_date - timedelta(days=10)
-            default_end = date(2027, 1, 20)
-
+            fig_gantt.update_traces(textposition="inside", insidetextanchor="middle", textfont=dict(color="#ffffff", size=11.5))
             fig_gantt.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color="#e2e8f0"),
-                height=580,
-                xaxis=dict(
-                    gridcolor="#28283c",
-                    title="Шкала часу (використовуй повзунок знизу для навігації)",
-                    type="date",
-                    range=[default_start, default_end],
-                    rangeslider=dict(
-                        visible=True,
-                        thickness=0.07,
-                        bgcolor="#161622",
-                        bordercolor="#28283c"
-                    )
-                ),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#e2e8f0"), height=580,
+                xaxis=dict(gridcolor="#28283c", type="date",
+                           range=[today_date - timedelta(days=10), today_date + timedelta(days=100)],
+                           rangeslider=dict(visible=True, thickness=0.07, bgcolor="#161622", bordercolor="#28283c")),
                 yaxis=dict(title=""),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=""),
             )
-
             st.plotly_chart(fig_gantt, use_container_width=True)
-
-            st.markdown("""
-            <div style="font-size:12px; color:#94a3b8; display:flex; gap:16px; margin-top:-8px;">
-                <span><span style="color:#10b981;">●</span> Здано вчасно</span>
-                <span><span style="color:#ef4444;">●</span> Здано з затримкою</span>
-                <span><span style="color:#f43f5e;">●</span> Прострочено зараз</span>
-                <span><span style="color:#38bdf8;">●</span> В активній розробці</span>
-                <span><span style="color:#a855f7;">●</span> Заплановано (Signed)</span>
-            </div>
-            """, unsafe_allow_html=True)
         else:
             st.info("Немає даних із датами для побудови графіка.")
-            
-    with tab_summary:
-        st.subheader("📋 Реєстр проектів у розробці та сертифікації")
-        c_f1, c_f2 = st.columns([1.5, 2.5])
-        with c_f1:
-            dev_filter_list = ["Всі розробники"] + sorted(list(set(pipe_df["Розробник"].unique()) - {"Не призначено"})) + ["Не призначено"]
-            sel_dev = st.selectbox("Фільтр за розробником:", dev_filter_list)
-        with c_f2:
-            status_filter_list = ["Всі статуси", "🟢 Завантажені білди", "⏳ В роботі", "🚨 З затримкою / Прострочені", "⚪ В черзі"]
-            sel_status = st.radio("Фільтр за етапом:", status_filter_list, horizontal=True)
-
-        filtered_view = pipe_df.copy()
-        if sel_dev != "Всі розробники": filtered_view = filtered_view[filtered_view["Розробник"] == sel_dev]
-        if sel_status == "🟢 Завантажені білди": filtered_view = filtered_view[filtered_view["Етап"] == "Uploaded / In Cert"]
-        elif sel_status == "⏳ В роботі": filtered_view = filtered_view[filtered_view["Етап"] == "In Porting"]
-        elif sel_status == "🚨 З затримкою / Прострочені": filtered_view = filtered_view[filtered_view["Вердикт"].str.contains("Затримка|Прострочено")]
-        elif sel_status == "⚪ В черзі": filtered_view = filtered_view[filtered_view["Етап"] == "Backlog"]
-
-        display_cols = ["Гра", "Розробник", "Вердикт", "Дата старту", "План здачі білда", "Дата завантаження білда", "Реліз Nintendo", "План (дн)", "Факт (дн)", "Відхилення (дн)"]
-        st.dataframe(filtered_view[display_cols], hide_index=True, use_container_width=True, height=460)
-        csv_pipe_data = filtered_view[display_cols].to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Експортувати реєстр сертифікації (.CSV)", data=csv_pipe_data, file_name="nintendo_certification_pipeline.csv", mime="text/csv")
-
-    with tab_devs:
-        st.subheader("👨‍💻 Загальний рейтинг розробників (All-Time)")
-        dev_stats = []
-        for dev_name, group in pipe_df[pipe_df["Розробник"] != "Не призначено"].groupby("Розробник"):
-            tot = len(group)
-            uploaded = len(group[group["Етап"] == "Uploaded / In Cert"])
-            in_prog = len(group[group["Етап"] == "In Porting"])
-            backlog = len(group[group["Етап"] == "Backlog"])
-            valid_facts = group[group["Факт (дн)"] != "—"]["Факт (дн)"].astype(float)
-            avg_fact_days = round(valid_facts.mean(), 1) if not valid_facts.empty else None
-            valid_deltas = group[group["_delta"].notna()]
-            on_time = len(valid_deltas[valid_deltas["_delta"] <= 0])
-            on_time_pct = round((on_time / len(valid_deltas)) * 100, 1) if not valid_deltas.empty else None
-            avg_overrun = round(valid_deltas["_delta"].mean(), 1) if not valid_deltas.empty else 0.0
-
-            dev_stats.append({
-                "Розробник": dev_name, "Всього ігор": tot, "Здано білдів": uploaded, "В роботі": in_prog, "В черзі": backlog,
-                "Сер. строк портування (дн)": avg_fact_days if avg_fact_days else "—",
-                "% Здачі вчасно": f"{on_time_pct:.0f}%" if on_time_pct is not None else "—",
-                "Сер. відхилення (дн)": f"{avg_overrun:+.1f} дн" if not valid_deltas.empty else "—",
-                "_uploaded_raw": uploaded, "_on_time_raw": on_time_pct if on_time_pct is not None else -1
-            })
-
-        if dev_stats:
-            dev_df = pd.DataFrame(dev_stats).sort_values(by=["_uploaded_raw", "_on_time_raw"], ascending=[False, False]).reset_index(drop=True)
-            st.dataframe(dev_df[["Розробник", "Всього ігор", "Здано білдів", "В роботі", "В черзі", "Сер. строк портування (дн)", "% Здачі вчасно", "Сер. відхилення (дн)"]], hide_index=True, use_container_width=True)
-
-    # 🌟 НОВА ВКЛАДКА: KPI РОЗРОБНИКІВ З ФІЛЬТРОМ КВАРТАЛІВ
-    with tab_kpi_quarter:
-        st.subheader("🎯 Квартальний KPI та завантаження розробників")
-        st.caption("Автоматичний перерахунок метрик команди за обраний період із листа 'Certification'")
-
-        col_q, col_y, _ = st.columns([1.2, 1.2, 2])
-        with col_q:
-            sel_kpi_q = st.selectbox("Квартал:", ["Q3", "Q4", "Q1", "Q2", "Весь рік", "Всі періоди"], index=0)
-        with col_y:
-            sel_kpi_y = st.selectbox("Рік:", ["2026", "2025", "2024", "2027", "Всі роки"], index=0)
-
-        # Автоматичне формування мітки вибору
-        if sel_kpi_q == "Всі періоди" or sel_kpi_y == "Всі роки":
-            sel_kpi_period = "📅 Всі періоди (All-Time)"
-        elif sel_kpi_q == "Весь рік":
-            sel_kpi_period = f"{sel_kpi_y} (Весь рік)"
-        else:
-            sel_kpi_period = f"{sel_kpi_q} {sel_kpi_y}"
-            
-        # Логіка визначення кварталу для кожної гри (з захистом від ігор без дат)
-        def get_project_quarter(row):
-            for candidate in [row.get("_d_plan"), row.get("_d_upload"), row.get("_d_start")]:
-                if pd.notna(candidate) and hasattr(candidate, "month"):
-                    try:
-                        m = int(candidate.month)
-                        y = int(candidate.year)
-                        q_num = math.ceil(m / 3)
-                        return f"Q{q_num} {y}", str(y)
-                    except (ValueError, TypeError):
-                        continue
-            return "Без дати", "Без дати"
-
-        q_records = []
-        for _, pr_row in pipe_df.iterrows():
-            q_lbl, y_lbl = get_project_quarter(pr_row)
-            pr_dict = pr_row.to_dict()
-            pr_dict["_quarter_label"] = q_lbl
-            pr_dict["_year_label"] = y_lbl
-            q_records.append(pr_dict)
-
-        q_pipe_df = pd.DataFrame(q_records)
-
-        # Фільтрація проектів під обраний квартал
-        if sel_kpi_period == "📅 Всі періоди (All-Time)":
-            active_q_df = q_pipe_df.copy()
-        elif "Весь рік" in sel_kpi_period:
-            y_filter = sel_kpi_period.split(" ")[0]
-            active_q_df = q_pipe_df[q_pipe_df["_year_label"] == y_filter].copy()
-        else:
-            active_q_df = q_pipe_df[q_pipe_df["_quarter_label"] == sel_kpi_period].copy()
-
-        # Формування зведеної KPI таблиці розробників за обраний період
-        kpi_dev_rows = []
-        all_unique_devs = sorted([d for d in pipe_df["Розробник"].unique() if d != "Не призначено"])
-
-        for dev_name in all_unique_devs:
-            dev_sub = active_q_df[active_q_df["Розробник"] == dev_name]
-            tot_p = len(dev_sub)
-            done_p = len(dev_sub[dev_sub["Етап"] == "Uploaded / In Cert"])
-            in_prog_p = len(dev_sub[dev_sub["Етап"] == "In Porting"])
-            backlog_p = len(dev_sub[dev_sub["Етап"] == "Backlog"])
-
-            # Середні строки
-            valid_p_days = pd.to_numeric(dev_sub[dev_sub["План (дн)"] != "—"]["План (дн)"], errors="coerce").dropna()
-            valid_f_days = pd.to_numeric(dev_sub[dev_sub["Факт (дн)"] != "—"]["Факт (дн)"], errors="coerce").dropna()
-            valid_deltas = dev_sub[dev_sub["_delta"].notna()]["_delta"].astype(float)
-
-            avg_p = round(valid_p_days.mean(), 1) if not valid_p_days.empty else None
-            avg_f = round(valid_f_days.mean(), 1) if not valid_f_days.empty else None
-            avg_delay = round(valid_deltas.mean(), 1) if not valid_deltas.empty else None
-
-            # % Вчасних здач
-            if not valid_deltas.empty:
-                on_time_cnt = len(valid_deltas[valid_deltas <= 0])
-                on_time_pct = round((on_time_cnt / len(valid_deltas)) * 100, 1)
-            else:
-                on_time_pct = None
-
-            # Розрахунок підсумкового KPI індексу (0-100)
-            if tot_p > 0:
-                scope_score = (done_p / tot_p) * 45
-                on_time_score = (on_time_pct * 0.35) if on_time_pct is not None else 25.0
-                delay_penalty = max(0, (avg_delay * 2)) if (avg_delay and avg_delay > 0) else 0
-                kpi_index = round(min(100.0, max(0.0, scope_score + on_time_score + 20.0 - delay_penalty)), 1)
-            else:
-                kpi_index = None
-
-            # Статус перформансу
-            if kpi_index is None:
-                status_lbl = "⚪ Немає проєктів"
-            elif kpi_index >= 80:
-                status_lbl = "🟢 Топ-перформер"
-            elif kpi_index >= 65:
-                status_lbl = "🟡 Норма"
-            else:
-                status_lbl = "🔴 Зона ботлнеку"
-
-            kpi_dev_rows.append({
-                "Розробник": dev_name,
-                "Всього проєктів": tot_p,
-                "Здано білдів": done_p,
-                "В роботі": in_prog_p,
-                "В черзі": backlog_p,
-                "Сер. план (дн)": avg_p if avg_p else "—",
-                "Сер. факт (дн)": avg_f if avg_f else "—",
-                "Сер. затримка (дн)": f"{avg_delay:+.1f} дн" if avg_delay is not None else "—",
-                "% Вчасних здач": f"{on_time_pct:.0f}%" if on_time_pct is not None else "—",
-                "Індекс KPI (0-100)": kpi_index if kpi_index is not None else "—",
-                "Статус перформансу": status_lbl,
-                "_raw_done": done_p
-            })
-
-        kpi_summary_df = pd.DataFrame(kpi_dev_rows).sort_values(by=["Всього проєктів", "_raw_done"], ascending=[False, False]).reset_index(drop=True)
-
-        # 📊 ВІЗУАЛІЗАЦІЯ КВАРТАЛУ (STACKED BAR CHART)
-        st.markdown(f"##### 📊 Завантаження та статус ігор команди ({sel_kpi_period}):")
-        fig_q_bar = go.Figure()
-        fig_q_bar.add_trace(go.Bar(x=kpi_summary_df["Розробник"], y=kpi_summary_df["Здано білдів"], name="Здано білдів (Ready)", marker_color="#10b981"))
-        fig_q_bar.add_trace(go.Bar(x=kpi_summary_df["Розробник"], y=kpi_summary_df["В роботі"], name="В роботі (In Progress)", marker_color="#38bdf8"))
-        fig_q_bar.add_trace(go.Bar(x=kpi_summary_df["Розробник"], y=kpi_summary_df["В черзі"], name="В черзі (Backlog)", marker_color="#64748b"))
-        fig_q_bar.update_layout(
-            barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color="#e2e8f0"), height=330, margin=dict(t=20, b=20, l=10, r=10),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        st.plotly_chart(fig_q_bar, use_container_width=True)
-
-        # 📑 ПОВНА ТАБЛИЦЯ KPI РОЗРОБНИКІВ ЗА КВАРТАЛ
-        st.markdown(f"##### 📋 Зведена таблиця KPI розробників ({sel_kpi_period}):")
-        kpi_table_cols = [
-            "Розробник", "Всього проєктів", "Здано білдів", "В роботі", "В черзі", 
-            "Сер. план (дн)", "Сер. факт (дн)", "Сер. затримка (дн)", "% Вчасних здач", 
-            "Індекс KPI (0-100)", "Статус перформансу"
-        ]
-        st.dataframe(kpi_summary_df[kpi_table_cols], hide_index=True, use_container_width=True)
-
-    with tab_bottlenecks:
-        st.subheader("⏳ Порівняльний аудит строків: План vs Факт")
-        st.caption("Червоне = затримка здачі, Зелене = вчасно або раніше графіка")
-        overrun_list = pipe_df[pipe_df["_delta"].notna()].sort_values(by="_delta", ascending=False)
-        if not overrun_list.empty:
-            fig_delta = px.bar(overrun_list, x="Гра", y="_delta", color="_delta", color_continuous_scale=["#10b981", "#eab308", "#ef4444"], labels={"_delta": "Відхилення (днів)"}, text="_delta")
-            fig_delta.update_traces(texttemplate='%{text:+} дн', textposition='outside')
-            fig_delta.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#e2e8f0"), height=360, margin=dict(t=20, b=20, l=10, r=10))
-            st.plotly_chart(fig_delta, use_container_width=True)
 
 # ==============================================================================
 # 📋 РОЗДІЛ 5: RELEASE ACTIVITY

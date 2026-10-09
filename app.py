@@ -38,7 +38,8 @@ DEFAULT_IMAGE = "https://img.icons8.com/isometric/100/controller.png"
 # ==============================================================================
 SECTIONS = [
     "🎮 Портфоліо",
-    "💰 Продажі та цілі",
+    "🎯 Цілі та KPI 2026",
+    "📈 Динаміка продажів",
     "📅 Календар і сейли",
     "🚀 Релізи",
     "🧮 Прогнози та ліди",
@@ -172,7 +173,11 @@ st.markdown("""
     section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
         display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; margin: 0 !important;
     }
-    section[data-testid="stSidebar"] div[role="radiogroup"] { display: flex !important; flex-direction: column !important; gap: 6px !important; }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"],
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div,
+    section[data-testid="stSidebar"] div[role="radiogroup"] { width: 100% !important; }
+    section[data-testid="stSidebar"] div[role="radiogroup"] { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 6px !important; }
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label { flex: 1 1 auto !important; max-width: none !important; }
     section[data-testid="stSidebar"] div[role="radiogroup"] label {
         background-color: #161622 !important; border: 1px solid #28283c !important; border-radius: 9px !important;
         padding: 10px 14px !important; margin: 0 !important; cursor: pointer !important; transition: all 0.2s ease !important;
@@ -347,8 +352,9 @@ def kpi_card(col, label, value, badge="", badge_cls="badge-total", color=None):
 def show_fig(fig, height=None, **layout):
     if height:
         layout["height"] = height
-    if layout:
-        fig.update_layout(**layout)
+    layout.setdefault("paper_bgcolor", "rgba(0,0,0,0)")
+    layout.setdefault("plot_bgcolor", "rgba(0,0,0,0)")
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True, theme=None)
 
 
@@ -1333,11 +1339,175 @@ body {{ background:#0f172a; color:#f8fafc; font-family:-apple-system, sans-serif
                        file_name=f"Upscale_Studio_Executive_Report_{datetime.now().strftime('%Y_%m')}.html", mime="text/html")
 
 # ==============================================================================
-# 💰 РОЗДІЛ 2: ПРОДАЖІ ТА ЦІЛІ (Тижні + Цілі + Воронка + Помісячно)
+# 🎯 РОЗДІЛ 2: ЦІЛІ ТА KPI 2026
 # ==============================================================================
-def render_sales():
-    st.title("💰 Продажі та цілі")
-    st.caption("Тижнева звітність, виконання плану 2026, BizDev воронка та помісячні звіти сторів — з одним фільтром періоду")
+GOAL_PERIODS = ["2026 (рік)", "Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026"]
+
+
+def weekly_between(start, end):
+    if weekly_df.empty:
+        return weekly_df
+    return weekly_df[weekly_df["Parsed_Date"].apply(lambda d: in_bounds(d, start, end))]
+
+
+def render_goals_page():
+    st.title("🎯 Цілі та KPI 2026")
+    st.caption("Ціль на 2026 рік: **$500,000 консольної виручки** • Факт береться з тижневого листа Weekly Updates")
+    if weekly_df.empty:
+        st.warning("⚠️ Немає тижневих даних. Перевір `WEEKLY_SHEET_URL`.")
+        return
+
+    cur_q = f"Q{quarter_of(TODAY)} {TODAY.year}"
+    period = st.radio("📌 Період:", GOAL_PERIODS, index=GOAL_PERIODS.index(cur_q) if cur_q in GOAL_PERIODS else 0,
+                      horizontal=True, key="goals_period")
+    start, end = period_bounds(period)
+    target = TARGETS_2026[period]
+    fact = weekly_between(start, end)
+    f_rev = float(fact["Total_Revenue"].sum())
+    rev_pct = safe_pct(f_rev, target["Revenue"]) or 0.0
+
+    # Темп: скільки мало бути зароблено на сьогодні, якщо рівномірно йти до цілі
+    elapsed = min(1.0, max(0.0, ((TODAY - start).days + 1) / ((end - start).days + 1)))
+    pace_target = target["Revenue"] * elapsed
+    pace_pct = safe_pct(f_rev, pace_target) if pace_target else None
+    color = "#10b981" if (pace_pct or 0) >= 95 or rev_pct >= 100 else ("#f59e0b" if (pace_pct or 0) >= 70 else "#ef4444")
+    last_week = fact["Week"].iloc[-1] if not fact.empty else "—"
+
+    st.markdown(f"""
+    <div style="background:#171724; border:1px solid #2f2f45; border-radius:12px; padding:22px; margin:10px 0 15px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <span style="font-size:12px; font-weight:600; color:#94a3b8; text-transform:uppercase;">Фінансовий таргет • {period}</span>
+          <h2 style="margin:2px 0 0 0; color:#fff;">💰 Виручка: ${f_rev:,.0f} <span style="font-size:18px; color:#94a3b8; font-weight:normal;">/ ${target['Revenue']:,.0f}</span></h2>
+          <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8;">Тижневих звітів: {len(fact)} (останній: {last_week}) • минуло {elapsed * 100:.0f}% періоду •
+          очікувано на сьогодні: ${pace_target:,.0f}{f" • темп: <b style='color:{color};'>{pace_pct:.0f}% від графіка</b>" if pace_pct is not None and elapsed > 0 else ""}</p>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:28px; font-weight:800; color:{color};">{rev_pct:.1f}%</span>
+          <p style="margin:0; font-size:12px; color:#94a3b8;">виконання плану</p>
+        </div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    st.progress(min(rev_pct / 100.0, 1.0))
+    if fact.empty and elapsed > 0:
+        st.info("ℹ️ У тижневому листі ще немає звітів за цей період — факт поки нульовий.")
+
+    st.subheader("🎮 Виконання плану за платформами")
+    k = st.columns(3)
+    plat_rows = []
+    for i, p in enumerate(PLATFORMS):
+        f_v = float(fact[f"{WEEKLY_PREFIX[p]}_Revenue"].sum())
+        t_v = target[f"{WEEKLY_PREFIX[p]}_Revenue"]
+        k[i].metric(PLATFORM_LABEL[p], fmt_usd(f_v), f"{safe_pct(f_v, t_v):.1f}% від цілі ({fmt_usd(t_v)})", delta_color="off")
+        plat_rows += [{"Платформа": PLATFORM_LABEL[p], "Тип": "Факт", "$": f_v}, {"Платформа": PLATFORM_LABEL[p], "Тип": "План", "$": t_v}]
+
+    st.subheader("🤝 BizDev воронка: план vs факт")
+    b = st.columns(4)
+    for i, (col, lbl) in enumerate([("Deals", "🤝 Deals"), ("Calls", "📞 Calls"), ("Contacts", "✉️ Contacts"), ("Leads", "🔍 Leads")]):
+        f_v = int(fact[col].sum()) if col in fact.columns else 0
+        b[i].metric(lbl, f"{f_v} / {target[col]}", f"{safe_pct(f_v, target[col]):.0f}% від цілі", delta_color="off")
+
+    st.markdown("---")
+    c1, c2 = st.columns([1.4, 1])
+    with c1:
+        st.subheader("📊 План vs факт по платформах ($)")
+        show_fig(px.bar(pd.DataFrame(plat_rows), x="Платформа", y="$", color="Тип", barmode="group",
+                        color_discrete_map={"Факт": "#10b981", "План": "#d946ef"}), height=360, xaxis_title="", yaxis_title="$")
+    with c2:
+        st.subheader("📋 Зведення по кварталах")
+        rows = []
+        for q in GOAL_PERIODS[1:]:
+            qf = weekly_between(*period_bounds(q))
+            f_q = float(qf["Total_Revenue"].sum())
+            rows.append({"Квартал": q, "Факт ($)": f_q, "План ($)": TARGETS_2026[q]["Revenue"],
+                         "Виконання (%)": safe_pct(f_q, TARGETS_2026[q]["Revenue"]),
+                         "Угоди": f"{int(qf['Deals'].sum()) if 'Deals' in qf.columns else 0}/{TARGETS_2026[q]['Deals']}"})
+        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True, column_config={
+            "Факт ($)": st.column_config.NumberColumn(format="$%.0f"), "План ($)": st.column_config.NumberColumn(format="$%.0f"),
+            "Виконання (%)": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f%%"),
+        })
+
+    # Накопичена виручка року проти плану (план рівномірний усередині кожного кварталу)
+    st.subheader("📈 Накопичена виручка 2026 vs план")
+    year = weekly_between(date(2026, 1, 1), date(2026, 12, 31))
+    plan_pts, cum = [], 0.0
+    for q in GOAL_PERIODS[1:]:
+        qs, qe = period_bounds(q)
+        plan_pts.append({"Дата": qs, "План": cum})
+        cum += TARGETS_2026[q]["Revenue"]
+        plan_pts.append({"Дата": qe, "План": cum})
+    fig = go.Figure()
+    plan_df = pd.DataFrame(plan_pts)
+    fig.add_trace(go.Scatter(x=plan_df["Дата"], y=plan_df["План"], name="План (накопичено)", line=dict(color="#d946ef", dash="dash")))
+    if not year.empty:
+        fig.add_trace(go.Scatter(x=year["Parsed_Date"], y=year["Total_Revenue"].cumsum(), name="Факт (накопичено)",
+                                 mode="lines+markers", line=dict(color="#10b981", width=3)))
+    fig.add_vline(x=datetime.combine(TODAY, datetime.min.time()).timestamp() * 1000, line_dash="dot", line_color="#fbbf24",
+                  annotation_text="сьогодні", annotation_font_color="#fbbf24")
+    show_fig(fig, height=360, yaxis_title="$", xaxis_title="")
+
+
+# ==============================================================================
+# 📈 РОЗДІЛ 3: ДИНАМІКА ПРОДАЖІВ (гнучкі фільтри)
+# ==============================================================================
+FILTER_MODES = ["⚡ Останній тиждень", "↔️ Останні N тижнів", "🎯 Квартал / рік / місяць", "🗓️ Довільні дати", "📅 Весь період"]
+
+
+def sales_filter_panel(all_dates):
+    """Повертає (wk, start, end, label). wk — тижні, що потрапили у фільтр."""
+    has_weekly = not weekly_df.empty
+    modes = FILTER_MODES if has_weekly else FILTER_MODES[2:]
+    c_mode, c_ctrl = st.columns([1.3, 2.7])
+    mode = c_mode.radio("Формат вибору періоду:", modes, key="dyn_mode")
+
+    with c_ctrl:
+        if mode == "⚡ Останній тиждень":
+            wk = weekly_df.tail(1)
+            start = wk["Parsed_Date"].iloc[0].date()
+            end = start + timedelta(days=6)
+            label = f"тиждень {wk['Week'].iloc[0]}"
+        elif mode == "↔️ Останні N тижнів":
+            total_w = len(weekly_df)
+            n = st.slider("Кількість останніх тижнів:", 2, min(52, total_w), min(8, total_w), key="dyn_n") if total_w > 2 else total_w
+            wk = weekly_df.tail(n)
+            start, end = wk["Parsed_Date"].iloc[0].date(), wk["Parsed_Date"].iloc[-1].date() + timedelta(days=6)
+            label = f"останні {len(wk)} тиж."
+        elif mode == "🎯 Квартал / рік / місяць":
+            label = period_picker(all_dates, key="dyn_period", label="Квартал, рік або місяць:", include_months=True)
+            start, end = period_bounds(label)
+            wk = weekly_between(start, end)
+        elif mode == "🗓️ Довільні дати":
+            ds = sorted(d for d in (to_date(x) for x in all_dates) if d)
+            lo, hi = ds[0], max(ds[-1], TODAY)
+            rng = st.date_input("Діапазон дат:", value=(max(lo, TODAY - timedelta(days=90)), hi), min_value=lo, max_value=hi + timedelta(days=365), key="dyn_dates")
+            start, end = (rng[0], rng[1]) if isinstance(rng, (tuple, list)) and len(rng) == 2 else (lo, hi)
+            wk = weekly_between(start, end)
+            label = f"{start.strftime('%d.%m.%Y')} — {end.strftime('%d.%m.%Y')}"
+        else:
+            start = end = None
+            wk = weekly_df
+            label = "весь період"
+
+        f1, f2, f3 = st.columns([1.8, 1.4, 1.4])
+        plats = f1.multiselect("Платформи:", PLATFORMS, default=PLATFORMS, format_func=lambda p: PLATFORM_LABEL[p], key="dyn_plats") or PLATFORMS
+        group = f2.radio("Групування графіків:", ["Тижні", "Місяці", "Квартали"], horizontal=True, key="dyn_group")
+        compare = f3.checkbox("Порівняти з попер. періодом", value=start is not None, disabled=start is None, key="dyn_compare")
+    return wk, start, end, label, plats, group, compare and start is not None
+
+
+def group_weekly(wk, group):
+    """Агрегує тижні до місяців/кварталів (сумою); соцмережі не агрегуються — це накопичувальні значення."""
+    if group == "Тижні" or wk.empty:
+        return wk.assign(Період=wk["Week"])
+    key = wk["Parsed_Date"].apply(lambda d: month_label(d) if group == "Місяці" else f"Q{quarter_of(d)} {d.year}")
+    num_cols = [c for c in wk.columns if c not in ("From", "To", "Week", "Parsed_Date") + tuple(SOCIAL_COLS) and pd.api.types.is_numeric_dtype(wk[c])]
+    out = wk.assign(Період=key).groupby("Період", sort=False)[num_cols].sum().reset_index()
+    return out
+
+
+def render_dynamics():
+    st.title("📈 Динаміка продажів")
+    st.caption("Тижнева звітність, BizDev воронка, соцмережі та помісячні звіти сторів • гнучкий вибір періоду, платформ і групування")
 
     n_matrix, n_months = parse_nintendo_monthly_data(load_sheet(NINTENDO_MONTHLY_SHEET_URL))
     x_matrix, x_months = parse_xbox_monthly_data(load_sheet(XBOX_MONTHLY_SHEET_URL))
@@ -1348,55 +1518,74 @@ def render_sales():
         st.warning("⚠️ Немає ні тижневих, ні помісячних даних. Перевір `WEEKLY_SHEET_URL` та посилання на звіти сторів.")
         return
 
-    c_sel, c_info = st.columns([1.2, 3])
-    with c_sel:
-        sel = period_picker(all_dates, key="sales_period", extras=("Останній тиждень",) if not weekly_df.empty else ())
+    try:
+        box = st.container(border=True)
+    except TypeError:  # старі версії Streamlit без border
+        box = st.container()
+    with box:
+        wk, start, end, label, plats, group, compare = sales_filter_panel(all_dates)
 
-    if sel == "Останній тиждень":
-        wk = weekly_df.tail(1)
-        start = end = wk["Parsed_Date"].iloc[0].date()
-    else:
-        start, end = period_bounds(sel)
-        wk = weekly_df[weekly_df["Parsed_Date"].apply(lambda d: in_bounds(d, start, end))] if not weekly_df.empty else weekly_df
-    c_info.caption(f"Тижневих звітів у періоді: **{len(wk)}**" + (f" • {start.strftime('%d.%m.%Y')} — {end.strftime('%d.%m.%Y')}" if start else ""))
+    # ---- KPI з порівнянням з попереднім періодом такої ж довжини ----
+    prev = pd.DataFrame()
+    if compare and not weekly_df.empty:
+        span = (end - start).days + 1
+        prev = weekly_between(start - timedelta(days=span), start - timedelta(days=1))
+    rev_cols = [f"{WEEKLY_PREFIX[p]}_Revenue" for p in plats]
+    sales_cols = [f"{WEEKLY_PREFIX[p]}_Sales" for p in plats]
 
-    # ---- KPI + WoW останнього тижня періоду ----
+    def delta(cur, cols):
+        if prev.empty:
+            return None
+        before = float(prev[cols].sum().sum())
+        pct = safe_pct(cur - before, before)
+        return f"{pct:+.1f}% vs попер. період" if pct is not None else None
+
+    st.caption(f"Обрано: **{label}** • тижневих звітів: **{len(wk)}**" + (f" • попередній період для порівняння: {len(prev)} тиж." if compare else ""))
     if not wk.empty:
-        last = wk.iloc[-1]
-        pos = weekly_df.index[weekly_df["Parsed_Date"] == last["Parsed_Date"]][0]
-        prev_rev = weekly_df.loc[pos - 1, "Total_Revenue"] if pos > 0 else None
-        wow = safe_pct(last["Total_Revenue"] - prev_rev, prev_rev) if prev_rev else None
-        k = st.columns(4)
-        k[0].metric("Виторг за період", fmt_usd(wk["Total_Revenue"].sum(), True),
-                    f"{wow:+.1f}% WoW (тиждень {last['Week']})" if wow is not None else None)
-        for i, p in enumerate(["PS", "Switch", "Xbox"], start=1):
-            k[i].metric(f"{PLATFORM_LABEL[p]}", fmt_usd(wk[f"{WEEKLY_PREFIX[p]}_Revenue"].sum(), True))
+        k = st.columns(2 + len(plats))
+        rev_total = float(wk[rev_cols].sum().sum())
+        units_total = float(wk[sales_cols].sum().sum())
+        k[0].metric("💰 Виторг", fmt_usd(rev_total, True), delta(rev_total, rev_cols))
+        k[1].metric("📦 Продано копій", f"{int(units_total):,}", delta(units_total, sales_cols))
+        for i, p in enumerate(plats, start=2):
+            col = f"{WEEKLY_PREFIX[p]}_Revenue"
+            k[i].metric(PLATFORM_LABEL[p], fmt_usd(float(wk[col].sum()), True), delta(float(wk[col].sum()), [col]))
 
     st.markdown("<br>", unsafe_allow_html=True)
-    t_week, t_goals, t_funnel, t_month, t_social, t_table = st.tabs([
-        "📈 Тижнева динаміка", "🎯 Цілі 2026", "🤝 BizDev воронка", "🗓️ Помісячно (звіти сторів)", "📱 Соцмережі", "📑 Таблиця",
+    t_rev, t_funnel, t_month, t_social, t_table = st.tabs([
+        "💰 Виторг і продажі", "🤝 BizDev воронка", "🗓️ Помісячно (звіти сторів)", "📱 Соцмережі", "📑 Таблиця",
     ])
 
-    with t_week:
+    with t_rev:
         if wk.empty:
             st.info("Немає тижневих даних за обраний період.")
         else:
-            long_rev = wk.melt(id_vars="Week", value_vars=[f"{WEEKLY_PREFIX[p]}_Revenue" for p in PLATFORMS], var_name="Platform", value_name="Revenue")
+            g = group_weekly(wk, group)
+            long_rev = g.melt(id_vars="Період", value_vars=rev_cols, var_name="Platform", value_name="Revenue")
             long_rev["Platform"] = long_rev["Platform"].map({f"{WEEKLY_PREFIX[p]}_Revenue": PLATFORM_LABEL[p] for p in PLATFORMS})
-            st.subheader("Виторг по тижнях ($)")
-            show_fig(px.bar(long_rev, x="Week", y="Revenue", color="Platform", color_discrete_map=PLATFORM_COLORS), yaxis_title="Виторг ($)", xaxis_title="")
+            st.subheader(f"Виторг ($) • {group.lower()}")
+            fig = px.bar(long_rev, x="Період", y="Revenue", color="Platform", color_discrete_map=PLATFORM_COLORS)
+            totals = g[rev_cols].sum(axis=1)
+            fig.add_trace(go.Scatter(x=g["Період"], y=totals, mode="text", text=[f"${v:,.0f}" for v in totals],
+                                     textposition="top center", showlegend=False, textfont=dict(color="#e2e8f0", size=11)))
+            show_fig(fig, height=400, yaxis_title="Виторг ($)", xaxis_title="", xaxis=dict(type="category"))
 
-            long_sales = wk.melt(id_vars="Week", value_vars=[f"{WEEKLY_PREFIX[p]}_Sales" for p in PLATFORMS], var_name="Platform", value_name="Sales")
+            long_sales = g.melt(id_vars="Період", value_vars=sales_cols, var_name="Platform", value_name="Sales")
             long_sales["Platform"] = long_sales["Platform"].map({f"{WEEKLY_PREFIX[p]}_Sales": PLATFORM_LABEL[p] for p in PLATFORMS})
-            st.subheader("Продажі в копіях (Units Sold)")
-            show_fig(px.line(long_sales, x="Week", y="Sales", color="Platform", markers=True, color_discrete_map=PLATFORM_COLORS),
-                     yaxis_title="Копій (шт)", xaxis_title="")
+            st.subheader(f"Продажі в копіях • {group.lower()}")
+            show_fig(px.line(long_sales, x="Період", y="Sales", color="Platform", markers=True, color_discrete_map=PLATFORM_COLORS),
+                     height=360, yaxis_title="Копій (шт)", xaxis_title="", xaxis=dict(type="category"))
 
-    with t_goals:
-        render_goals(sel, start, end)
+            wl_cols = [f"{WEEKLY_PREFIX[p]}_Wishlists" for p in plats if f"{WEEKLY_PREFIX[p]}_Wishlists" in g.columns]
+            if wl_cols and g[wl_cols].sum().sum() > 0:
+                long_wl = g.melt(id_vars="Період", value_vars=wl_cols, var_name="Platform", value_name="Wishlists")
+                long_wl["Platform"] = long_wl["Platform"].map({f"{WEEKLY_PREFIX[p]}_Wishlists": PLATFORM_LABEL[p] for p in PLATFORMS})
+                st.subheader(f"Вішлісти • {group.lower()}")
+                show_fig(px.bar(long_wl, x="Період", y="Wishlists", color="Platform", barmode="group", color_discrete_map=PLATFORM_COLORS),
+                         height=320, xaxis_title="", yaxis_title="", xaxis=dict(type="category"))
 
     with t_funnel:
-        render_funnel(wk)
+        render_funnel(wk, group)
 
     with t_month:
         render_monthly(start, end, {"🔴 Nintendo eShop": (n_matrix, n_months, "#e60012"),
@@ -1404,90 +1593,29 @@ def render_sales():
                                     "🌐 Всі консолі (Switch + Xbox)": (c_matrix, c_months, "#d946ef")})
 
     with t_social:
-        cols = [c for c in SOCIAL_COLS if c in wk.columns]
+        cols = [c for c in SOCIAL_COLS if c in wk.columns and wk[c].sum() > 0]
         if wk.empty or not cols:
             st.info("Немає даних соцмереж за обраний період.")
         else:
-            st.subheader("📱 Ріст аудиторії та соцмереж")
-            show_fig(px.line(wk, x="Week", y=cols, markers=True), height=380, xaxis_title="", yaxis_title="")
+            st.subheader("📱 Ріст аудиторії та соцмереж (по тижнях)")
+            sel_social = st.multiselect("Мережі:", cols, default=cols, key="dyn_social") or cols
+            show_fig(px.line(wk, x="Week", y=sel_social, markers=True), height=380, xaxis_title="", yaxis_title="",
+                     xaxis=dict(type="category"))
+            first, last = wk.iloc[0], wk.iloc[-1]
+            s = st.columns(len(sel_social))
+            for i, c in enumerate(sel_social):
+                s[i].metric(c, f"{int(last[c]):,}", f"{int(last[c] - first[c]):+,} за період")
 
     with t_table:
         if wk.empty:
             st.info("Немає тижневих даних за обраний період.")
         else:
-            st.dataframe(wk.drop(columns=["Parsed_Date"]), use_container_width=True, height=450, hide_index=True)
-            csv_button(wk.drop(columns=["Parsed_Date"]), "📥 Експортувати тижневий звіт (.CSV)", "upscale_weekly_reporting.csv")
+            table = wk.drop(columns=["Parsed_Date"])
+            st.dataframe(table, use_container_width=True, height=450, hide_index=True)
+            csv_button(table, "📥 Експортувати тижневий звіт (.CSV)", "upscale_weekly_reporting.csv")
 
 
-def render_goals(sel, start, end):
-    if weekly_df.empty:
-        st.info("Немає тижневих даних — факт для цілей береться з тижневого листа.")
-        return
-    target_key = sel if sel in TARGETS_2026 else None
-    if target_key is None:
-        st.info("🎯 Цілі задані для 2026 року та його кварталів. Обери у фільтрі періоду «2026 (рік)» або «Q1–Q4 2026». Нижче — зведення по кварталах.")
-    else:
-        target = TARGETS_2026[target_key]
-        fact = weekly_df[weekly_df["Parsed_Date"].apply(lambda d: in_bounds(d, start, end))]
-        f_rev = float(fact["Total_Revenue"].sum())
-        rev_pct = safe_pct(f_rev, target["Revenue"]) or 0.0
-        # скільки часу періоду вже минуло — щоб бачити, чи йдемо за графіком
-        elapsed = min(1.0, max(0.0, ((TODAY - start).days + 1) / ((end - start).days + 1)))
-        pace_target = target["Revenue"] * elapsed
-        pace_pct = safe_pct(f_rev, pace_target) if pace_target else None
-        color = "#10b981" if rev_pct >= 80 or (pace_pct or 0) >= 95 else ("#f59e0b" if (pace_pct or 0) >= 70 else "#ef4444")
-
-        st.markdown(f"""
-        <div style="background:#171724; border:1px solid #2f2f45; border-radius:12px; padding:22px; margin:10px 0 15px 0;">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-            <div>
-              <span style="font-size:12px; font-weight:600; color:#94a3b8; text-transform:uppercase;">Фінансовий таргет • {target_key}</span>
-              <h2 style="margin:2px 0 0 0; color:#fff;">💰 Виручка: ${f_rev:,.0f} <span style="font-size:18px; color:#94a3b8; font-weight:normal;">/ ${target['Revenue']:,.0f}</span></h2>
-              <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8;">Минуло {elapsed * 100:.0f}% періоду • очікувано на сьогодні: ${pace_target:,.0f}
-              {f"• темп: <b style='color:{color};'>{pace_pct:.0f}% від графіка</b>" if pace_pct is not None else ""}</p>
-            </div>
-            <div style="text-align:right;">
-              <span style="font-size:28px; font-weight:800; color:{color};">{rev_pct:.1f}%</span>
-              <p style="margin:0; font-size:12px; color:#94a3b8;">виконання плану</p>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-        st.progress(min(rev_pct / 100.0, 1.0))
-
-        st.subheader("🎮 План виручки за платформами")
-        k = st.columns(3)
-        plat_rows = []
-        for i, p in enumerate(PLATFORMS):
-            f_v = float(fact[f"{WEEKLY_PREFIX[p]}_Revenue"].sum())
-            t_v = target[f"{WEEKLY_PREFIX[p]}_Revenue"]
-            k[i].metric(PLATFORM_LABEL[p], fmt_usd(f_v), f"{safe_pct(f_v, t_v):.1f}% від цілі ({fmt_usd(t_v)})", delta_color="off")
-            plat_rows += [{"Платформа": PLATFORM_LABEL[p], "Тип": "Факт", "$": f_v}, {"Платформа": PLATFORM_LABEL[p], "Тип": "План", "$": t_v}]
-        show_fig(px.bar(pd.DataFrame(plat_rows), x="Платформа", y="$", color="Тип", barmode="group",
-                        color_discrete_map={"Факт": "#10b981", "План": "#d946ef"}), height=340, xaxis_title="", yaxis_title="$")
-
-        st.subheader("🤝 BizDev: план vs факт")
-        b = st.columns(4)
-        for i, (col, lbl) in enumerate([("Deals", "🤝 Deals"), ("Calls", "📞 Calls"), ("Contacts", "✉️ Contacts"), ("Leads", "🔍 Leads")]):
-            f_v = int(fact[col].sum()) if col in fact.columns else 0
-            b[i].metric(lbl, f"{f_v} / {target[col]}", f"{safe_pct(f_v, target[col]):.0f}%", delta_color="off")
-
-    st.markdown("---")
-    st.subheader("📋 Зведення по кварталах 2026")
-    rows = []
-    for q in ["Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026"]:
-        qs, qe = period_bounds(q)
-        qf = weekly_df[weekly_df["Parsed_Date"].apply(lambda d: in_bounds(d, qs, qe))]
-        f_rev = float(qf["Total_Revenue"].sum())
-        rows.append({"Квартал": q, "Факт ($)": f_rev, "План ($)": TARGETS_2026[q]["Revenue"],
-                     "Виконання (%)": safe_pct(f_rev, TARGETS_2026[q]["Revenue"]),
-                     "Угоди": f"{int(qf['Deals'].sum()) if 'Deals' in qf.columns else 0}/{TARGETS_2026[q]['Deals']}"})
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True, column_config={
-        "Факт ($)": st.column_config.NumberColumn(format="$%.0f"), "План ($)": st.column_config.NumberColumn(format="$%.0f"),
-        "Виконання (%)": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f%%"),
-    })
-
-
-def render_funnel(wk):
+def render_funnel(wk, group="Тижні"):
     st.subheader("🎯 Воронка залучення проєктів (Leads ➔ Deals)")
     present = [s for s in FUNNEL_STAGES if s[0] in wk.columns]
     if wk.empty or not present:
@@ -1498,7 +1626,7 @@ def render_funnel(wk):
     prev = None
     for i, (key, lbl, _) in enumerate(present):
         conv = safe_pct(totals[key], totals[prev]) if prev else None
-        cols[i].metric(lbl, f"{int(totals[key]):,}", f"{conv:.1f}% від попер." if conv is not None else None, delta_color="off")
+        cols[i].metric(lbl, f"{int(totals[key]):,}", f"{conv:.1f}% від попер. етапу" if conv is not None else None, delta_color="off")
         prev = key
     st.caption("Конверсія рахується лише з реальних даних; якщо на попередньому етапі 0 — показується без %.")
 
@@ -1510,23 +1638,35 @@ def render_funnel(wk):
     ))
     show_fig(fig, height=380)
 
-    st.subheader("📊 Тижнева динаміка воронки")
-    show_fig(px.bar(wk, x="Week", y=[k for k, _, _ in present], barmode="group",
+    st.subheader(f"📊 Динаміка воронки • {group.lower()}")
+    g = group_weekly(wk, group)
+    show_fig(px.bar(g, x="Період", y=[k for k, _, _ in present], barmode="group",
                     color_discrete_sequence=["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#f59e0b", "#10b981"]),
-             height=380, xaxis_title="", yaxis_title="")
+             height=380, xaxis_title="", yaxis_title="", xaxis=dict(type="category"))
+
+
+def month_overlaps(label, start, end):
+    m_start = month_label_to_date(label)
+    if m_start is None:
+        return False
+    m_end = date(m_start.year, m_start.month, calendar.monthrange(m_start.year, m_start.month)[1])
+    return (start is None or m_end >= start) and (end is None or m_start <= end)
 
 
 def render_monthly(start, end, sources):
-    plat_choice = st.radio("Платформа:", list(sources.keys()), horizontal=True, key="monthly_platform")
+    c1, c2 = st.columns([2, 1.2])
+    plat_choice = c1.radio("Платформа:", list(sources.keys()), horizontal=True, key="monthly_platform")
     matrix, months, accent = sources[plat_choice]
     if matrix.empty or not months:
-        st.info("Немає даних помісячного звіту для цієї платформи. Перевір посилання на звіт у налаштуваннях.")
+        st.info("Немає даних помісячного звіту для цієї платформи. Перевір посилання на звіт.")
         return
 
-    sel_months = [m for m in months if in_bounds(month_label_to_date(m), start, end)]
-    if not sel_months:
-        st.info(f"У звіті немає місяців за обраний період. Доступні місяці: {months[0]} — {months[-1]}.")
-        return
+    # Місяці з основного фільтра, але їх можна підправити вручну
+    default_months = [m for m in months if month_overlaps(m, start, end)] or [months[-1]]
+    sel_months = c2.multiselect("Місяці (з фільтра періоду, можна змінити):", months, default=default_months, key=f"monthly_sel_{start}_{end}") or default_months
+    sel_months = [m for m in months if m in sel_months]
+    if not any(month_overlaps(m, start, end) for m in months):
+        st.caption(f"ℹ️ За обраним періодом у звіті місяців немає — показано останній. Доступно: {months[0]} — {months[-1]}.")
     period_lbl = sel_months[0] if len(sel_months) == 1 else f"{sel_months[0]} ➔ {sel_months[-1]}"
 
     view = matrix[["Назва гри / DLC"] + sel_months].copy()
@@ -2227,9 +2367,10 @@ def render_accuracy():
 # ==============================================================================
 PAGES = {
     SECTIONS[0]: render_portfolio,
-    SECTIONS[1]: render_sales,
-    SECTIONS[2]: render_calendar_section,
-    SECTIONS[3]: render_releases,
-    SECTIONS[4]: render_forecasts,
+    SECTIONS[1]: render_goals_page,
+    SECTIONS[2]: render_dynamics,
+    SECTIONS[3]: render_calendar_section,
+    SECTIONS[4]: render_releases,
+    SECTIONS[5]: render_forecasts,
 }
 PAGES[app_mode]()

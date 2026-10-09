@@ -1098,7 +1098,7 @@ if app_mode == "🎮 Наші ігри":
             })
  
         # ---------------- 📊 Портфоліо: прогноз vs факт ----------------
-        dev_rows = []
+        ddev_rows = []
         for it in items:
             for p in ["M3", "M6", "1Y"]:
                 if it["devs"].get(p) is not None:
@@ -1107,6 +1107,26 @@ if app_mode == "🎮 Наші ігри":
                         "Прогноз": it["forecasts"][p], "Факт": it["facts"][p],
                         "Відхилення (%)": round(it["devs"][p], 1),
                     })
+ 
+        if dev_rows:
+            dev_df = pd.DataFrame(dev_rows)
+            st.markdown("##### 📊 Точність моделі: прогноз vs факт")
+            avail_p = [p for p in ["M3", "M6", "1Y"] if p in dev_df["Період"].unique()]
+            sel_p = st.radio("Період для порівняння:", avail_p, horizontal=True, key="ltv_dev_period")
+            sub = dev_df[dev_df["Період"] == sel_p].sort_values("Відхилення (%)").reset_index(drop=True)
+ 
+            real_mult = float((sub["Факт"] / sub["M1"]).median())
+            above = int((sub["Відхилення (%)"] >= DEV_OK_BAND).sum())
+            inside = int(sub["Відхилення (%)"].abs().lt(DEV_OK_BAND).sum())
+            below = int((sub["Відхилення (%)"] <= -DEV_OK_BAND).sum())
+ 
+            d1, d2, d3, d4 = st.columns(4)
+            d1.metric("Ігор із фактом", len(sub))
+            d2.metric("Медіанне відхилення", f"{sub['Відхилення (%)'].median():+.0f}%")
+            d3.metric(f"Реальний множник {sel_p}", f"{real_mult:.2f}x", f"модель {LTV_MULT[sel_p]:.2f}x", delta_color="off")
+            d4.metric("Вище / в межах / нижче", f"{above} / {inside} / {below}", f"поріг ±{DEV_OK_BAND}%", delta_color="off")
+ 
+        
  
         # ---------------- Фільтри карток ----------------
         f_c1, f_c2 = st.columns([1.3, 1])

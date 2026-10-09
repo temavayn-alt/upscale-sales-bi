@@ -1108,64 +1108,6 @@ if app_mode == "🎮 Наші ігри":
                         "Відхилення (%)": round(it["devs"][p], 1),
                     })
  
-        if dev_rows:
-            dev_df = pd.DataFrame(dev_rows)
-            st.markdown("##### 📊 Точність моделі: прогноз vs факт")
-            avail_p = [p for p in ["M3", "M6", "1Y"] if p in dev_df["Період"].unique()]
-            sel_p = st.radio("Період для порівняння:", avail_p, horizontal=True, key="ltv_dev_period")
-            sub = dev_df[dev_df["Період"] == sel_p].sort_values("Відхилення (%)").reset_index(drop=True)
- 
-            real_mult = float((sub["Факт"] / sub["M1"]).median())
-            above = int((sub["Відхилення (%)"] >= DEV_OK_BAND).sum())
-            inside = int(sub["Відхилення (%)"].abs().lt(DEV_OK_BAND).sum())
-            below = int((sub["Відхилення (%)"] <= -DEV_OK_BAND).sum())
- 
-            d1, d2, d3, d4 = st.columns(4)
-            d1.metric("Ігор із фактом", len(sub))
-            d2.metric("Медіанне відхилення", f"{sub['Відхилення (%)'].median():+.0f}%")
-            d3.metric(f"Реальний множник {sel_p}", f"{real_mult:.2f}x", f"модель {LTV_MULT[sel_p]:.2f}x", delta_color="off")
-            d4.metric("Вище / в межах / нижче", f"{above} / {inside} / {below}", f"поріг ±{DEV_OK_BAND}%", delta_color="off")
- 
-            ch_left, ch_right = st.columns([1.6, 1])
-            with ch_left:
-                sub["Колір"] = sub["Відхилення (%)"].apply(
-                    lambda v: "Вище прогнозу" if v >= DEV_OK_BAND else ("Нижче прогнозу" if v <= -DEV_OK_BAND else "В межах моделі"))
-                fig_dev = px.bar(
-                    sub, x="Відхилення (%)", y="Гра", orientation="h", color="Колір", text="Відхилення (%)",
-                    color_discrete_map={"Вище прогнозу": "#10b981", "В межах моделі": "#eab308", "Нижче прогнозу": "#ef4444"},
-                    hover_data={"Прогноз": ":$,.0f", "Факт": ":$,.0f", "Колір": False},
-                )
-                fig_dev.update_traces(texttemplate="%{text:+.0f}%", textposition="outside", cliponaxis=False)
-                fig_dev.add_vrect(x0=-DEV_OK_BAND, x1=DEV_OK_BAND, fillcolor="#eab308", opacity=0.06, line_width=0)
-                fig_dev.add_vline(x=0, line_color="#94a3b8", line_width=1)
-                fig_dev.update_layout(
-                    title=dict(text=f"Відхилення факту від прогнозу ({sel_p})", font=dict(size=14)),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#e2e8f0"),
-                    height=max(280, 30 * len(sub) + 90), margin=dict(t=40, b=10, l=10, r=40),
-                    xaxis=dict(gridcolor="#28283c", ticksuffix="%", zeroline=False),
-                    yaxis=dict(title="", categoryorder="array", categoryarray=sub["Гра"].tolist()),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=""),
-                )
-                st.plotly_chart(fig_dev, use_container_width=True)
- 
-            with ch_right:
-                max_v = float(max(sub["Прогноз"].max(), sub["Факт"].max())) * 1.08
-                fig_sc = px.scatter(sub, x="Прогноз", y="Факт", hover_name="Гра", color="Колір",
-                                    color_discrete_map={"Вище прогнозу": "#10b981", "В межах моделі": "#eab308", "Нижче прогнозу": "#ef4444"})
-                fig_sc.add_shape(type="line", x0=0, y0=0, x1=max_v, y1=max_v, line=dict(color="#94a3b8", dash="dash", width=1))
-                fig_sc.update_traces(marker=dict(size=10, line=dict(width=1, color="#0f0f17")))
-                fig_sc.update_layout(
-                    title=dict(text="Прогноз vs факт ($) • діагональ = точний прогноз", font=dict(size=14)),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#e2e8f0"),
-                    height=max(280, 30 * len(sub) + 90), margin=dict(t=40, b=10, l=10, r=10), showlegend=False,
-                    xaxis=dict(gridcolor="#28283c", tickprefix="$", range=[0, max_v]),
-                    yaxis=dict(gridcolor="#28283c", tickprefix="$", range=[0, max_v]),
-                )
-                st.plotly_chart(fig_sc, use_container_width=True)
-            st.markdown("---")
-        else:
-            st.info("Поки немає ігор, у яких минув M3 і є фактичні продажі за цей період, тож порівнювати ще нічого.")
- 
         # ---------------- Фільтри карток ----------------
         f_c1, f_c2 = st.columns([1.3, 1])
         with f_c1:
